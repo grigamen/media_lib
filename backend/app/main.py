@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from sqlalchemy import text
 
-from app.api import auth_router
+from app.api import auth_router, media_router
 from app.db import SessionLocal
 
 app = FastAPI(title="MediaLib API", version="0.1.0")
 app.include_router(auth_router)
+app.include_router(media_router)
 
 
 @app.get("/health")
