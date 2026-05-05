@@ -6,7 +6,7 @@
   - `cd backend`
   - `.\.venv\Scripts\python.exe -m pytest -q`
 - Результат:
-  - `15 passed`
+  - `18 passed`
 
 ## Проверенные сценарии
 
