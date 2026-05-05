@@ -264,3 +264,206 @@ def test_media_items_filter_search_and_sort() -> None:
     sorted_data = sorted_asc.json()
     titles = [item["title"] for item in sorted_data["items"]]
     assert titles == sorted(titles)
+
+
+def test_media_progress_get_and_put_flow() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_res = client.post(
+        "/media-items",
+        json={"type": "video", "title": "Progress Video"},
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    media_id = create_res.json()["id"]
+
+    get_initial = client.get(f"/media-items/{media_id}/progress", headers=headers)
+    assert get_initial.status_code == 200
+    initial_data = get_initial.json()
+    assert initial_data["position_seconds"] == 0
+    assert initial_data["duration_seconds"] is None
+    assert float(initial_data["progress_percent"]) == 0.0
+    assert initial_data["is_completed"] is False
+
+    put_res = client.put(
+        f"/media-items/{media_id}/progress",
+        json={"position_seconds": 120, "duration_seconds": 300, "is_completed": False},
+        headers=headers,
+    )
+    assert put_res.status_code == 200
+    progress_data = put_res.json()
+    assert progress_data["position_seconds"] == 120
+    assert progress_data["duration_seconds"] == 300
+    assert float(progress_data["progress_percent"]) == 40.0
+    assert progress_data["is_completed"] is False
+
+    complete_res = client.put(
+        f"/media-items/{media_id}/progress",
+        json={"position_seconds": 300, "duration_seconds": 300, "is_completed": True},
+        headers=headers,
+    )
+    assert complete_res.status_code == 200
+    complete_data = complete_res.json()
+    assert float(complete_data["progress_percent"]) == 100.0
+    assert complete_data["is_completed"] is True
+
+
+def test_media_file_upload_complete_and_stream_flow() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_media = client.post(
+        "/media-items",
+        json={"type": "audiobook", "title": "Audio Upload"},
+        headers=headers,
+    )
+    assert create_media.status_code == 201
+    media_id = create_media.json()["id"]
+
+    upload_init_res = client.post(
+        f"/media-items/{media_id}/files/upload",
+        json={
+            "filename": "chapter1.mp3",
+            "content_type": "audio/mpeg",
+            "file_size": 1024,
+        },
+        headers=headers,
+    )
+    assert upload_init_res.status_code == 201
+    upload_data = upload_init_res.json()
+    file_id = upload_data["file_id"]
+    assert upload_data["upload_status"] == "pending"
+    assert upload_data["method"] == "PUT"
+    assert upload_data["upload_url"].startswith("http")
+
+    complete_res = client.post(f"/media-files/{file_id}/complete", headers=headers)
+    assert complete_res.status_code == 200
+    complete_data = complete_res.json()
+    assert complete_data["upload_status"] == "ready"
+    assert complete_data["uploaded_at"] is not None
+
+    stream_res = client.get(f"/media-files/{file_id}/stream", headers=headers)
+    assert stream_res.status_code == 200
+    stream_data = stream_res.json()
+    assert stream_data["file_id"] == file_id
+    assert stream_data["media_item_id"] == media_id
+    assert stream_data["stream_url"].startswith("http")
+
+
+def test_stream_url_before_upload_complete_returns_409() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_media = client.post(
+        "/media-items",
+        json={"type": "video", "title": "Pending Video"},
+        headers=headers,
+    )
+    assert create_media.status_code == 201
+    media_id = create_media.json()["id"]
+
+    upload_init_res = client.post(
+        f"/media-items/{media_id}/files/upload",
+        json={
+            "filename": "movie.mp4",
+            "content_type": "video/mp4",
+            "file_size": 2048,
+        },
+        headers=headers,
+    )
+    assert upload_init_res.status_code == 201
+    file_id = upload_init_res.json()["file_id"]
+
+    stream_res = client.get(f"/media-files/{file_id}/stream", headers=headers)
+    assert stream_res.status_code == 409
+
+
+def test_upload_rejects_unsupported_content_type() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_media = client.post(
+        "/media-items",
+        json={"type": "audiobook", "title": "Bad Mime"},
+        headers=headers,
+    )
+    assert create_media.status_code == 201
+    media_id = create_media.json()["id"]
+
+    upload_init_res = client.post(
+        f"/media-items/{media_id}/files/upload",
+        json={
+            "filename": "book.exe",
+            "content_type": "application/octet-stream",
+            "file_size": 1000,
+        },
+        headers=headers,
+    )
+    assert upload_init_res.status_code == 400
+
+
+def test_upload_rejects_too_large_file() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_media = client.post(
+        "/media-items",
+        json={"type": "video", "title": "Big File"},
+        headers=headers,
+    )
+    assert create_media.status_code == 201
+    media_id = create_media.json()["id"]
+
+    upload_init_res = client.post(
+        f"/media-items/{media_id}/files/upload",
+        json={
+            "filename": "movie.mp4",
+            "content_type": "video/mp4",
+            "file_size": 600_000_000,
+        },
+        headers=headers,
+    )
+    assert upload_init_res.status_code == 400
+
+
+def test_e2e_upload_stream_and_save_progress() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_media = client.post(
+        "/media-items",
+        json={"type": "video", "title": "End-to-end"},
+        headers=headers,
+    )
+    assert create_media.status_code == 201
+    media_id = create_media.json()["id"]
+
+    upload_init_res = client.post(
+        f"/media-items/{media_id}/files/upload",
+        json={
+            "filename": "episode.mp4",
+            "content_type": "video/mp4",
+            "file_size": 50_000_000,
+        },
+        headers=headers,
+    )
+    assert upload_init_res.status_code == 201
+    file_id = upload_init_res.json()["file_id"]
+
+    complete_res = client.post(f"/media-files/{file_id}/complete", headers=headers)
+    assert complete_res.status_code == 200
+
+    stream_res = client.get(f"/media-files/{file_id}/stream", headers=headers)
+    assert stream_res.status_code == 200
+    assert stream_res.json()["stream_url"].startswith("http")
+
+    save_progress_res = client.put(
+        f"/media-items/{media_id}/progress",
+        json={"position_seconds": 95, "duration_seconds": 300, "is_completed": False},
+        headers=headers,
+    )
+    assert save_progress_res.status_code == 200
+    saved_progress = save_progress_res.json()
+    assert saved_progress["position_seconds"] == 95
+    assert float(saved_progress["progress_percent"]) > 0

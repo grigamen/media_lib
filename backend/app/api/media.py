@@ -2,24 +2,33 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
+import boto3
+from botocore.client import Config
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.config import settings
 from app.db import get_db
-from app.models import MediaItem, MediaLink, User
+from app.models import MediaFile, MediaItem, MediaLink, Progress, User
 from app.schemas.media import (
+    MediaFileCompleteResponse,
+    MediaFileStreamResponse,
+    MediaFileUploadInitRequest,
+    MediaFileUploadInitResponse,
     MediaItemCreate,
     MediaItemsListResponse,
     MediaItemResponse,
-    MediaType,
     MediaItemUpdate,
     MediaLinkCreate,
     MediaLinkResponse,
+    MediaType,
+    ProgressResponse,
+    ProgressUpdateRequest,
 )
 
 router = APIRouter(prefix="", tags=["media"])
@@ -39,6 +48,41 @@ def _get_owned_media_item(db: Session, media_item_id: UUID, current_user: User) 
     if item is None or item.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
     return item
+
+
+def _calculate_progress_percent(position_seconds: int, duration_seconds: int | None) -> float:
+    if duration_seconds is None or duration_seconds <= 0:
+        return 0.0
+    percent = (position_seconds / duration_seconds) * 100
+    percent = max(0.0, min(100.0, percent))
+    return round(percent, 2)
+
+
+def _normalize_filename(filename: str) -> str:
+    cleaned = filename.strip()
+    if not cleaned:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Filename cannot be blank")
+    return cleaned.replace("\\", "_").replace("/", "_").replace(" ", "_")
+
+
+def _build_storage_key(current_user: User, media_item_id: UUID, filename: str) -> str:
+    safe_filename = _normalize_filename(filename)
+    return f"{current_user.id}/{media_item_id}/{uuid4().hex}_{safe_filename}"
+
+
+def _build_s3_client():
+    return boto3.client(
+        "s3",
+        region_name=settings.S3_REGION,
+        endpoint_url=settings.S3_ENDPOINT_URL,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        config=Config(signature_version="s3v4"),
+    )
+
+
+def _allowed_upload_content_types() -> set[str]:
+    return {item.strip() for item in settings.ALLOWED_UPLOAD_CONTENT_TYPES.split(",") if item.strip()}
 
 
 @router.post("/media-items", response_model=MediaItemResponse, status_code=status.HTTP_201_CREATED)
@@ -155,6 +199,189 @@ def delete_media_item(
 
     item.deleted_at = datetime.now(timezone.utc)
     db.commit()
+
+
+@router.get("/media-items/{media_item_id}/progress", response_model=ProgressResponse)
+def get_media_progress(
+    media_item_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Progress:
+    _get_owned_media_item(db, media_item_id, current_user)
+
+    stmt = select(Progress).where(
+        and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
+    )
+    progress = db.scalar(stmt)
+    if progress is None:
+        progress = Progress(
+            user_id=current_user.id,
+            media_item_id=media_item_id,
+            position_seconds=0,
+            duration_seconds=None,
+            progress_percent=0,
+            is_completed=False,
+        )
+        db.add(progress)
+        db.commit()
+        db.refresh(progress)
+    return progress
+
+
+@router.put("/media-items/{media_item_id}/progress", response_model=ProgressResponse)
+def upsert_media_progress(
+    media_item_id: UUID,
+    payload: ProgressUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Progress:
+    _get_owned_media_item(db, media_item_id, current_user)
+
+    stmt = select(Progress).where(
+        and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
+    )
+    progress = db.scalar(stmt)
+    if progress is None:
+        progress = Progress(
+            user_id=current_user.id,
+            media_item_id=media_item_id,
+        )
+        db.add(progress)
+
+    position_seconds = payload.position_seconds
+    duration_seconds = payload.duration_seconds
+    if duration_seconds is not None:
+        position_seconds = min(position_seconds, duration_seconds)
+    elif progress.duration_seconds is not None:
+        position_seconds = min(position_seconds, progress.duration_seconds)
+        duration_seconds = progress.duration_seconds
+
+    progress.position_seconds = position_seconds
+    progress.duration_seconds = duration_seconds
+    progress.is_completed = payload.is_completed or (
+        duration_seconds is not None and position_seconds >= duration_seconds
+    )
+    progress.progress_percent = _calculate_progress_percent(position_seconds, duration_seconds)
+
+    db.commit()
+    db.refresh(progress)
+    return progress
+
+
+@router.post(
+    "/media-items/{media_item_id}/files/upload",
+    response_model=MediaFileUploadInitResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def initiate_file_upload(
+    media_item_id: UUID,
+    payload: MediaFileUploadInitRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MediaFileUploadInitResponse:
+    media_item = _get_owned_media_item(db, media_item_id, current_user)
+    if media_item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot upload for deleted media item")
+
+    content_type = payload.content_type.strip().lower()
+    if not content_type:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Content type cannot be blank")
+
+    allowed_types = _allowed_upload_content_types()
+    if content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported content type",
+        )
+    if payload.file_size > settings.MAX_UPLOAD_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds allowed limit",
+        )
+
+    storage_key = _build_storage_key(current_user, media_item_id, payload.filename)
+    media_file = MediaFile(
+        user_id=current_user.id,
+        media_item_id=media_item_id,
+        storage_provider="s3",
+        storage_bucket=settings.S3_BUCKET,
+        storage_key=storage_key,
+        content_type=content_type,
+        file_size=payload.file_size,
+        upload_status="pending",
+    )
+    db.add(media_file)
+    db.commit()
+    db.refresh(media_file)
+
+    s3_client = _build_s3_client()
+    upload_url = s3_client.generate_presigned_url(
+        ClientMethod="put_object",
+        Params={
+            "Bucket": settings.S3_BUCKET,
+            "Key": storage_key,
+            "ContentType": media_file.content_type,
+        },
+        ExpiresIn=settings.S3_PRESIGNED_EXPIRES_SEC,
+        HttpMethod="PUT",
+    )
+    return MediaFileUploadInitResponse(
+        file_id=media_file.id,
+        media_item_id=media_file.media_item_id,
+        upload_status=media_file.upload_status,
+        storage_key=storage_key,
+        upload_url=upload_url,
+        expires_in_sec=settings.S3_PRESIGNED_EXPIRES_SEC,
+    )
+
+
+@router.post("/media-files/{file_id}/complete", response_model=MediaFileCompleteResponse)
+def complete_file_upload(
+    file_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MediaFile:
+    media_file = db.get(MediaFile, file_id)
+    if media_file is None or media_file.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media file not found")
+    if media_file.upload_status == "ready":
+        return media_file
+
+    media_file.upload_status = "ready"
+    media_file.uploaded_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(media_file)
+    return media_file
+
+
+@router.get("/media-files/{file_id}/stream", response_model=MediaFileStreamResponse)
+def get_stream_url(
+    file_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MediaFileStreamResponse:
+    media_file = db.get(MediaFile, file_id)
+    if media_file is None or media_file.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media file not found")
+    if media_file.upload_status != "ready":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="File upload is not completed")
+
+    s3_client = _build_s3_client()
+    stream_url = s3_client.generate_presigned_url(
+        ClientMethod="get_object",
+        Params={
+            "Bucket": media_file.storage_bucket,
+            "Key": media_file.storage_key,
+        },
+        ExpiresIn=settings.S3_PRESIGNED_EXPIRES_SEC,
+        HttpMethod="GET",
+    )
+    return MediaFileStreamResponse(
+        file_id=media_file.id,
+        media_item_id=media_file.media_item_id,
+        stream_url=stream_url,
+        expires_in_sec=settings.S3_PRESIGNED_EXPIRES_SEC,
+    )
 
 
 @router.post("/media-links", response_model=MediaLinkResponse, status_code=status.HTTP_201_CREATED)
