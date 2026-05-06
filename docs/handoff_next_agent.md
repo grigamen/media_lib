@@ -1,11 +1,22 @@
 # Handoff для следующего агента
 
-Продолжай проект **MediaLib** с текущего состояния после закрытия Week 5.
+Продолжай проект **MediaLib** с текущего состояния после выполнения Week 7 Stage A.
 
 ## 1) Что прочитать в начале
 
-- `docs/week5_status.md` (актуальный статус mobile)
-- `docs/week5_acceptance.md` (фактическая приемка Week 5)
+- `docs/week7_status.md` (актуальный статус Week 7 stage A)
+- `docs/week7_acceptance.md` (фактическая приемка Week 7 stage A)
+- `docs/week6_status.md` (контекст перед стартом Week 7)
+- `docs/week6_acceptance.md`
+- `docs/week6_work_breakdown.md`
+- `docs/week5_status.md` (контекст Week 5)
+- `docs/week5_acceptance.md`
+- `docs/week4_week5_fields_methods_reference.md` (поля и методы по Week 4-5)
+- `docs/week1_work_breakdown.md` (детализация Week 1)
+- `docs/week2_work_breakdown.md` (детализация Week 2)
+- `docs/week3_work_breakdown.md` (детализация Week 3)
+- `docs/week4_work_breakdown.md` (детализация Week 4)
+- `docs/week5_work_breakdown.md` (детализация Week 5)
 - `docs/week4_status.md` (контекст backend)
 - `docs/week4_acceptance.md`
 - `docs/week_plan_10_weeks.md` (полный согласованный план работ)
@@ -25,6 +36,8 @@
    - `cd ..` (в корень проекта)
    - `flutter analyze`
    - `flutter test`
+5. Запуск мобильного приложения для ручной проверки:
+   - `flutter run -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:8000`
 
 ## 3) Текущее состояние проекта (кратко)
 
@@ -45,16 +58,38 @@
   - настроены роутинг и состояния loading/error;
   - добавлено переключение светлой/темной темы;
   - `flutter analyze` и `flutter test` проходят.
+- Week 6 (Mobile: библиотека, добавление, поиск): завершена.
+  - реализовано добавление контента (`POST /media-items`);
+  - добавлены поиск и фильтрация (`q` и `type`);
+  - добавлен просмотр связей (`GET /media-items/{id}/links`) + загрузка связанных форм;
+  - UI переведен на гибридную модель: одно произведение -> вкладки форматов;
+  - добавлены fallback-демо произведения со всеми форматами (`book/audiobook/video`) при пустом backend-списке;
+  - в API-клиент добавлены сетевые таймауты и понятные сообщения об ошибках вместо бесконечной загрузки;
+  - `flutter analyze` и `flutter test` проходят.
+- Week 7 Stage A (Mobile: playback + sync foundation): выполнен.
+  - подключены `just_audio` и `video_player`;
+  - реализован playback UI для `audiobook`/`video`;
+  - добавлена скорость воспроизведения (`0.75x-2.0x`);
+  - реализован flow восстановления и сохранения прогресса:
+    - `GET /media-items/{id}/progress`
+    - `PUT /media-items/{id}/progress`
+    - `GET /media-files/{file_id}/stream`
+  - добавлен периодический sync (10 сек) + flush на pause/complete/dispose;
+  - добавлен pending-sync soft-fail при временных сетевых ошибках;
+  - для demo-режима добавлены fallback stream URL;
+  - ограничение: для backend media нужен `media_file_id` в `metadata_json`.
 
-## 4) Следующая цель по плану: Week 6
+## 4) Следующая цель по плану: Week 7 Stage B / Stage C
 
-Перейти к mobile-блоку **Библиотека, добавление, поиск**:
+Расширить playback до advanced-возможностей:
 
-1. Сделать экран добавления контента и вызов `POST /media-items`.
-2. Добавить экран поиска/фильтрации для библиотеки.
-3. Показать связи между объектами (`media-links`) в UI.
-4. Улучшить обработку пустых/ошибочных состояний.
-5. Добавить минимальные widget/integration тесты на ключевые экраны Week 6.
+1. Добавить удобный пользовательский flow привязки/выбора файла для media item.
+2. Подготовить playback-options API контракт:
+   - выбор озвучки (audio track);
+   - выбор качества видео;
+   - подключение субтитров.
+3. Расширить ручную и автоматическую проверку cross-device continuation.
+4. Обновить документы Week 7 (status/acceptance) после каждого stage.
 
 ## 5) Важные ограничения
 
@@ -62,4 +97,5 @@
 - Работать итерациями:
   - фича -> тесты -> docs.
 - На каждом подэтапе поддерживать зеленый тестовый прогон backend.
+- Для mobile при недоступном backend ожидать timeout-ошибку (это штатное поведение после фикса Week 6).
 - Для инфраструктурных требований ТЗ (24/7, TLS, backup, monitoring) ориентироваться на Week 9 из `docs/week_plan_10_weeks.md`.

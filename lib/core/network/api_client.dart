@@ -10,7 +10,8 @@ class ApiException implements Exception {
   final int? statusCode;
 
   @override
-  String toString() => "ApiException(statusCode: $statusCode, message: $message)";
+  String toString() =>
+      "ApiException(statusCode: $statusCode, message: $message)";
 }
 
 class ApiClient {
@@ -39,9 +40,71 @@ class ApiClient {
           )
           .timeout(_requestTimeout);
     } on TimeoutException {
-      throw ApiException("Сервер не отвечает (таймаут 15 сек). Проверьте backend.");
+      throw ApiException(
+        "Сервер не отвечает (таймаут 15 сек). Проверьте backend.",
+      );
     } on Exception {
-      throw ApiException("Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.");
+      throw ApiException(
+        "Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.",
+      );
+    }
+    return _parseObject(response);
+  }
+
+  Future<Map<String, dynamic>> putJson(
+    String path,
+    Map<String, dynamic> body, {
+    String? accessToken,
+  }) async {
+    http.Response response;
+    try {
+      response = await http
+          .put(
+            _uri(path),
+            headers: {
+              "Content-Type": "application/json",
+              if (accessToken != null) "Authorization": "Bearer $accessToken",
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw ApiException(
+        "Сервер не отвечает (таймаут 15 сек). Проверьте backend.",
+      );
+    } on Exception {
+      throw ApiException(
+        "Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.",
+      );
+    }
+    return _parseObject(response);
+  }
+
+  Future<Map<String, dynamic>> patchJson(
+    String path,
+    Map<String, dynamic> body, {
+    String? accessToken,
+  }) async {
+    http.Response response;
+    try {
+      response = await http
+          .patch(
+            _uri(path),
+            headers: {
+              "Content-Type": "application/json",
+              if (accessToken != null) "Authorization": "Bearer $accessToken",
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw ApiException(
+        "Сервер не отвечает (таймаут 15 сек). Проверьте backend.",
+      );
+    } on Exception {
+      throw ApiException(
+        "Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.",
+      );
     }
     return _parseObject(response);
   }
@@ -61,17 +124,18 @@ class ApiClient {
           )
           .timeout(_requestTimeout);
     } on TimeoutException {
-      throw ApiException("Сервер не отвечает (таймаут 15 сек). Проверьте backend.");
+      throw ApiException(
+        "Сервер не отвечает (таймаут 15 сек). Проверьте backend.",
+      );
     } on Exception {
-      throw ApiException("Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.");
+      throw ApiException(
+        "Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.",
+      );
     }
     return _parseObject(response);
   }
 
-  Future<List<dynamic>> getJsonList(
-    String path, {
-    String? accessToken,
-  }) async {
+  Future<List<dynamic>> getJsonList(String path, {String? accessToken}) async {
     http.Response response;
     try {
       response = await http
@@ -83,35 +147,55 @@ class ApiClient {
           )
           .timeout(_requestTimeout);
     } on TimeoutException {
-      throw ApiException("Сервер не отвечает (таймаут 15 сек). Проверьте backend.");
+      throw ApiException(
+        "Сервер не отвечает (таймаут 15 сек). Проверьте backend.",
+      );
     } on Exception {
-      throw ApiException("Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.");
+      throw ApiException(
+        "Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.",
+      );
     }
     return _parseList(response);
   }
 
   Map<String, dynamic> _parseObject(http.Response response) {
-    final body = response.body.isEmpty
-        ? const <String, dynamic>{}
-        : jsonDecode(response.body) as Object?;
+    final body =
+        response.body.isEmpty
+            ? const <String, dynamic>{}
+            : jsonDecode(response.body) as Object?;
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (body is Map<String, dynamic>) {
         return body;
       }
-      throw ApiException("Unexpected response format", statusCode: response.statusCode);
+      throw ApiException(
+        "Unexpected response format",
+        statusCode: response.statusCode,
+      );
     }
-    throw ApiException(_extractErrorMessage(body), statusCode: response.statusCode);
+    throw ApiException(
+      _extractErrorMessage(body),
+      statusCode: response.statusCode,
+    );
   }
 
   List<dynamic> _parseList(http.Response response) {
-    final body = response.body.isEmpty ? const <dynamic>[] : jsonDecode(response.body) as Object?;
+    final body =
+        response.body.isEmpty
+            ? const <dynamic>[]
+            : jsonDecode(response.body) as Object?;
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (body is List<dynamic>) {
         return body;
       }
-      throw ApiException("Unexpected response format", statusCode: response.statusCode);
+      throw ApiException(
+        "Unexpected response format",
+        statusCode: response.statusCode,
+      );
     }
-    throw ApiException(_extractErrorMessage(body), statusCode: response.statusCode);
+    throw ApiException(
+      _extractErrorMessage(body),
+      statusCode: response.statusCode,
+    );
   }
 
   String _extractErrorMessage(Object? body) {

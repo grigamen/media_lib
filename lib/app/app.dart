@@ -46,7 +46,10 @@ class _MediaLibAppState extends State<MediaLibApp> {
             ),
             useMaterial3: true,
           ),
-          home: _state.isAuthenticated ? _HomeShell(state: _state) : _AuthRoute(state: _state),
+          home:
+              _state.isAuthenticated
+                  ? _HomeShell(state: _state)
+                  : _AuthRoute(state: _state),
         );
       },
     );
@@ -63,12 +66,14 @@ class _AuthRoute extends StatelessWidget {
     return AuthScreen(
       isLoading: state.isAuthLoading,
       errorMessage: state.authError,
-      onLogin: (email, password) => state.login(email: email, password: password),
-      onRegister: (email, password, displayName) => state.register(
-        email: email,
-        password: password,
-        displayName: displayName,
-      ),
+      onLogin:
+          (email, password) => state.login(email: email, password: password),
+      onRegister:
+          (email, password, displayName) => state.register(
+            email: email,
+            password: password,
+            displayName: displayName,
+          ),
     );
   }
 }
@@ -89,17 +94,31 @@ class _HomeShell extends StatelessWidget {
         onRefresh: state.fetchLibrary,
         searchQuery: state.searchQuery,
         typeFilter: state.typeFilter,
-        onApplyFilters: (searchQuery, typeFilter) => state.applyLibraryFilters(
-          searchQuery: searchQuery,
-          typeFilter: typeFilter,
-        ),
-        onAddItem: (type, title, author) => state.createMediaItem(
-          type: type,
-          title: title,
-          author: author,
-        ),
+        onApplyFilters:
+            (searchQuery, typeFilter) => state.applyLibraryFilters(
+              searchQuery: searchQuery,
+              typeFilter: typeFilter,
+            ),
+        onAddItem:
+            ({required type, required title, author, uploadPayload}) =>
+                state.createMediaItem(
+                  type: type,
+                  title: title,
+                  author: author,
+                  uploadPayload: uploadPayload,
+                ),
         onLoadLinks: state.fetchLinksForItem,
         onLoadItemById: state.fetchMediaItemById,
+        onBeginPlaybackSession: state.beginPlaybackSession,
+        onPlaybackProgressChanged: state.updatePlaybackProgress,
+        onPausePlaybackSession: state.pausePlaybackSession,
+        onCompletePlaybackSession: state.completePlaybackSession,
+        onFlushPlaybackSession: state.flushPlaybackProgress,
+        onEndPlaybackSession: state.endPlaybackSession,
+        playbackSpeed: state.playbackSpeed,
+        onSetPlaybackSpeed: state.setPlaybackSpeed,
+        pendingPlaybackSync: state.pendingPlaybackSync,
+        playbackError: state.playbackError,
       ),
       ProfileScreen(
         email: state.userEmail,

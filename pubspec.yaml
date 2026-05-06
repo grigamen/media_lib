@@ -35,6 +35,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^1.2.2
+  just_audio: ^0.10.5
+  video_player: ^2.9.5
+  file_picker: ^10.2.0
 
 dev_dependencies:
   flutter_test:
