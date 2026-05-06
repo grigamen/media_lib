@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:convert";
 
 import "package:http/http.dart" as http;
@@ -16,6 +17,7 @@ class ApiClient {
   ApiClient({required this.baseUrl});
 
   final String baseUrl;
+  static const Duration _requestTimeout = Duration(seconds: 15);
 
   Uri _uri(String path) => Uri.parse("$baseUrl$path");
 
@@ -24,14 +26,23 @@ class ApiClient {
     Map<String, dynamic> body, {
     String? accessToken,
   }) async {
-    final response = await http.post(
-      _uri(path),
-      headers: {
-        "Content-Type": "application/json",
-        if (accessToken != null) "Authorization": "Bearer $accessToken",
-      },
-      body: jsonEncode(body),
-    );
+    http.Response response;
+    try {
+      response = await http
+          .post(
+            _uri(path),
+            headers: {
+              "Content-Type": "application/json",
+              if (accessToken != null) "Authorization": "Bearer $accessToken",
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw ApiException("Сервер не отвечает (таймаут 15 сек). Проверьте backend.");
+    } on Exception {
+      throw ApiException("Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.");
+    }
     return _parseObject(response);
   }
 
@@ -39,12 +50,21 @@ class ApiClient {
     String path, {
     String? accessToken,
   }) async {
-    final response = await http.get(
-      _uri(path),
-      headers: {
-        if (accessToken != null) "Authorization": "Bearer $accessToken",
-      },
-    );
+    http.Response response;
+    try {
+      response = await http
+          .get(
+            _uri(path),
+            headers: {
+              if (accessToken != null) "Authorization": "Bearer $accessToken",
+            },
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw ApiException("Сервер не отвечает (таймаут 15 сек). Проверьте backend.");
+    } on Exception {
+      throw ApiException("Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.");
+    }
     return _parseObject(response);
   }
 
@@ -52,12 +72,21 @@ class ApiClient {
     String path, {
     String? accessToken,
   }) async {
-    final response = await http.get(
-      _uri(path),
-      headers: {
-        if (accessToken != null) "Authorization": "Bearer $accessToken",
-      },
-    );
+    http.Response response;
+    try {
+      response = await http
+          .get(
+            _uri(path),
+            headers: {
+              if (accessToken != null) "Authorization": "Bearer $accessToken",
+            },
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw ApiException("Сервер не отвечает (таймаут 15 сек). Проверьте backend.");
+    } on Exception {
+      throw ApiException("Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.");
+    }
     return _parseList(response);
   }
 

@@ -83,9 +83,23 @@ class _HomeShell extends StatelessWidget {
     final pages = <Widget>[
       LibraryScreen(
         items: state.items,
+        usingDemoItems: state.usingDemoItems,
         isLoading: state.isLibraryLoading,
         errorMessage: state.libraryError,
         onRefresh: state.fetchLibrary,
+        searchQuery: state.searchQuery,
+        typeFilter: state.typeFilter,
+        onApplyFilters: (searchQuery, typeFilter) => state.applyLibraryFilters(
+          searchQuery: searchQuery,
+          typeFilter: typeFilter,
+        ),
+        onAddItem: (type, title, author) => state.createMediaItem(
+          type: type,
+          title: title,
+          author: author,
+        ),
+        onLoadLinks: state.fetchLinksForItem,
+        onLoadItemById: state.fetchMediaItemById,
       ),
       ProfileScreen(
         email: state.userEmail,
