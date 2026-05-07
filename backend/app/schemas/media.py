@@ -15,6 +15,8 @@ class MediaItemCreate(BaseModel):
     type: MediaType
     title: str = Field(min_length=1, max_length=255)
     author: str | None = Field(default=None, max_length=255)
+    cover_url: str | None = Field(default=None, max_length=1024)
+    genres: list[str] | None = None
     description: str | None = None
     metadata_json: dict | None = None
 
@@ -22,6 +24,8 @@ class MediaItemCreate(BaseModel):
 class MediaItemUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     author: str | None = Field(default=None, max_length=255)
+    cover_url: str | None = Field(default=None, max_length=1024)
+    genres: list[str] | None = None
     description: str | None = None
     metadata_json: dict | None = None
 
@@ -34,6 +38,8 @@ class MediaItemResponse(BaseModel):
     type: MediaType
     title: str
     author: str | None = None
+    cover_url: str | None = None
+    genres: list[str] | None = None
     description: str | None = None
     metadata_json: dict | None = None
     created_at: datetime
@@ -46,6 +52,10 @@ class MediaItemsListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class GenreListResponse(BaseModel):
+    genres: list[str]
 
 
 class MediaLinkCreate(BaseModel):

@@ -9,19 +9,48 @@ import "../../../core/network/api_client.dart";
 class MediaListItem {
   const MediaListItem({
     required this.id,
+    this.userId,
     required this.title,
     required this.type,
     this.author,
+    this.coverUrl,
+    this.genres,
     this.description,
     this.metadataJson,
   });
 
   final String id;
+  final String? userId;
   final String title;
   final String type;
   final String? author;
+  final String? coverUrl;
+  final List<String>? genres;
   final String? description;
   final Map<String, dynamic>? metadataJson;
+
+  MediaListItem copyWith({
+    String? userId,
+    String? title,
+    String? type,
+    String? author,
+    String? coverUrl,
+    List<String>? genres,
+    String? description,
+    Map<String, dynamic>? metadataJson,
+  }) {
+    return MediaListItem(
+      id: id,
+      userId: userId ?? this.userId,
+      title: title ?? this.title,
+      type: type ?? this.type,
+      author: author ?? this.author,
+      coverUrl: coverUrl ?? this.coverUrl,
+      genres: genres ?? this.genres,
+      description: description ?? this.description,
+      metadataJson: metadataJson ?? this.metadataJson,
+    );
+  }
 
   String? get mediaFileId {
     final metadata = metadataJson;
@@ -39,6 +68,18 @@ class MediaListItem {
     return null;
   }
 
+  String? get coverFileId {
+    final metadata = metadataJson;
+    if (metadata == null) {
+      return null;
+    }
+    final direct = metadata["cover_file_id"];
+    if (direct is String && direct.trim().isNotEmpty) {
+      return direct.trim();
+    }
+    return null;
+  }
+
   factory MediaListItem.fromJson(Map<String, dynamic> json) {
     final rawMetadata = json["metadata_json"];
     final metadata =
@@ -47,9 +88,16 @@ class MediaListItem {
             : (rawMetadata is Map ? rawMetadata.cast<String, dynamic>() : null);
     return MediaListItem(
       id: json["id"] as String? ?? "",
+      userId: json["user_id"] as String?,
       title: json["title"] as String? ?? "Untitled",
       type: json["type"] as String? ?? "unknown",
       author: json["author"] as String?,
+      coverUrl: json["cover_url"] as String?,
+      genres: (json["genres"] as List<dynamic>?)
+          ?.whereType<String>()
+          .map((genre) => genre.trim())
+          .where((genre) => genre.isNotEmpty)
+          .toList(growable: false),
       description: json["description"] as String?,
       metadataJson: metadata,
     );
@@ -181,16 +229,49 @@ class LibraryRepository {
         .toList(growable: false);
   }
 
+  Future<List<String>> fetchAvailableGenres({
+    required String accessToken,
+  }) async {
+    final response = await _apiClient.getJson(
+      "/media-genres",
+      accessToken: accessToken,
+    );
+    final genres = response["genres"];
+    if (genres is! List<dynamic>) {
+      return const [];
+    }
+    return genres
+        .whereType<String>()
+        .map((genre) => genre.trim())
+        .where((genre) => genre.isNotEmpty)
+        .toList(growable: false);
+  }
+
   Future<MediaListItem> createMediaItem({
     required String accessToken,
     required String type,
     required String title,
     String? author,
+    String? coverUrl,
+    List<String>? genres,
   }) async {
     final body = <String, dynamic>{"type": type, "title": title};
     final normalizedAuthor = author?.trim();
     if (normalizedAuthor != null && normalizedAuthor.isNotEmpty) {
       body["author"] = normalizedAuthor;
+    }
+    final normalizedCoverUrl = coverUrl?.trim();
+    if (normalizedCoverUrl != null && normalizedCoverUrl.isNotEmpty) {
+      body["cover_url"] = normalizedCoverUrl;
+    }
+    if (genres != null) {
+      final normalizedGenres = genres
+          .map((genre) => genre.trim())
+          .where((genre) => genre.isNotEmpty)
+          .toList(growable: false);
+      if (normalizedGenres.isNotEmpty) {
+        body["genres"] = normalizedGenres;
+      }
     }
     final response = await _apiClient.postJson(
       "/media-items",
@@ -198,6 +279,57 @@ class LibraryRepository {
       accessToken: accessToken,
     );
     return MediaListItem.fromJson(response);
+  }
+
+  Future<MediaListItem> updateMediaItem({
+    required String accessToken,
+    required String mediaItemId,
+    String? title,
+    String? author,
+    String? coverUrl,
+    List<String>? genres,
+    String? description,
+    Map<String, dynamic>? metadataJson,
+  }) async {
+    final body = <String, dynamic>{};
+    if (title != null) {
+      body["title"] = title.trim();
+    }
+    if (author != null) {
+      body["author"] = author.trim().isEmpty ? null : author.trim();
+    }
+    if (coverUrl != null) {
+      body["cover_url"] = coverUrl.trim().isEmpty ? null : coverUrl.trim();
+    }
+    if (genres != null) {
+      body["genres"] = genres
+          .map((genre) => genre.trim())
+          .where((genre) => genre.isNotEmpty)
+          .toList(growable: false);
+    }
+    if (description != null) {
+      body["description"] =
+          description.trim().isEmpty ? null : description.trim();
+    }
+    if (metadataJson != null) {
+      body["metadata_json"] = metadataJson;
+    }
+    final response = await _apiClient.patchJson(
+      "/media-items/$mediaItemId",
+      body,
+      accessToken: accessToken,
+    );
+    return MediaListItem.fromJson(response);
+  }
+
+  Future<void> deleteMediaItem({
+    required String accessToken,
+    required String mediaItemId,
+  }) async {
+    await _apiClient.deleteJson(
+      "/media-items/$mediaItemId",
+      accessToken: accessToken,
+    );
   }
 
   Future<List<MediaLinkItem>> fetchMediaLinks({
@@ -212,6 +344,21 @@ class LibraryRepository {
         .whereType<Map<String, dynamic>>()
         .map(MediaLinkItem.fromJson)
         .toList(growable: false);
+  }
+
+  Future<MediaLinkItem> createMediaLink({
+    required String accessToken,
+    required String sourceMediaId,
+    required String targetMediaId,
+    String relationType = "related",
+  }) async {
+    final response = await _apiClient
+        .postJson("/media-links", <String, dynamic>{
+          "source_media_id": sourceMediaId,
+          "target_media_id": targetMediaId,
+          "relation_type": relationType,
+        }, accessToken: accessToken);
+    return MediaLinkItem.fromJson(response);
   }
 
   Future<MediaListItem> fetchMediaItemById({
@@ -260,7 +407,15 @@ class LibraryRepository {
       "/media-files/$fileId/stream",
       accessToken: accessToken,
     );
-    return MediaStreamInfo.fromJson(response);
+    final streamInfo = MediaStreamInfo.fromJson(response);
+    final normalizedStreamUrl =
+        _normalizeStreamUri(streamInfo.streamUrl).toString();
+    return MediaStreamInfo(
+      fileId: streamInfo.fileId,
+      mediaItemId: streamInfo.mediaItemId,
+      streamUrl: normalizedStreamUrl,
+      expiresInSec: streamInfo.expiresInSec,
+    );
   }
 
   Future<MediaUploadInitInfo> initiateFileUpload({
@@ -350,8 +505,53 @@ class LibraryRepository {
     if (!Platform.isAndroid) {
       return uri;
     }
-    if (uri.host == "localhost" || uri.host == "127.0.0.1") {
+    if (uri.host == "localhost" ||
+        uri.host == "127.0.0.1" ||
+        uri.host == "minio" ||
+        uri.host == "host.docker.internal") {
       return uri.replace(host: "10.0.2.2");
+    }
+    if (uri.host.endsWith(".localhost")) {
+      final bucket = uri.host.substring(
+        0,
+        uri.host.length - ".localhost".length,
+      );
+      return uri.replace(host: "10.0.2.2", path: "/$bucket${uri.path}");
+    }
+    if (uri.host.endsWith(".127.0.0.1")) {
+      final bucket = uri.host.substring(
+        0,
+        uri.host.length - ".127.0.0.1".length,
+      );
+      return uri.replace(host: "10.0.2.2", path: "/$bucket${uri.path}");
+    }
+    return uri;
+  }
+
+  Uri _normalizeStreamUri(String streamUrl) {
+    final uri = Uri.parse(streamUrl);
+    if (!Platform.isAndroid) {
+      return uri;
+    }
+    if (uri.host == "localhost" ||
+        uri.host == "127.0.0.1" ||
+        uri.host == "minio" ||
+        uri.host == "host.docker.internal") {
+      return uri.replace(host: "10.0.2.2");
+    }
+    if (uri.host.endsWith(".localhost")) {
+      final bucket = uri.host.substring(
+        0,
+        uri.host.length - ".localhost".length,
+      );
+      return uri.replace(host: "10.0.2.2", path: "/$bucket${uri.path}");
+    }
+    if (uri.host.endsWith(".127.0.0.1")) {
+      final bucket = uri.host.substring(
+        0,
+        uri.host.length - ".127.0.0.1".length,
+      );
+      return uri.replace(host: "10.0.2.2", path: "/$bucket${uri.path}");
     }
     return uri;
   }

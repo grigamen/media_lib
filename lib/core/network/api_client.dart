@@ -158,6 +158,32 @@ class ApiClient {
     return _parseList(response);
   }
 
+  Future<Map<String, dynamic>> deleteJson(
+    String path, {
+    String? accessToken,
+  }) async {
+    http.Response response;
+    try {
+      response = await http
+          .delete(
+            _uri(path),
+            headers: {
+              if (accessToken != null) "Authorization": "Bearer $accessToken",
+            },
+          )
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw ApiException(
+        "Сервер не отвечает (таймаут 15 сек). Проверьте backend.",
+      );
+    } on Exception {
+      throw ApiException(
+        "Сетевая ошибка. Проверьте API_BASE_URL и запущен ли backend.",
+      );
+    }
+    return _parseObject(response);
+  }
+
   Map<String, dynamic> _parseObject(http.Response response) {
     final body =
         response.body.isEmpty

@@ -29,12 +29,20 @@ def test_media_item_crud_flow() -> None:
 
     create_res = client.post(
         "/media-items",
-        json={"type": "book", "title": "Dune", "author": "Frank Herbert"},
+        json={
+            "type": "book",
+            "title": "Dune",
+            "author": "Frank Herbert",
+            "cover_url": "https://example.com/dune.jpg",
+            "genres": ["Sci-Fi", "Classic"],
+        },
         headers=headers,
     )
     assert create_res.status_code == 201
     item = create_res.json()
     media_id = item["id"]
+    assert item["cover_url"] == "https://example.com/dune.jpg"
+    assert item["genres"] == ["Sci-Fi", "Classic"]
 
     list_res = client.get("/media-items", headers=headers)
     assert list_res.status_code == 200
@@ -44,11 +52,17 @@ def test_media_item_crud_flow() -> None:
 
     patch_res = client.patch(
         f"/media-items/{media_id}",
-        json={"title": "Dune Updated"},
+        json={
+            "title": "Dune Updated",
+            "cover_url": "https://example.com/dune-2.jpg",
+            "genres": ["Sci-Fi", "Adventure", " Sci-Fi "],
+        },
         headers=headers,
     )
     assert patch_res.status_code == 200
     assert patch_res.json()["title"] == "Dune Updated"
+    assert patch_res.json()["cover_url"] == "https://example.com/dune-2.jpg"
+    assert patch_res.json()["genres"] == ["Sci-Fi", "Adventure"]
 
     delete_res = client.delete(f"/media-items/{media_id}", headers=headers)
     assert delete_res.status_code == 204
@@ -227,43 +241,66 @@ def test_cannot_link_deleted_media_item() -> None:
 def test_media_items_filter_search_and_sort() -> None:
     token = _register_and_token()
     headers = {"Authorization": f"Bearer {token}"}
+    marker = uuid4().hex[:8]
 
     first = client.post(
         "/media-items",
-        json={"type": "book", "title": "Beta Book", "author": "Alice"},
+        json={"type": "book", "title": f"{marker} Beta Book", "author": f"Alice {marker}"},
         headers=headers,
     )
     second = client.post(
         "/media-items",
-        json={"type": "book", "title": "Alpha Book", "author": "Bob"},
+        json={"type": "book", "title": f"{marker} Alpha Book", "author": f"Bob {marker}"},
         headers=headers,
     )
     third = client.post(
         "/media-items",
-        json={"type": "video", "title": "Gamma Movie", "author": "Alice"},
+        json={"type": "video", "title": f"{marker} Gamma Movie", "author": f"Alice {marker}"},
         headers=headers,
     )
     assert first.status_code == 201
     assert second.status_code == 201
     assert third.status_code == 201
 
-    by_type = client.get("/media-items?type=book", headers=headers)
+    by_type = client.get(f"/media-items?type=book&q={marker}", headers=headers)
     assert by_type.status_code == 200
     by_type_data = by_type.json()
     assert by_type_data["total"] == 2
     assert all(item["type"] == "book" for item in by_type_data["items"])
 
-    by_search = client.get("/media-items?q=Alice", headers=headers)
+    by_search = client.get(f"/media-items?q=Alice {marker}", headers=headers)
     assert by_search.status_code == 200
     by_search_data = by_search.json()
     assert by_search_data["total"] == 2
-    assert all("Alice" in (item.get("author") or "") for item in by_search_data["items"])
+    assert all(marker in (item.get("author") or "") for item in by_search_data["items"])
 
-    sorted_asc = client.get("/media-items?type=book&sort_by=title&order=asc", headers=headers)
+    sorted_asc = client.get(
+        f"/media-items?type=book&q={marker}&sort_by=title&order=asc",
+        headers=headers,
+    )
     assert sorted_asc.status_code == 200
     sorted_data = sorted_asc.json()
     titles = [item["title"] for item in sorted_data["items"]]
     assert titles == sorted(titles)
+
+
+def test_media_genres_includes_existing_and_defaults() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_res = client.post(
+        "/media-items",
+        json={"type": "book", "title": "Genres Book", "genres": ["Киберпанк", "Фантастика"]},
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+
+    genres_res = client.get("/media-genres", headers=headers)
+    assert genres_res.status_code == 200
+    genres = genres_res.json()["genres"]
+    assert "Киберпанк" in genres
+    assert "Фантастика" in genres
+    assert "Классика" in genres
 
 
 def test_media_progress_get_and_put_flow() -> None:
@@ -377,6 +414,57 @@ def test_stream_url_before_upload_complete_returns_409() -> None:
 
     stream_res = client.get(f"/media-files/{file_id}/stream", headers=headers)
     assert stream_res.status_code == 409
+
+
+def test_other_user_can_read_item_stream_and_progress() -> None:
+    owner_token = _register_and_token()
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+
+    create_media = client.post(
+        "/media-items",
+        json={"type": "video", "title": "Shared Video"},
+        headers=owner_headers,
+    )
+    assert create_media.status_code == 201
+    media_id = create_media.json()["id"]
+
+    upload_init_res = client.post(
+        f"/media-items/{media_id}/files/upload",
+        json={
+            "filename": "shared.mp4",
+            "content_type": "video/mp4",
+            "file_size": 1024,
+        },
+        headers=owner_headers,
+    )
+    assert upload_init_res.status_code == 201
+    file_id = upload_init_res.json()["file_id"]
+
+    complete_res = client.post(f"/media-files/{file_id}/complete", headers=owner_headers)
+    assert complete_res.status_code == 200
+
+    viewer_token = _register_and_token()
+    viewer_headers = {"Authorization": f"Bearer {viewer_token}"}
+
+    list_res = client.get("/media-items", headers=viewer_headers)
+    assert list_res.status_code == 200
+    assert any(item["id"] == media_id for item in list_res.json()["items"])
+
+    stream_res = client.get(f"/media-files/{file_id}/stream", headers=viewer_headers)
+    assert stream_res.status_code == 200
+    assert stream_res.json()["file_id"] == file_id
+
+    get_progress = client.get(f"/media-items/{media_id}/progress", headers=viewer_headers)
+    assert get_progress.status_code == 200
+    assert get_progress.json()["media_item_id"] == media_id
+
+    put_progress = client.put(
+        f"/media-items/{media_id}/progress",
+        json={"position_seconds": 15, "duration_seconds": 120, "is_completed": False},
+        headers=viewer_headers,
+    )
+    assert put_progress.status_code == 200
+    assert put_progress.json()["position_seconds"] == 15
 
 
 def test_upload_rejects_unsupported_content_type() -> None:

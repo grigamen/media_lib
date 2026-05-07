@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = "test-secret-key"
     S3_PRESIGNED_EXPIRES_SEC: int = 900
     MAX_UPLOAD_FILE_SIZE_BYTES: int = 524288000
-    ALLOWED_UPLOAD_CONTENT_TYPES: str = "audio/mpeg,audio/mp4,video/mp4,video/webm"
+    ALLOWED_UPLOAD_CONTENT_TYPES: str = (
+        "audio/mpeg,audio/mp4,video/mp4,video/webm,text/plain,text/markdown,application/pdf,application/epub+zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
+    )
 
 
 settings = Settings()

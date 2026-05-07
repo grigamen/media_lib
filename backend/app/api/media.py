@@ -6,8 +6,9 @@ from uuid import UUID, uuid4
 
 import boto3
 from botocore.client import Config
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ from app.schemas.media import (
     MediaFileStreamResponse,
     MediaFileUploadInitRequest,
     MediaFileUploadInitResponse,
+    GenreListResponse,
     MediaItemCreate,
     MediaItemsListResponse,
     MediaItemResponse,
@@ -34,6 +36,18 @@ from app.schemas.media import (
 router = APIRouter(prefix="", tags=["media"])
 SortBy = Literal["updated_at", "title", "created_at"]
 SortOrder = Literal["asc", "desc"]
+DEFAULT_GENRES: tuple[str, ...] = (
+    "Фэнтези",
+    "Фантастика",
+    "Детектив",
+    "Классика",
+    "Роман",
+    "Нон-фикшн",
+    "Саморазвитие",
+    "Бизнес",
+    "История",
+    "Научпоп",
+)
 
 
 def _normalize_optional_text(value: str | None) -> str | None:
@@ -43,9 +57,33 @@ def _normalize_optional_text(value: str | None) -> str | None:
     return normalized or None
 
 
+def _normalize_genres(value: list[str] | None) -> list[str] | None:
+    if value is None:
+        return None
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        genre = raw.strip()
+        if not genre:
+            continue
+        lowered = genre.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        normalized.append(genre)
+    return normalized or None
+
+
 def _get_owned_media_item(db: Session, media_item_id: UUID, current_user: User) -> MediaItem:
     item = db.get(MediaItem, media_item_id)
     if item is None or item.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
+    return item
+
+
+def _get_visible_media_item(db: Session, media_item_id: UUID) -> MediaItem:
+    item = db.get(MediaItem, media_item_id)
+    if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
     return item
 
@@ -77,12 +115,54 @@ def _build_s3_client():
         endpoint_url=settings.S3_ENDPOINT_URL,
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        config=Config(signature_version="s3v4"),
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+    )
+
+
+def _build_s3_host_ops_client():
+    endpoint = settings.S3_ENDPOINT_URL
+    if endpoint and "10.0.2.2" in endpoint:
+        endpoint = endpoint.replace("10.0.2.2", "127.0.0.1")
+    return boto3.client(
+        "s3",
+        region_name=settings.S3_REGION,
+        endpoint_url=endpoint,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
     )
 
 
 def _allowed_upload_content_types() -> set[str]:
     return {item.strip() for item in settings.ALLOWED_UPLOAD_CONTENT_TYPES.split(",") if item.strip()}
+
+
+def _ensure_bucket_exists(s3_client) -> None:
+    bucket = settings.S3_BUCKET
+    client_for_ops = s3_client
+    if settings.S3_ENDPOINT_URL and "10.0.2.2" in settings.S3_ENDPOINT_URL:
+        client_for_ops = _build_s3_host_ops_client()
+    try:
+        client_for_ops.head_bucket(Bucket=bucket)
+        return
+    except ClientError:
+        pass
+    except BotoCoreError:
+        # In local/dev scenarios storage may be temporarily unavailable.
+        # We still return presigned URLs and let upload request reveal the issue.
+        return
+    try:
+        client_for_ops.create_bucket(Bucket=bucket)
+    except ClientError as exc:
+        error_code = str((exc.response or {}).get("Error", {}).get("Code", ""))
+        if error_code in {"BucketAlreadyOwnedByYou", "BucketAlreadyExists"}:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="S3 bucket is unavailable for upload",
+        ) from exc
+    except BotoCoreError:
+        return
 
 
 @router.post("/media-items", response_model=MediaItemResponse, status_code=status.HTTP_201_CREATED)
@@ -100,6 +180,8 @@ def create_media_item(
         type=payload.type,
         title=title,
         author=_normalize_optional_text(payload.author),
+        cover_url=_normalize_optional_text(payload.cover_url),
+        genres=_normalize_genres(payload.genres),
         description=_normalize_optional_text(payload.description),
         metadata_json=payload.metadata_json,
     )
@@ -121,7 +203,7 @@ def list_media_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItemsListResponse:
-    conditions = [MediaItem.user_id == current_user.id]
+    conditions = []
     if not include_deleted:
         conditions.append(MediaItem.deleted_at.is_(None))
     if type:
@@ -151,14 +233,41 @@ def list_media_items(
     return MediaItemsListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
+@router.get("/media-genres", response_model=GenreListResponse)
+def list_media_genres(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> GenreListResponse:
+    query = text(
+        """
+        SELECT DISTINCT trim(genre_value) AS genre
+        FROM media_items
+        CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(genres, '[]'::jsonb)) AS genre_value
+        WHERE deleted_at IS NULL
+          AND trim(genre_value) <> ''
+        ORDER BY trim(genre_value) ASC
+        """
+    )
+    rows = db.execute(query).all()
+    existing = [str(row[0]) for row in rows if row and row[0]]
+    merged: list[str] = []
+    seen: set[str] = set()
+    for genre in [*existing, *DEFAULT_GENRES]:
+        key = genre.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(genre.strip())
+    return GenreListResponse(genres=merged)
+
+
 @router.get("/media-items/{media_item_id}", response_model=MediaItemResponse)
 def get_media_item(
     media_item_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItem:
-    item = _get_owned_media_item(db, media_item_id, current_user)
-    return item
+    return _get_visible_media_item(db, media_item_id)
 
 
 @router.patch("/media-items/{media_item_id}", response_model=MediaItemResponse)
@@ -178,6 +287,10 @@ def update_media_item(
         updates["title"] = title
     if "author" in updates:
         updates["author"] = _normalize_optional_text(updates["author"])
+    if "cover_url" in updates:
+        updates["cover_url"] = _normalize_optional_text(updates["cover_url"])
+    if "genres" in updates:
+        updates["genres"] = _normalize_genres(updates["genres"])
     if "description" in updates:
         updates["description"] = _normalize_optional_text(updates["description"])
 
@@ -207,7 +320,7 @@ def get_media_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Progress:
-    _get_owned_media_item(db, media_item_id, current_user)
+    _get_visible_media_item(db, media_item_id)
 
     stmt = select(Progress).where(
         and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
@@ -235,7 +348,7 @@ def upsert_media_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Progress:
-    _get_owned_media_item(db, media_item_id, current_user)
+    _get_visible_media_item(db, media_item_id)
 
     stmt = select(Progress).where(
         and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
@@ -315,6 +428,7 @@ def initiate_file_upload(
     db.refresh(media_file)
 
     s3_client = _build_s3_client()
+    _ensure_bucket_exists(s3_client)
     upload_url = s3_client.generate_presigned_url(
         ClientMethod="put_object",
         Params={
@@ -361,12 +475,16 @@ def get_stream_url(
     current_user: User = Depends(get_current_user),
 ) -> MediaFileStreamResponse:
     media_file = db.get(MediaFile, file_id)
-    if media_file is None or media_file.user_id != current_user.id:
+    if media_file is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media file not found")
+    media_item = db.get(MediaItem, media_file.media_item_id)
+    if media_item is None or media_item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
     if media_file.upload_status != "ready":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="File upload is not completed")
 
     s3_client = _build_s3_client()
+    _ensure_bucket_exists(s3_client)
     stream_url = s3_client.generate_presigned_url(
         ClientMethod="get_object",
         Params={
@@ -430,15 +548,12 @@ def list_media_links(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MediaLink]:
-    _get_owned_media_item(db, media_item_id, current_user)
+    _get_visible_media_item(db, media_item_id)
 
     stmt = select(MediaLink).where(
-        and_(
-            MediaLink.user_id == current_user.id,
-            or_(
-                MediaLink.source_media_id == media_item_id,
-                MediaLink.target_media_id == media_item_id,
-            ),
+        or_(
+            MediaLink.source_media_id == media_item_id,
+            MediaLink.target_media_id == media_item_id,
         )
     )
     return list(db.scalars(stmt).all())

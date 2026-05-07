@@ -47,3 +47,6 @@ app.*.map.json
 # Backend (Python)
 backend/.venv/
 backend/.env
+
+# Project docs
+docs/
