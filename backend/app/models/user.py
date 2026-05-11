@@ -26,6 +26,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(120))
 
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     twofa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     twofa_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
 

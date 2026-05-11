@@ -1,38 +1,9 @@
-import "dart:async";
-import "dart:typed_data";
+part of 'library_screen.dart';
 
-import "package:file_picker/file_picker.dart";
-import "package:flutter/material.dart";
-import "package:just_audio/just_audio.dart";
-import "package:video_player/video_player.dart";
-
-import "../../../app/app_state.dart";
-import "../../../core/network/api_client.dart";
-import "../data/library_repository.dart";
-
-part 'library_screen_helpers.dart';
-part 'library_screen_list.dart';
-part 'library_screen_details_page.dart';
-part 'library_screen_details_state.dart';
-part 'library_screen_owner_file_card_widget.dart';
-part 'library_screen_owner_file_card_state.dart';
-part 'library_screen_book_panel.dart';
-part 'library_screen_playable_panel_widget.dart';
-part 'library_screen_playable_panel_state.dart';
-part 'library_screen_main_state.dart';
-
-class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({
+class _MediaItemDetailsPage extends StatefulWidget {
+  const _MediaItemDetailsPage({
     required this.currentUserId,
-    required this.items,
-    required this.usingDemoItems,
-    required this.isLoading,
-    required this.errorMessage,
-    required this.onRefresh,
-    required this.searchQuery,
-    required this.typeFilter,
-    required this.onApplyFilters,
-    required this.onAddItem,
+    required this.group,
     required this.availableGenres,
     required this.onLoadLinks,
     required this.onLoadItemById,
@@ -50,34 +21,13 @@ class LibraryScreen extends StatefulWidget {
     required this.onFetchPlaybackStreamUrl,
     required this.playbackError,
     required this.onLoadBookContent,
-    required this.onMarkItemViewed,
-    required this.onOpenSearchTab,
     required this.onFetchMediaFiles,
     required this.onBindMainMediaFile,
     required this.onUploadAndBindMainMediaFile,
-    super.key,
   });
 
   final String? currentUserId;
-  final List<MediaListItem> items;
-  final bool usingDemoItems;
-  final bool isLoading;
-  final String? errorMessage;
-  final Future<void> Function() onRefresh;
-  final String searchQuery;
-  final String? typeFilter;
-  final Future<void> Function(String searchQuery, String? typeFilter)
-  onApplyFilters;
-  final Future<MediaListItem?> Function({
-    required String type,
-    required String title,
-    String? author,
-    String? coverUrl,
-    List<String>? genres,
-    MediaUploadPayload? coverUploadPayload,
-    MediaUploadPayload? uploadPayload,
-  })
-  onAddItem;
+  final _WorkGroup group;
   final List<String> availableGenres;
   final Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks;
   final Future<MediaListItem?> Function(String mediaItemId) onLoadItemById;
@@ -124,8 +74,6 @@ class LibraryScreen extends StatefulWidget {
   final Future<String?> Function(String fileId) onFetchPlaybackStreamUrl;
   final String? playbackError;
   final Future<String> Function(MediaListItem item) onLoadBookContent;
-  final void Function(String mediaItemId) onMarkItemViewed;
-  final VoidCallback onOpenSearchTab;
   final Future<List<MediaFileSummary>> Function(String mediaItemId)
   onFetchMediaFiles;
   final Future<void> Function({
@@ -140,5 +88,5 @@ class LibraryScreen extends StatefulWidget {
   onUploadAndBindMainMediaFile;
 
   @override
-  State<LibraryScreen> createState() => _LibraryScreenState();
+  State<_MediaItemDetailsPage> createState() => _MediaItemDetailsPageState();
 }

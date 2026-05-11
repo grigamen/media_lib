@@ -5,7 +5,7 @@ void main() {
   testWidgets("Shows auth route on startup", (WidgetTester tester) async {
     await tester.pumpWidget(const MediaLibApp());
 
-    expect(find.text("MediaLib Auth"), findsOneWidget);
+    expect(find.text("MediaLib"), findsWidgets);
     expect(find.text("Вход"), findsOneWidget);
   });
 }

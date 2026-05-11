@@ -44,11 +44,6 @@ class HomeScreen extends StatelessWidget {
           children: [
             Text("Главная", style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 4),
-            Text(
-              "Последнее",
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -77,6 +72,11 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 22),
+            Text(
+              "Последнее",
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 14),
             _ContinueCard(
               item: latestItem,
               displayAuthor: authorOrFallback(latestItem),

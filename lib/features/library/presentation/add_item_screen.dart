@@ -3,6 +3,7 @@ import "dart:typed_data";
 import "package:file_picker/file_picker.dart";
 import "package:flutter/material.dart";
 
+import "../data/library_repository.dart";
 import "../../../app/app_state.dart";
 import "../../../core/network/api_client.dart";
 
@@ -31,7 +32,7 @@ class AddItemScreen extends StatefulWidget {
     super.key,
   });
 
-  final Future<void> Function({
+  final Future<MediaListItem?> Function({
     required String type,
     required String title,
     String? author,
@@ -103,7 +104,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         });
         return;
       }
-      await widget.onAddItem(
+      final created = await widget.onAddItem(
         type: _selectedType,
         title: _titleController.text.trim(),
         author:
@@ -145,9 +146,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
       _selectedCoverFileBytes = null;
       _selectedGenres = [];
       _genrePickerValue = null;
+      final msg =
+          created?.moderationStatus == "pending"
+              ? "Произведение отправлено на модерацию"
+              : "Произведение добавлено";
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Произведение добавлено")));
+      ).showSnackBar(SnackBar(content: Text(msg)));
     } on ApiException catch (e) {
       setState(() {
         _error = e.message;

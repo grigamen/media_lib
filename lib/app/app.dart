@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 
+import "../features/admin/presentation/admin_media_screen.dart";
 import "../features/auth/presentation/auth_screen.dart";
 import "../features/home/presentation/home_screen.dart";
 import "../features/library/data/library_repository.dart";
@@ -219,6 +220,10 @@ class _HomeShell extends StatelessWidget {
         playbackError: state.playbackError,
         onLoadBookContent: state.loadBookContent,
         onMarkItemViewed: state.markItemViewed,
+        onFetchMediaFiles: state.fetchMediaFilesForItem,
+        onBindMainMediaFile: state.bindMainMediaFileToItem,
+        onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
+        onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
       );
     }
 
@@ -244,13 +249,13 @@ class _HomeShell extends StatelessWidget {
             ),
         onAddItem:
             ({
-              required type,
-              required title,
-              author,
-              coverUrl,
-              genres,
-              coverUploadPayload,
-              uploadPayload,
+              required String type,
+              required String title,
+              String? author,
+              String? coverUrl,
+              List<String>? genres,
+              MediaUploadPayload? coverUploadPayload,
+              MediaUploadPayload? uploadPayload,
             }) => state.createMediaItem(
               type: type,
               title: title,
@@ -320,17 +325,21 @@ class _HomeShell extends StatelessWidget {
         onLoadBookContent: state.loadBookContent,
         onMarkItemViewed: state.markItemViewed,
         onOpenSearchTab: () => state.setSelectedTab(3),
+        onFetchMediaFiles: state.fetchMediaFilesForItem,
+        onBindMainMediaFile: state.bindMainMediaFileToItem,
+        onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
+        onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
       ),
       AddItemScreen(
         onAddItem:
             ({
-              required type,
-              required title,
-              author,
-              coverUrl,
-              genres,
-              coverUploadPayload,
-              uploadPayload,
+              required String type,
+              required String title,
+              String? author,
+              String? coverUrl,
+              List<String>? genres,
+              MediaUploadPayload? coverUploadPayload,
+              MediaUploadPayload? uploadPayload,
             }) => state.createMediaItem(
               type: type,
               title: title,
@@ -356,6 +365,16 @@ class _HomeShell extends StatelessWidget {
         onDeleteAllWorks: state.deleteAllMediaItems,
         onOpenAddWork: () => state.setSelectedTab(2),
         onLogout: state.logout,
+        onOpenAdminMedia:
+            state.isAdminUser
+                ? () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => _AdminMediaShell(state: state),
+                    ),
+                  );
+                }
+                : null,
       ),
     ];
 
@@ -414,5 +433,51 @@ class _HomeShell extends StatelessWidget {
       return grouped;
     }
     return [anchorItem];
+  }
+}
+
+class _AdminMediaShell extends StatefulWidget {
+  const _AdminMediaShell({required this.state});
+
+  final AppState state;
+
+  @override
+  State<_AdminMediaShell> createState() => _AdminMediaShellState();
+}
+
+class _AdminMediaShellState extends State<_AdminMediaShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.state.fetchAdminCatalog();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.state,
+      builder:
+          (context, _) => AdminMediaScreen(
+            pendingItems: widget.state.adminPendingItems,
+            allItems: widget.state.adminAllItems,
+            isLoading: widget.state.isAdminCatalogLoading,
+            isLoadingMorePending: widget.state.isAdminPendingLoadingMore,
+            hasMorePending: widget.state.adminPendingHasMore,
+            isLoadingMoreAll: widget.state.isAdminAllLoadingMore,
+            hasMoreAll: widget.state.adminAllHasMore,
+            errorMessage: widget.state.adminCatalogError,
+            onRefresh: widget.state.fetchAdminCatalog,
+            onLoadMorePending: widget.state.loadMoreAdminPendingCatalog,
+            onLoadMoreAll: widget.state.loadMoreAdminAllCatalog,
+            onDeleteItem: widget.state.deleteMediaItemAsAdmin,
+            onModerateItem:
+                (mediaItemId, approve) => widget.state.moderateMediaItemAsAdmin(
+                  mediaItemId: mediaItemId,
+                  approve: approve,
+                ),
+          ),
+    );
   }
 }

@@ -1,10 +1,47 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
+from app.db import SessionLocal
 from app.main import app
+from app.models import User
 
 client = TestClient(app)
+
+
+def _make_user_admin(email: str) -> None:
+    db = SessionLocal()
+    try:
+        user = db.scalar(select(User).where(User.email == email.lower()))
+        assert user is not None
+        user.is_admin = True
+        db.commit()
+    finally:
+        db.close()
+
+
+def _login_token(email: str, password: str = "Test123!") -> str:
+    login_res = client.post("/auth/login", json={"email": email, "password": password})
+    assert login_res.status_code == 200
+    return login_res.json()["access_token"]
+
+
+def _approve_as_admin(media_item_id: str) -> None:
+    admin_email = f"adm_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    reg = client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": password, "display_name": "Admin"},
+    )
+    assert reg.status_code == 201
+    _make_user_admin(admin_email)
+    admin_token = _login_token(admin_email, password)
+    appr = client.post(
+        f"/admin/media-items/{media_item_id}/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert appr.status_code == 200
 
 
 def _register_and_token() -> str:
@@ -41,6 +78,7 @@ def test_media_item_crud_flow() -> None:
     assert create_res.status_code == 201
     item = create_res.json()
     media_id = item["id"]
+    assert item["moderation_status"] == "pending"
     assert item["cover_url"] == "https://example.com/dune.jpg"
     assert item["genres"] == ["Sci-Fi", "Classic"]
 
@@ -285,7 +323,15 @@ def test_media_items_filter_search_and_sort() -> None:
 
 
 def test_media_genres_includes_existing_and_defaults() -> None:
-    token = _register_and_token()
+    admin_email = f"genres_adm_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    reg = client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": password, "display_name": "GA"},
+    )
+    assert reg.status_code == 201
+    _make_user_admin(admin_email)
+    token = _login_token(admin_email, password)
     headers = {"Authorization": f"Bearer {token}"}
 
     create_res = client.post(
@@ -294,6 +340,13 @@ def test_media_genres_includes_existing_and_defaults() -> None:
         headers=headers,
     )
     assert create_res.status_code == 201
+    mid = create_res.json()["id"]
+    assert create_res.json()["moderation_status"] == "pending"
+    appr = client.post(
+        f"/admin/media-items/{mid}/approve",
+        headers=headers,
+    )
+    assert appr.status_code == 200
 
     genres_res = client.get("/media-genres", headers=headers)
     assert genres_res.status_code == 200
@@ -387,6 +440,56 @@ def test_media_file_upload_complete_and_stream_flow() -> None:
     assert stream_data["media_item_id"] == media_id
     assert stream_data["stream_url"].startswith("http")
 
+    list_res = client.get(f"/media-items/{media_id}/files", headers=headers)
+    assert list_res.status_code == 200
+    listed = list_res.json()
+    assert len(listed) == 1
+    assert listed[0]["id"] == file_id
+    assert listed[0]["upload_status"] == "ready"
+    assert listed[0]["content_type"] == "audio/mpeg"
+
+    other_token = _register_and_token()
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+    forbidden = client.get(f"/media-items/{media_id}/files", headers=other_headers)
+    assert forbidden.status_code == 404
+
+
+def test_media_item_files_lists_multiple_ready_attachments() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_media = client.post(
+        "/media-items",
+        json={"type": "audiobook", "title": "Multi file"},
+        headers=headers,
+    )
+    assert create_media.status_code == 201
+    media_id = create_media.json()["id"]
+
+    ids: list[str] = []
+    for name in ("a.mp3", "b.mp3"):
+        upload_init_res = client.post(
+            f"/media-items/{media_id}/files/upload",
+            json={
+                "filename": name,
+                "content_type": "audio/mpeg",
+                "file_size": 512,
+            },
+            headers=headers,
+        )
+        assert upload_init_res.status_code == 201
+        fid = upload_init_res.json()["file_id"]
+        complete_res = client.post(f"/media-files/{fid}/complete", headers=headers)
+        assert complete_res.status_code == 200
+        ids.append(fid)
+
+    list_res = client.get(f"/media-items/{media_id}/files", headers=headers)
+    assert list_res.status_code == 200
+    listed = list_res.json()
+    assert len(listed) == 2
+    ready_ids = {row["id"] for row in listed if row["upload_status"] == "ready"}
+    assert ready_ids == set(ids)
+
 
 def test_stream_url_before_upload_complete_returns_409() -> None:
     token = _register_and_token()
@@ -442,6 +545,8 @@ def test_other_user_can_read_item_stream_and_progress() -> None:
 
     complete_res = client.post(f"/media-files/{file_id}/complete", headers=owner_headers)
     assert complete_res.status_code == 200
+
+    _approve_as_admin(media_id)
 
     viewer_token = _register_and_token()
     viewer_headers = {"Authorization": f"Bearer {viewer_token}"}
@@ -555,3 +660,274 @@ def test_e2e_upload_stream_and_save_progress() -> None:
     saved_progress = save_progress_res.json()
     assert saved_progress["position_seconds"] == 95
     assert float(saved_progress["progress_percent"]) > 0
+
+
+def test_non_admin_cannot_delete_other_users_media_item() -> None:
+    owner_token = _register_and_token()
+    other_token = _register_and_token()
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    create_res = client.post(
+        "/media-items",
+        json={"type": "book", "title": "Owners only"},
+        headers=owner_headers,
+    )
+    assert create_res.status_code == 201
+    media_id = create_res.json()["id"]
+
+    del_res = client.delete(
+        f"/media-items/{media_id}",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert del_res.status_code == 404
+
+
+def test_admin_can_delete_other_users_media_item() -> None:
+    from sqlalchemy import select
+
+    from app.db import SessionLocal
+    from app.models import User
+
+    owner_token = _register_and_token()
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    create_res = client.post(
+        "/media-items",
+        json={"type": "book", "title": "Admin purge target"},
+        headers=owner_headers,
+    )
+    assert create_res.status_code == 201
+    media_id = create_res.json()["id"]
+
+    admin_email = f"admin_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    reg = client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": password, "display_name": "Admin"},
+    )
+    assert reg.status_code == 201
+
+    db = SessionLocal()
+    try:
+        admin_user = db.scalar(select(User).where(User.email == admin_email))
+        assert admin_user is not None
+        admin_user.is_admin = True
+        db.commit()
+    finally:
+        db.close()
+
+    login_res = client.post("/auth/login", json={"email": admin_email, "password": password})
+    assert login_res.status_code == 200
+    admin_headers = {"Authorization": f"Bearer {login_res.json()['access_token']}"}
+
+    del_res = client.delete(f"/media-items/{media_id}", headers=admin_headers)
+    assert del_res.status_code == 204
+
+
+def test_pending_work_invisible_to_other_user_until_approved() -> None:
+    owner_token = _register_and_token()
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    create_res = client.post(
+        "/media-items",
+        json={"type": "book", "title": "Private until ok"},
+        headers=owner_headers,
+    )
+    assert create_res.status_code == 201
+    media_id = create_res.json()["id"]
+    assert create_res.json()["moderation_status"] == "pending"
+
+    other_token = _register_and_token()
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+    list_res = client.get("/media-items", headers=other_headers)
+    assert list_res.status_code == 200
+    assert not any(x["id"] == media_id for x in list_res.json()["items"])
+
+    get_res = client.get(f"/media-items/{media_id}", headers=other_headers)
+    assert get_res.status_code == 404
+
+    _approve_as_admin(media_id)
+
+    list2 = client.get("/media-items", headers=other_headers)
+    assert any(x["id"] == media_id for x in list2.json()["items"])
+    get2 = client.get(f"/media-items/{media_id}", headers=other_headers)
+    assert get2.status_code == 200
+
+
+def test_user_can_see_own_pending_item() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    create_res = client.post(
+        "/media-items",
+        json={"type": "book", "title": "Mine pending"},
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    mid = create_res.json()["id"]
+    list_res = client.get("/media-items", headers=headers)
+    assert any(x["id"] == mid for x in list_res.json()["items"])
+
+
+def test_non_admin_cannot_approve() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    create_res = client.post("/media-items", json={"type": "book", "title": "X"}, headers=headers)
+    mid = create_res.json()["id"]
+    appr = client.post(f"/admin/media-items/{mid}/approve", headers=headers)
+    assert appr.status_code == 403
+
+
+def test_admin_create_also_pending_until_approved() -> None:
+    admin_email = f"adm_create_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    assert (
+        client.post(
+            "/auth/register",
+            json={"email": admin_email, "password": password, "display_name": "A"},
+        ).status_code
+        == 201
+    )
+    _make_user_admin(admin_email)
+    token = _login_token(admin_email, password)
+    headers = {"Authorization": f"Bearer {token}"}
+    create_res = client.post(
+        "/media-items",
+        json={"type": "book", "title": "Admin book"},
+        headers=headers,
+    )
+    assert create_res.status_code == 201
+    assert create_res.json()["moderation_status"] == "pending"
+
+
+def test_admin_reject_marks_rejected() -> None:
+    owner_token = _register_and_token()
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    create_res = client.post(
+        "/media-items",
+        json={"type": "book", "title": "Reject me"},
+        headers=owner_headers,
+    )
+    mid = create_res.json()["id"]
+    admin_email = f"adm_r_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": password, "display_name": "R"},
+    )
+    _make_user_admin(admin_email)
+    atok = _login_token(admin_email, password)
+    rej = client.post(
+        f"/admin/media-items/{mid}/reject",
+        headers={"Authorization": f"Bearer {atok}"},
+    )
+    assert rej.status_code == 200
+    assert rej.json()["moderation_status"] == "rejected"
+    get_owner = client.get(f"/media-items/{mid}", headers=owner_headers)
+    assert get_owner.status_code == 200
+    assert get_owner.json()["moderation_status"] == "rejected"
+
+
+def test_owner_edit_after_rejection_resubmits_as_pending() -> None:
+    owner_token = _register_and_token()
+    oh = {"Authorization": f"Bearer {owner_token}"}
+    mid = client.post("/media-items", json={"type": "book", "title": "R"}, headers=oh).json()["id"]
+    admin_email = f"adm_re_{uuid4().hex[:8]}@test.com"
+    pw = "Test123!"
+    client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": pw, "display_name": "R"},
+    )
+    _make_user_admin(admin_email)
+    atok = _login_token(admin_email, pw)
+    client.post(
+        f"/admin/media-items/{mid}/reject",
+        headers={"Authorization": f"Bearer {atok}"},
+    )
+    patch = client.patch(f"/media-items/{mid}", json={"description": "fixed"}, headers=oh)
+    assert patch.status_code == 200
+    assert patch.json()["moderation_status"] == "pending"
+
+
+def test_admin_can_filter_media_items_by_moderation_status() -> None:
+    admin_email = f"adm_filt_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": password, "display_name": "F"},
+    )
+    _make_user_admin(admin_email)
+    atok = _login_token(admin_email, password)
+    ah = {"Authorization": f"Bearer {atok}"}
+    r1 = client.post(
+        "/media-items",
+        json={"type": "book", "title": "FilterPending"},
+        headers=ah,
+    )
+    assert r1.status_code == 201
+    mid_pending = r1.json()["id"]
+    r2 = client.post(
+        "/media-items",
+        json={"type": "video", "title": "FilterVid"},
+        headers=ah,
+    )
+    assert r2.status_code == 201
+    mid_other = r2.json()["id"]
+    client.post(f"/admin/media-items/{mid_other}/approve", headers=ah)
+
+    only_pending = client.get("/media-items?moderation_status=pending&limit=50", headers=ah)
+    assert only_pending.status_code == 200
+    assert only_pending.json()["total"] >= 1
+    ids = {row["id"] for row in only_pending.json()["items"]}
+    assert mid_pending in ids
+    assert mid_other not in ids
+
+    only_approved = client.get("/media-items?moderation_status=approved&limit=50", headers=ah)
+    assert only_approved.status_code == 200
+    ids_ok = {row["id"] for row in only_approved.json()["items"]}
+    assert mid_other in ids_ok
+    assert mid_pending not in ids_ok
+
+
+def test_admin_exclude_pending_hides_queue() -> None:
+    admin_email = f"adm_ex_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": password, "display_name": "E"},
+    )
+    _make_user_admin(admin_email)
+    atok = _login_token(admin_email, password)
+    ah = {"Authorization": f"Bearer {atok}"}
+    r1 = client.post(
+        "/media-items",
+        json={"type": "book", "title": "StillPending"},
+        headers=ah,
+    )
+    assert r1.status_code == 201
+    mid_p = r1.json()["id"]
+    r2 = client.post(
+        "/media-items",
+        json={"type": "audiobook", "title": "ApprovedNow"},
+        headers=ah,
+    )
+    assert r2.status_code == 201
+    mid_a = r2.json()["id"]
+    appr = client.post(f"/admin/media-items/{mid_a}/approve", headers=ah)
+    assert appr.status_code == 200
+
+    ex = client.get("/media-items?exclude_pending=true&limit=100", headers=ah)
+    assert ex.status_code == 200
+    ids = {row["id"] for row in ex.json()["items"]}
+    assert mid_p not in ids
+    assert mid_a in ids
+
+
+def test_non_admin_cannot_use_exclude_pending() -> None:
+    tok = _register_and_token()
+    h = {"Authorization": f"Bearer {tok}"}
+    bad = client.get("/media-items?exclude_pending=true", headers=h)
+    assert bad.status_code == 403
+
+
+def test_non_admin_cannot_use_moderation_status_filter() -> None:
+    tok = _register_and_token()
+    h = {"Authorization": f"Bearer {tok}"}
+    bad = client.get("/media-items?moderation_status=pending", headers=h)
+    assert bad.status_code == 403

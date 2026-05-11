@@ -12,12 +12,13 @@ from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
 from app.config import settings
 from app.db import get_db
 from app.models import MediaFile, MediaItem, MediaLink, Progress, User
 from app.schemas.media import (
     MediaFileCompleteResponse,
+    MediaFileListItemResponse,
     MediaFileStreamResponse,
     MediaFileUploadInitRequest,
     MediaFileUploadInitResponse,
@@ -31,6 +32,7 @@ from app.schemas.media import (
     MediaType,
     ProgressResponse,
     ProgressUpdateRequest,
+    ModerationStatus,
 )
 
 router = APIRouter(prefix="", tags=["media"])
@@ -81,9 +83,34 @@ def _get_owned_media_item(db: Session, media_item_id: UUID, current_user: User) 
     return item
 
 
-def _get_visible_media_item(db: Session, media_item_id: UUID) -> MediaItem:
+def _get_media_item_for_soft_delete(
+    db: Session,
+    media_item_id: UUID,
+    current_user: User,
+) -> MediaItem:
     item = db.get(MediaItem, media_item_id)
     if item is None or item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
+    if current_user.is_admin:
+        return item
+    if item.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
+    return item
+
+
+def _user_can_read_media_item(item: MediaItem, user: User) -> bool:
+    if user.is_admin:
+        return True
+    if item.user_id == user.id:
+        return True
+    return item.moderation_status == "approved"
+
+
+def _get_visible_media_item(db: Session, media_item_id: UUID, current_user: User) -> MediaItem:
+    item = db.get(MediaItem, media_item_id)
+    if item is None or item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
+    if not _user_can_read_media_item(item, current_user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
     return item
 
@@ -184,6 +211,7 @@ def create_media_item(
         genres=_normalize_genres(payload.genres),
         description=_normalize_optional_text(payload.description),
         metadata_json=payload.metadata_json,
+        moderation_status="pending",
     )
     db.add(item)
     db.commit()
@@ -196,6 +224,8 @@ def list_media_items(
     q: str | None = Query(default=None, min_length=1, max_length=255),
     type: MediaType | None = Query(default=None),
     include_deleted: bool = Query(default=False),
+    moderation_status: ModerationStatus | None = Query(default=None),
+    exclude_pending: bool = Query(default=False),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     sort_by: SortBy = Query(default="updated_at"),
@@ -206,6 +236,27 @@ def list_media_items(
     conditions = []
     if not include_deleted:
         conditions.append(MediaItem.deleted_at.is_(None))
+    if moderation_status is not None:
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Moderation filter is admin-only",
+            )
+        conditions.append(MediaItem.moderation_status == moderation_status)
+    elif exclude_pending:
+        if not current_user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="exclude_pending is admin-only",
+            )
+        conditions.append(MediaItem.moderation_status != "pending")
+    if not current_user.is_admin:
+        conditions.append(
+            or_(
+                MediaItem.moderation_status == "approved",
+                MediaItem.user_id == current_user.id,
+            )
+        )
     if type:
         conditions.append(MediaItem.type == type)
     if q:
@@ -244,6 +295,7 @@ def list_media_genres(
         FROM media_items
         CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(genres, '[]'::jsonb)) AS genre_value
         WHERE deleted_at IS NULL
+          AND moderation_status = 'approved'
           AND trim(genre_value) <> ''
         ORDER BY trim(genre_value) ASC
         """
@@ -267,7 +319,7 @@ def get_media_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItem:
-    return _get_visible_media_item(db, media_item_id)
+    return _get_visible_media_item(db, media_item_id, current_user)
 
 
 @router.patch("/media-items/{media_item_id}", response_model=MediaItemResponse)
@@ -297,6 +349,9 @@ def update_media_item(
     for field, value in updates.items():
         setattr(item, field, value)
 
+    if item.moderation_status == "rejected" and updates:
+        item.moderation_status = "pending"
+
     db.commit()
     db.refresh(item)
     return item
@@ -308,7 +363,7 @@ def delete_media_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    item = _get_owned_media_item(db, media_item_id, current_user)
+    item = _get_media_item_for_soft_delete(db, media_item_id, current_user)
 
     item.deleted_at = datetime.now(timezone.utc)
     db.commit()
@@ -320,7 +375,7 @@ def get_media_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Progress:
-    _get_visible_media_item(db, media_item_id)
+    _get_visible_media_item(db, media_item_id, current_user)
 
     stmt = select(Progress).where(
         and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
@@ -348,7 +403,7 @@ def upsert_media_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Progress:
-    _get_visible_media_item(db, media_item_id)
+    _get_visible_media_item(db, media_item_id, current_user)
 
     stmt = select(Progress).where(
         and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
@@ -449,6 +504,21 @@ def initiate_file_upload(
     )
 
 
+@router.get("/media-items/{media_item_id}/files", response_model=list[MediaFileListItemResponse])
+def list_media_item_files(
+    media_item_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MediaFile]:
+    _get_owned_media_item(db, media_item_id, current_user)
+    stmt = (
+        select(MediaFile)
+        .where(MediaFile.media_item_id == media_item_id)
+        .order_by(MediaFile.created_at.desc())
+    )
+    return list(db.scalars(stmt).all())
+
+
 @router.post("/media-files/{file_id}/complete", response_model=MediaFileCompleteResponse)
 def complete_file_upload(
     file_id: UUID,
@@ -479,6 +549,8 @@ def get_stream_url(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media file not found")
     media_item = db.get(MediaItem, media_file.media_item_id)
     if media_item is None or media_item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
+    if not _user_can_read_media_item(media_item, current_user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
     if media_file.upload_status != "ready":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="File upload is not completed")
@@ -548,7 +620,7 @@ def list_media_links(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MediaLink]:
-    _get_visible_media_item(db, media_item_id)
+    _get_visible_media_item(db, media_item_id, current_user)
 
     stmt = select(MediaLink).where(
         or_(
@@ -571,3 +643,39 @@ def delete_media_link(
 
     db.delete(link)
     db.commit()
+
+
+@router.post(
+    "/admin/media-items/{media_item_id}/approve",
+    response_model=MediaItemResponse,
+)
+def admin_approve_media_item(
+    media_item_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> MediaItem:
+    item = db.get(MediaItem, media_item_id)
+    if item is None or item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
+    item.moderation_status = "approved"
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post(
+    "/admin/media-items/{media_item_id}/reject",
+    response_model=MediaItemResponse,
+)
+def admin_reject_media_item(
+    media_item_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> MediaItem:
+    item = db.get(MediaItem, media_item_id)
+    if item is None or item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
+    item.moderation_status = "rejected"
+    db.commit()
+    db.refresh(item)
+    return item

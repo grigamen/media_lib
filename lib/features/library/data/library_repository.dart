@@ -17,6 +17,7 @@ class MediaListItem {
     this.genres,
     this.description,
     this.metadataJson,
+    this.moderationStatus = 'approved',
   });
 
   final String id;
@@ -28,6 +29,8 @@ class MediaListItem {
   final List<String>? genres;
   final String? description;
   final Map<String, dynamic>? metadataJson;
+  /// Server: pending | approved | rejected
+  final String moderationStatus;
 
   MediaListItem copyWith({
     String? userId,
@@ -38,6 +41,7 @@ class MediaListItem {
     List<String>? genres,
     String? description,
     Map<String, dynamic>? metadataJson,
+    String? moderationStatus,
   }) {
     return MediaListItem(
       id: id,
@@ -49,6 +53,7 @@ class MediaListItem {
       genres: genres ?? this.genres,
       description: description ?? this.description,
       metadataJson: metadataJson ?? this.metadataJson,
+      moderationStatus: moderationStatus ?? this.moderationStatus,
     );
   }
 
@@ -100,7 +105,23 @@ class MediaListItem {
           .toList(growable: false),
       description: json["description"] as String?,
       metadataJson: metadata,
+      moderationStatus: json["moderation_status"] as String? ?? "approved",
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      "id": id,
+      "user_id": userId,
+      "title": title,
+      "type": type,
+      "author": author,
+      "cover_url": coverUrl,
+      "genres": genres,
+      "description": description,
+      "metadata_json": metadataJson,
+      "moderation_status": moderationStatus,
+    };
   }
 }
 
@@ -134,6 +155,7 @@ class MediaProgress {
     required this.durationSeconds,
     required this.progressPercent,
     required this.isCompleted,
+    this.updatedAtUtcMs,
   });
 
   final String mediaItemId;
@@ -142,14 +164,55 @@ class MediaProgress {
   final double progressPercent;
   final bool isCompleted;
 
+  /// Из ответа `GET/PUT …/progress` (`updated_at` в RFC3339).
+  final int? updatedAtUtcMs;
+
+  static double computeProgressPercent(int positionSeconds, int? durationSeconds) {
+    if (durationSeconds == null || durationSeconds <= 0) {
+      return 0.0;
+    }
+    var percent = (positionSeconds / durationSeconds) * 100;
+    percent = percent < 0 ? 0 : (percent > 100 ? 100 : percent);
+    return (percent * 100).roundToDouble() / 100;
+  }
+
   factory MediaProgress.fromJson(Map<String, dynamic> json) {
+    final pos = json["position_seconds"] as int? ?? 0;
+    final dur = json["duration_seconds"] as int?;
+    final pct = (json["progress_percent"] as num?)?.toDouble();
+    final completed = json["is_completed"] as bool? ?? false;
     return MediaProgress(
       mediaItemId: json["media_item_id"] as String? ?? "",
-      positionSeconds: json["position_seconds"] as int? ?? 0,
-      durationSeconds: json["duration_seconds"] as int?,
-      progressPercent: (json["progress_percent"] as num?)?.toDouble() ?? 0,
-      isCompleted: json["is_completed"] as bool? ?? false,
+      positionSeconds: pos,
+      durationSeconds: dur,
+      progressPercent: pct ?? computeProgressPercent(pos, dur),
+      isCompleted: completed,
+      updatedAtUtcMs: decodeUpdatedAtUtcMs(json["updated_at"]),
     );
+  }
+
+  factory MediaProgress.synthesized({
+    required String mediaItemId,
+    required int positionSeconds,
+    required int? durationSeconds,
+    required bool isCompleted,
+  }) {
+    return MediaProgress(
+      mediaItemId: mediaItemId,
+      positionSeconds: positionSeconds,
+      durationSeconds: durationSeconds,
+      progressPercent: computeProgressPercent(positionSeconds, durationSeconds),
+      isCompleted: isCompleted,
+      updatedAtUtcMs: null,
+    );
+  }
+
+  static int? decodeUpdatedAtUtcMs(dynamic raw) {
+    if (raw is! String || raw.trim().isEmpty) {
+      return null;
+    }
+    final parsed = DateTime.tryParse(raw);
+    return parsed?.toUtc().millisecondsSinceEpoch;
   }
 }
 
@@ -196,6 +259,45 @@ class MediaUploadInitInfo {
   }
 }
 
+class MediaFileSummary {
+  const MediaFileSummary({
+    required this.id,
+    required this.contentType,
+    required this.uploadStatus,
+    this.fileSize,
+    this.uploadedAt,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String contentType;
+  final String uploadStatus;
+  final int? fileSize;
+  final String? uploadedAt;
+  final String createdAt;
+
+  factory MediaFileSummary.fromJson(Map<String, dynamic> json) {
+    return MediaFileSummary(
+      id: json["id"] as String? ?? "",
+      contentType: json["content_type"] as String? ?? "",
+      uploadStatus: json["upload_status"] as String? ?? "",
+      fileSize: json["file_size"] as int?,
+      uploadedAt: json["uploaded_at"] as String?,
+      createdAt: json["created_at"] as String? ?? "",
+    );
+  }
+}
+
+class MediaItemsFetchResult {
+  const MediaItemsFetchResult({
+    required this.items,
+    required this.total,
+  });
+
+  final List<MediaListItem> items;
+  final int total;
+}
+
 class LibraryRepository {
   LibraryRepository(this._apiClient);
 
@@ -205,8 +307,30 @@ class LibraryRepository {
     required String accessToken,
     String? query,
     String? type,
+    int limit = 50,
+    int offset = 0,
   }) async {
-    final params = <String>["limit=50", "offset=0"];
+    final r = await fetchMediaItemsWithMeta(
+      accessToken: accessToken,
+      query: query,
+      type: type,
+      moderationStatus: null,
+      limit: limit,
+      offset: offset,
+    );
+    return r.items;
+  }
+
+  Future<MediaItemsFetchResult> fetchMediaItemsWithMeta({
+    required String accessToken,
+    String? query,
+    String? type,
+    String? moderationStatus,
+    bool excludePending = false,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final params = <String>["limit=$limit", "offset=$offset"];
     final normalizedQuery = query?.trim();
     if (normalizedQuery != null && normalizedQuery.isNotEmpty) {
       params.add("q=${Uri.encodeQueryComponent(normalizedQuery)}");
@@ -214,6 +338,13 @@ class LibraryRepository {
     final normalizedType = type?.trim();
     if (normalizedType != null && normalizedType.isNotEmpty) {
       params.add("type=${Uri.encodeQueryComponent(normalizedType)}");
+    }
+    final mod = moderationStatus?.trim();
+    if (mod != null && mod.isNotEmpty) {
+      params.add("moderation_status=${Uri.encodeQueryComponent(mod)}");
+    }
+    if (excludePending) {
+      params.add("exclude_pending=true");
     }
     final response = await _apiClient.getJson(
       "/media-items?${params.join("&")}",
@@ -223,10 +354,15 @@ class LibraryRepository {
     if (items is! List<dynamic>) {
       throw ApiException("Invalid library response format");
     }
-    return items
-        .whereType<Map<String, dynamic>>()
-        .map(MediaListItem.fromJson)
-        .toList(growable: false);
+    final list =
+        items
+            .whereType<Map<String, dynamic>>()
+            .where((row) => row["deleted_at"] == null)
+            .map(MediaListItem.fromJson)
+            .toList(growable: false);
+    final rawTotal = response["total"];
+    final total = rawTotal is int ? rawTotal : int.tryParse("$rawTotal") ?? 0;
+    return MediaItemsFetchResult(items: list, total: total);
   }
 
   Future<List<String>> fetchAvailableGenres({
@@ -332,6 +468,30 @@ class LibraryRepository {
     );
   }
 
+  Future<MediaListItem> approveMediaModeration({
+    required String accessToken,
+    required String mediaItemId,
+  }) async {
+    final response = await _apiClient.postJson(
+      "/admin/media-items/$mediaItemId/approve",
+      const <String, dynamic>{},
+      accessToken: accessToken,
+    );
+    return MediaListItem.fromJson(response);
+  }
+
+  Future<MediaListItem> rejectMediaModeration({
+    required String accessToken,
+    required String mediaItemId,
+  }) async {
+    final response = await _apiClient.postJson(
+      "/admin/media-items/$mediaItemId/reject",
+      const <String, dynamic>{},
+      accessToken: accessToken,
+    );
+    return MediaListItem.fromJson(response);
+  }
+
   Future<List<MediaLinkItem>> fetchMediaLinks({
     required String accessToken,
     required String mediaItemId,
@@ -435,6 +595,20 @@ class LibraryRepository {
       accessToken: accessToken,
     );
     return MediaUploadInitInfo.fromJson(response);
+  }
+
+  Future<List<MediaFileSummary>> fetchMediaFilesForItem({
+    required String accessToken,
+    required String mediaItemId,
+  }) async {
+    final raw = await _apiClient.getJsonList(
+      "/media-items/$mediaItemId/files",
+      accessToken: accessToken,
+    );
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(MediaFileSummary.fromJson)
+        .toList(growable: false);
   }
 
   Future<void> uploadBytesToPresignedUrl({

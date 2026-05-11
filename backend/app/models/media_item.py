@@ -33,3 +33,5 @@ class MediaItem(Base):
         nullable=False,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: pending | approved | rejected — new works from non-admins start as pending
+    moderation_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)

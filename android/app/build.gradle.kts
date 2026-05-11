@@ -42,3 +42,11 @@ android {
 flutter {
     source = "../.."
 }
+
+// Transitive androidx.core 1.18+ требует compileSdk 36 и AGP 8.9+; проект на compileSdk 35 / AGP 8.7.
+configurations.all {
+    resolutionStrategy {
+        force("androidx.core:core:1.15.0")
+        force("androidx.core:core-ktx:1.15.0")
+    }
+}

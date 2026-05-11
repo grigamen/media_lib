@@ -1,103 +1,77 @@
 # Handoff для следующего агента
 
-Продолжай проект **MediaLib** с текущего состояния после выполнения Week 7 Stage A.
+Продолжай проект **MediaLib** с текущего состояния (май 2026). Ниже — что уже сделано, как проверить качество, и **план ближайшей работы**.
 
 ## 1) Что прочитать в начале
 
-- `docs/week7_status.md` (актуальный статус Week 7 stage A)
-- `docs/week7_acceptance.md` (фактическая приемка Week 7 stage A)
-- `docs/week6_status.md` (контекст перед стартом Week 7)
-- `docs/week6_acceptance.md`
-- `docs/week6_work_breakdown.md`
-- `docs/week5_status.md` (контекст Week 5)
-- `docs/week5_acceptance.md`
-- `docs/week4_week5_fields_methods_reference.md` (поля и методы по Week 4-5)
-- `docs/week1_work_breakdown.md` (детализация Week 1)
-- `docs/week2_work_breakdown.md` (детализация Week 2)
-- `docs/week3_work_breakdown.md` (детализация Week 3)
-- `docs/week4_work_breakdown.md` (детализация Week 4)
-- `docs/week5_work_breakdown.md` (детализация Week 5)
-- `docs/week4_status.md` (контекст backend)
-- `docs/week4_acceptance.md`
-- `docs/week_plan_10_weeks.md` (полный согласованный план работ)
-- `docs/week3_status.md` (контекст по Week 2-3)
-- `docs/week3_catalog.md`
-- `docs/week3_acceptance.md`
+- `docs/week_plan_10_weeks.md` — опорный план 10 недель.
+- `docs/week7_status.md` — плееры, sync прогресса, привязка файлов (Week 7 A+B).
+- `docs/week8_status.md` — неделя 8 (блоки A, G, F, E): что уже в коде, что осталось.
 
-## 2) Что проверить перед началом новых правок
+- `docs/week8_work_breakdown.md` — **план ближайших задач** (детализация).
+- `docs/week8_acceptance.md` — критерии закрытия Week 8.
+- `docs/week4_week5_fields_methods_reference.md` — поля и API прогресса/файлов.
 
-1. Проверить состояние дерева:
-   - `git status`
-2. Проверить backend тесты:
-   - `cd backend`
-   - `.\.venv\Scripts\python.exe -m pytest -q`
-3. Ожидаемый результат тестов: `18 passed`.
-4. Проверить mobile:
-   - `cd ..` (в корень проекта)
+Папка `docs/` указана в `.gitignore`: при необходимости закоммитить изменения используй `git add -f docs/...`.
+
+## 2) Проверки перед новыми правками
+
+1. `git status`
+2. Backend (из `backend/`, с активированным venv):
+   - `python -m pytest -q`
+   - **Ожидаемо: 28 passed** (см. collect: `tests/test_auth.py` + `tests/test_media.py`).
+3. Mobile (корень репозитория):
    - `flutter analyze`
-   - `flutter test`
-5. Запуск мобильного приложения для ручной проверки:
+   - `flutter test` (включает `test/local_persistence_test.dart` для локальных сторов).
+4. Ручная провка приложения (пример):
    - `flutter run -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:8000`
 
-## 3) Текущее состояние проекта (кратко)
+## 3) Состояние по дорожной карте
 
-- Последний коммит по mobile playback/sync: `9e8b42b` ("Плееры и синхронизация прогресса").
-- Week 2 (Auth + 2FA): завершена.
-- Week 3 (Каталог и связи): завершена.
-- Week 4 (Progress + Files/S3): завершена.
-  - добавлены модели `progress` и `media_files`;
-  - добавлена и применена миграция `a4f2c9d1e7b0_add_progress_and_media_files`;
-  - реализован API прогресса (`GET/PUT /media-items/{id}/progress`);
-  - реализован presigned flow (`upload/complete/stream`);
-  - добавлены ограничения upload (тип/размер);
-  - добавлены e2e/негативные тесты.
-- Актуальный backend-прогон: `18 passed`.
-- Week 5 (Mobile Auth + базовый UI): завершена.
-  - добавлена feature-структура `app/core/features`;
-  - реализованы экраны auth/library/profile;
-  - подключены backend API (`/auth/register`, `/auth/login`, `/media-items`);
-  - настроены роутинг и состояния loading/error;
-  - добавлено переключение светлой/темной темы;
-  - `flutter analyze` и `flutter test` проходят.
-- Week 6 (Mobile: библиотека, добавление, поиск): завершена.
-  - реализовано добавление контента (`POST /media-items`);
-  - добавлены поиск и фильтрация (`q` и `type`);
-  - добавлен просмотр связей (`GET /media-items/{id}/links`) + загрузка связанных форм;
-  - UI переведен на гибридную модель: одно произведение -> вкладки форматов;
-  - добавлены fallback-демо произведения со всеми форматами (`book/audiobook/video`) при пустом backend-списке;
-  - в API-клиент добавлены сетевые таймауты и понятные сообщения об ошибках вместо бесконечной загрузки;
-  - `flutter analyze` и `flutter test` проходят.
-- Week 7 Stage A (Mobile: playback + sync foundation): выполнен.
-  - подключены `just_audio` и `video_player`;
-  - реализован playback UI для `audiobook`/`video`;
-  - добавлена скорость воспроизведения (`0.75x-2.0x`);
-  - реализован flow восстановления и сохранения прогресса:
-    - `GET /media-items/{id}/progress`
-    - `PUT /media-items/{id}/progress`
-    - `GET /media-files/{file_id}/stream`
-  - добавлен периодический sync (10 сек) + flush на pause/complete/dispose;
-  - добавлен pending-sync soft-fail при временных сетевых ошибках;
-  - для demo-режима добавлены fallback stream URL;
-  - ограничение: для backend media нужен `media_file_id` в `metadata_json`.
+| Этап (план) | Статус |
+|-------------|--------|
+| Недели 2–6 (backend auth/catalog/files; mobile auth, библиотека, поиск) | Закрыты (см. предыдущие `week*_status.md`). |
+| **Неделя 7** — плееры + sync + привязка основного файла | **Закрыта** (Stage A+B): `week7_status.md`. |
+| **Неделя 8** — офлайн/SQLite, расширенный кэш каталога, масштабирование админки, playback-options | **В процессе**: блок **A** частично реализован; **G/F/E** впереди. См. `week_plan_10_weeks.md`, `week8_status.md`. |
+| Модерация и администратор | **Реализовано параллельно** к нумерации недель (модели, API, JWT `adm`, экран админа, тесты). |
 
-## 4) Следующая цель по плану: Week 7 Stage B / Stage C
+## 4) Кратко: что есть в коде сейчас
 
-Расширить playback до advanced-возможностей:
+**Backend**
 
-1. Добавить удобный пользовательский flow привязки/выбора файла для media item.
-2. Подготовить playback-options API контракт:
-   - выбор озвучки (audio track);
-   - выбор качества видео;
-   - подключение субтитров.
-3. Расширить ручную и автоматическую проверку cross-device continuation.
-4. Обновить документы Week 7 (status/acceptance) после каждого stage.
+- Каталог: для не-админов в списке видны **approved** и **свои** записи (`pending` у чужих скрыты); жанры — только из одобренного контента.
+- Новые записи создаются с `moderation_status=pending`; правка после `rejected` снова ставит `pending`.
+- Эндпоинты админа (префикс по коду): одобрение/отклонение, удаление чужих работ; см. `app/api/media.py`, `require_admin` в `app/api/deps.py`.
+- Пользователь: поле `is_admin`; в access JWT — claim `adm` (`app/jwt_utils.py`).
+- Миграции Alembic: в том числе `is_admin` и `moderation_status` (файлы в `backend/alembic/versions/`).
+- Утилиты: `backend/scripts/promote_admin.py` и др.
 
-## 5) Важные ограничения
+**Mobile**
 
-- Не ломать существующие endpoint'ы auth/media/progress/files.
-- В репозитории сейчас добавлен паттерн `docs/` в `.gitignore`; из-за этого новые/измененные docs могут не попадать в коммиты без явного `git add -f`.
-- Работать итерациями:
-  - фича -> тесты -> docs.
-- На каждом подэтапе поддерживать зеленый тестовый прогон backend.
-- Для mobile при недоступном backend ожидать timeout-ошибку (это штатное поведение после фикса Week 6).
-- Для инфраструктурных требований ТЗ (24/7, TLS, backup, monitoring) ориентироваться на Week 9 из `docs/week_plan_10_weeks.md`.
+- `AppState`: кэш каталога при успешном ответе; при ошибке сети — **показ последнего кэша** с сообщением пользователю.
+- Локальное зеркало прогресса с `pending_sync`; доброс при следующем успешном `fetchLibrary` (`_flushPendingProgressIfOnline`).
+- Недавно просмотренные — персист на диск (`RecentlyViewedLocalStore`).
+- Админ-экран: вкладки модерации и удаления (`lib/features/admin/...`).
+- Библиотека разнесена по виджетам/стейтам (`library_screen_*`).
+
+## 5) Известные ограничения
+
+- После восстановления сети доброс локального прогресса также срабатывает при успешном `fetchLibrary`; connectivity покрывает кейс до следующего запроса каталога.
+- Тяжёлое widget/integration-покрытие «офлайн → онлайн» для `AppState` пока не добавлено (есть юнит-тесты LWW).
+- Playback-options (**блок E недели 8**) в коде **ещё предстоят** — сейчас плеер ориентирован на один основной файл через `metadata_json`.
+
+## 6) План ближайшей работы (приоритеты)
+
+Полная неделя 8 описана в `docs/week_plan_10_weeks.md` (блоки **A, G, F, E**) и расписана задачами в `docs/week8_work_breakdown.md`; итоговая приёмка — `week8_acceptance.md` (**все** блоки нужны для закрытия недели).
+
+### Последовательность внутри недели 8
+
+1. **Блок A (ядро):** connectivity/retry или эквивалент, документировать и соблюсти **LWW**, интеграционный «офлайн → онлайн» по возможности.
+2. **Блоки G → F → E** в составе той же недели 8 (допустимо **F перед G** по приоритету админки; **E** чаще всего последним из трёх).
+3. **Документы:** обновлять `week8_status.md`, этот handoff, `README` при изменениях; коммиты инкрементами.
+
+### После закрытия недели 8 целиком
+
+4. **Неделя 9 (плана):** TLS, секреты, бэкапы, мониторинг, CI.
+
+После крупных блоков: `flutter analyze`, `pytest`, `flutter test` и короткая запись в `docs/week8_status.md`.

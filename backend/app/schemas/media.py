@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 MediaType = Literal["book", "audiobook", "video"]
 RelationType = Literal["audioversion", "adaptation", "related"]
 UploadStatus = Literal["pending", "ready"]
+ModerationStatus = Literal["pending", "approved", "rejected"]
 
 
 class MediaItemCreate(BaseModel):
@@ -42,6 +43,7 @@ class MediaItemResponse(BaseModel):
     genres: list[str] | None = None
     description: str | None = None
     metadata_json: dict | None = None
+    moderation_status: ModerationStatus
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
@@ -125,3 +127,14 @@ class MediaFileStreamResponse(BaseModel):
     media_item_id: UUID
     stream_url: str
     expires_in_sec: int
+
+
+class MediaFileListItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    content_type: str
+    file_size: int | None = None
+    upload_status: UploadStatus
+    uploaded_at: datetime | None = None
+    created_at: datetime

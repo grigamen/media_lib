@@ -29,9 +29,9 @@ from app.security import hash_password, verify_password
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _token_pair(user_id: UUID) -> tuple[str, str]:
-    uid = str(user_id)
-    return create_access_token(uid), create_refresh_token(uid)
+def _token_pair(user: User) -> tuple[str, str]:
+    uid = str(user.id)
+    return create_access_token(uid, is_admin=user.is_admin), create_refresh_token(uid)
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -65,7 +65,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse
         challenge_token = create_twofa_challenge_token(str(user.id))
         return LoginResponse(requires_2fa=True, challenge_token=challenge_token)
 
-    access_token, refresh_token = _token_pair(user.id)
+    access_token, refresh_token = _token_pair(user)
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -90,7 +90,7 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> RefreshRe
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    access_token, refresh_token = _token_pair(user.id)
+    access_token, refresh_token = _token_pair(user)
     return RefreshResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -137,5 +137,5 @@ def twofa_verify(payload: TwoFAVerifyRequest, db: Session = Depends(get_db)) -> 
     if not otp.verify(payload.otp_code, valid_window=1):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP code")
 
-    access_token, refresh_token = _token_pair(user.id)
+    access_token, refresh_token = _token_pair(user)
     return RefreshResponse(access_token=access_token, refresh_token=refresh_token)

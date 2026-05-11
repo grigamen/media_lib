@@ -8,7 +8,13 @@ from jose import JWTError, jwt
 from app.config import settings
 
 
-def _build_token(user_id: str, token_type: str, expires_delta: timedelta) -> str:
+def _build_token(
+    user_id: str,
+    token_type: str,
+    expires_delta: timedelta,
+    *,
+    is_admin: bool | None = None,
+) -> str:
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
         "sub": user_id,
@@ -16,11 +22,18 @@ def _build_token(user_id: str, token_type: str, expires_delta: timedelta) -> str
         "iat": int(now.timestamp()),
         "exp": int((now + expires_delta).timestamp()),
     }
+    if token_type == "access":
+        payload["adm"] = bool(is_admin)
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 
-def create_access_token(user_id: str) -> str:
-    return _build_token(user_id, "access", timedelta(minutes=settings.ACCESS_TOKEN_MIN))
+def create_access_token(user_id: str, *, is_admin: bool = False) -> str:
+    return _build_token(
+        user_id,
+        "access",
+        timedelta(minutes=settings.ACCESS_TOKEN_MIN),
+        is_admin=is_admin,
+    )
 
 
 def create_refresh_token(user_id: str) -> str:

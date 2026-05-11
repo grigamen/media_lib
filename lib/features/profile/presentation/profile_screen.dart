@@ -8,6 +8,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onDeleteAllWorks,
     required this.onOpenAddWork,
     required this.onLogout,
+    this.onOpenAdminMedia,
     super.key,
   });
 
@@ -17,6 +18,7 @@ class ProfileScreen extends StatelessWidget {
   final Future<void> Function() onDeleteAllWorks;
   final VoidCallback onOpenAddWork;
   final VoidCallback onLogout;
+  final VoidCallback? onOpenAdminMedia;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,10 @@ class ProfileScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             children: [
-              Text("Профиль", style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                "Профиль",
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -74,6 +79,20 @@ class ProfileScreen extends StatelessWidget {
                 value: isDarkMode,
                 onChanged: onThemeToggle,
               ),
+              if (onOpenAdminMedia != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  "Администрирование",
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                _ActionTile(
+                  icon: Icons.admin_panel_settings_outlined,
+                  title: "Панель администратора",
+                  subtitle: "Вкладки: подтверждение и удаление произведений",
+                  onTap: onOpenAdminMedia!,
+                ),
+              ],
               const SizedBox(height: 16),
               Text(
                 "Безопасность",
@@ -101,45 +120,55 @@ class ProfileScreen extends StatelessWidget {
         SafeArea(
           top: false,
           minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder:
-                      (dialogContext) => AlertDialog(
-                        title: const Text("Удалить созданные произведения"),
-                        content: const Text(
-                          "Это удалит только произведения, созданные вашим аккаунтом. Действие необратимо.",
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed:
-                                () => Navigator.of(dialogContext).pop(false),
-                            child: const Text("Отмена"),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder:
+                          (dialogContext) => AlertDialog(
+                            title: const Text("Удалить созданные произведения"),
+                            content: const Text(
+                              "Это удалит только произведения, созданные вашим аккаунтом. Действие необратимо.",
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed:
+                                    () =>
+                                        Navigator.of(dialogContext).pop(false),
+                                child: const Text("Отмена"),
+                              ),
+                              FilledButton(
+                                onPressed:
+                                    () =>
+                                        Navigator.of(dialogContext).pop(true),
+                                child: const Text("Удалить"),
+                              ),
+                            ],
                           ),
-                          FilledButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(true),
-                            child: const Text("Удалить"),
-                          ),
-                        ],
+                    );
+                    if (confirmed != true) {
+                      return;
+                    }
+                    await onDeleteAllWorks();
+                    if (!context.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Ваши произведения удалены"),
                       ),
-                );
-                if (confirmed != true) {
-                  return;
-                }
-                await onDeleteAllWorks();
-                if (!context.mounted) {
-                  return;
-                }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Ваши произведения удалены")),
-                );
-              },
-              icon: const Icon(Icons.delete_sweep_outlined),
-              label: const Text("Удалить созданные произведения"),
-            ),
+                    );
+                  },
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  label: const Text("Удалить созданные произведения"),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -181,10 +210,12 @@ class _ActionTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    this.subtitle,
   });
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
 
   @override
@@ -198,6 +229,8 @@ class _ActionTile extends StatelessWidget {
         child: Icon(icon),
       ),
       title: Text(title),
+      subtitle: subtitle != null ? Text(subtitle!) : null,
+      isThreeLine: subtitle != null,
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
