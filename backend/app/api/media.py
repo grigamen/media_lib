@@ -547,7 +547,7 @@ def list_media_item_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MediaFile]:
-    _get_owned_media_item(db, media_item_id, current_user)
+    _get_visible_media_item(db, media_item_id, current_user)
     stmt = (
         select(MediaFile)
         .where(MediaFile.media_item_id == media_item_id)

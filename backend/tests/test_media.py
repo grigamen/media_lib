@@ -581,6 +581,10 @@ def test_other_user_can_read_item_stream_and_progress() -> None:
     assert list_res.status_code == 200
     assert any(item["id"] == media_id for item in list_res.json()["items"])
 
+    files_list = client.get(f"/media-items/{media_id}/files", headers=viewer_headers)
+    assert files_list.status_code == 200
+    assert any(row["id"] == file_id for row in files_list.json())
+
     stream_res = client.get(f"/media-files/{file_id}/stream", headers=viewer_headers)
     assert stream_res.status_code == 200
     assert stream_res.json()["file_id"] == file_id
