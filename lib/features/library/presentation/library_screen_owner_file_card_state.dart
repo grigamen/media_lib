@@ -64,6 +64,7 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
         "mov",
         "mkv",
         "avi",
+        "avl",
         "txt",
         "md",
         "pdf",

@@ -271,6 +271,15 @@ def list_media_items(
                 MediaItem.user_id == current_user.id,
             )
         )
+    elif moderation_status is None:
+        # Default library list for admins: hide other users' rejected works (they
+        # still appear under moderation filters). Own rejected items stay listed.
+        conditions.append(
+            or_(
+                MediaItem.moderation_status != "rejected",
+                MediaItem.user_id == current_user.id,
+            )
+        )
     effective_types: list[str] = []
     if types:
         effective_types = list(types)

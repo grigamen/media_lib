@@ -961,3 +961,38 @@ def test_non_admin_cannot_use_moderation_status_filter() -> None:
     h = {"Authorization": f"Bearer {tok}"}
     bad = client.get("/media-items?moderation_status=pending", headers=h)
     assert bad.status_code == 403
+
+
+def test_admin_default_list_hides_other_users_rejected_items() -> None:
+    owner_token = _register_and_token()
+    oh = {"Authorization": f"Bearer {owner_token}"}
+    create_res = client.post(
+        "/media-items",
+        json={"type": "video", "title": "RejectedVid"},
+        headers=oh,
+    )
+    assert create_res.status_code == 201
+    mid = create_res.json()["id"]
+
+    admin_email = f"adm_hide_{uuid4().hex[:8]}@test.com"
+    password = "Test123!"
+    client.post(
+        "/auth/register",
+        json={"email": admin_email, "password": password, "display_name": "H"},
+    )
+    _make_user_admin(admin_email)
+    atok = _login_token(admin_email, password)
+    ah = {"Authorization": f"Bearer {atok}"}
+
+    rej = client.post(f"/admin/media-items/{mid}/reject", headers=ah)
+    assert rej.status_code == 200
+
+    default_list = client.get("/media-items?limit=100", headers=ah)
+    assert default_list.status_code == 200
+    ids = {row["id"] for row in default_list.json()["items"]}
+    assert mid not in ids
+
+    rejected_list = client.get("/media-items?moderation_status=rejected&limit=100", headers=ah)
+    assert rejected_list.status_code == 200
+    rej_ids = {row["id"] for row in rejected_list.json()["items"]}
+    assert mid in rej_ids

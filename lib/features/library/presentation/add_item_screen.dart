@@ -157,7 +157,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         _selectedType == "audiobook"
             ? const ["mp3", "m4a", "aac", "wav", "ogg"]
             : _selectedType == "video"
-            ? const ["mp4", "mkv", "webm", "mov", "avi"]
+            ? const ["mp4", "mkv", "webm", "mov", "avi", "avl"]
             : const ["txt", "md", "pdf", "epub", "docx"];
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -249,10 +249,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
     if (filename == null) {
       return true;
     }
-    final normalizedMime =
-        (mimeType ?? _inferContentTypeFromName(filename) ?? "")
-            .trim()
-            .toLowerCase();
+    var normalizedMime = (mimeType ?? "").trim().toLowerCase();
+    if (normalizedMime.isEmpty ||
+        normalizedMime == "application/octet-stream" ||
+        normalizedMime == "binary/octet-stream") {
+      normalizedMime =
+          (_inferContentTypeFromName(filename) ?? "").trim().toLowerCase();
+    }
     if (mediaType == "audiobook") {
       return normalizedMime.startsWith("audio/");
     }

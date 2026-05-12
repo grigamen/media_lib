@@ -18,6 +18,16 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     return "application/octet-stream";
   }
 
+  /// Rejected formats are hidden in the grouped work view unless the current
+  /// user owns that media item (they may edit and resubmit).
+  bool _shouldShowVariantInWorkGroup(MediaListItem item) {
+    if (item.moderationStatus != "rejected") {
+      return true;
+    }
+    final uid = widget.currentUserId;
+    return uid != null && item.userId == uid;
+  }
+
   bool _isFileCompatibleWithType({
     required String? filename,
     required String? mimeType,
@@ -26,10 +36,13 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     if (filename == null) {
       return true;
     }
-    final normalizedMime =
-        (mimeType ?? _inferContentTypeFromName(filename) ?? "")
-            .trim()
-            .toLowerCase();
+    var normalizedMime = (mimeType ?? "").trim().toLowerCase();
+    if (normalizedMime.isEmpty ||
+        normalizedMime == "application/octet-stream" ||
+        normalizedMime == "binary/octet-stream") {
+      normalizedMime =
+          (_inferContentTypeFromName(filename) ?? "").trim().toLowerCase();
+    }
     if (mediaType == "audiobook") {
       return normalizedMime.startsWith("audio/");
     }
@@ -74,7 +87,10 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _variants = List<MediaListItem>.from(widget.group.groupItems);
+    _variants =
+        List<MediaListItem>.from(
+          widget.group.groupItems,
+        ).where(_shouldShowVariantInWorkGroup).toList();
     _loadLinkedVariants();
   }
 
@@ -86,7 +102,10 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     final refreshedKnownVariants = <MediaListItem>[];
     for (final variant in _variants) {
       final fresh = await widget.onLoadItemById(variant.id);
-      refreshedKnownVariants.add(fresh ?? variant);
+      final item = fresh ?? variant;
+      if (_shouldShowVariantInWorkGroup(item)) {
+        refreshedKnownVariants.add(item);
+      }
     }
     _variants = refreshedKnownVariants;
 
@@ -105,7 +124,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
         continue;
       }
       final linkedItem = await widget.onLoadItemById(id);
-      if (linkedItem != null) {
+      if (linkedItem != null && _shouldShowVariantInWorkGroup(linkedItem)) {
         _variants.add(linkedItem);
         knownIds.add(linkedItem.id);
       }
@@ -365,6 +384,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                               "webm",
                                               "mov",
                                               "avi",
+                                              "avl",
                                             ]
                                             : const <String>[
                                               "txt",
@@ -486,6 +506,16 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     List<String> selectedGenres = _uniqueGenres([
       ...(sourceItem.genres ?? const <String>[]),
     ]);
+    final inheritedCoverUrl = () {
+      for (final v in widget.group.groupItems) {
+        final u = v.coverUrl?.trim();
+        if (u != null && u.isNotEmpty) {
+          return u;
+        }
+      }
+      return null;
+    }();
+    final hasInheritedCover = inheritedCoverUrl != null;
     MediaUploadPayload? formatCoverUpload;
     MediaUploadPayload? formatMainUpload;
     String? genrePickerValue;
@@ -543,6 +573,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                   title: titleController.text.trim(),
                   author: authorController.text.trim(),
                   genres: selectedGenres.isEmpty ? null : selectedGenres,
+                  coverUrl:
+                      formatCoverUpload == null ? inheritedCoverUrl : null,
                   coverUploadPayload: formatCoverUpload,
                   description: descriptionController.text.trim(),
                   uploadPayload: formatMainUpload,
@@ -687,54 +719,184 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                         ),
                       ],
                       const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed:
-                            isSubmitting
-                                ? null
-                                : () async {
-                                  final result = await FilePicker.platform
-                                      .pickFiles(
-                                        type: FileType.custom,
-                                        allowedExtensions: const [
-                                          "jpg",
-                                          "jpeg",
-                                          "png",
-                                          "webp",
-                                        ],
-                                        withData: kIsWeb,
-                                      );
-                                  if (!context.mounted ||
-                                      result == null ||
-                                      result.files.isEmpty) {
-                                    return;
-                                  }
-                                  final file = result.files.first;
-                                  final mime =
-                                      _inferImageMimeFromFilename(file.name) ??
-                                      "image/jpeg";
-                                  final payload =
-                                      MediaUploadPayload.tryFromPlatformFile(
-                                        file: file,
-                                        contentType: mime,
-                                      );
-                                  if (payload == null) {
-                                    setDialogState(() {
-                                      submitError =
-                                          "Не удалось прочитать файл обложки";
-                                    });
-                                    return;
-                                  }
-                                  setDialogState(() {
-                                    formatCoverUpload = payload;
-                                  });
-                                },
-                        icon: const Icon(Icons.image_outlined),
-                        label: Text(
-                          formatCoverUpload == null
-                              ? "Выбрать обложку"
-                              : "Обложка: ${formatCoverUpload!.filename}",
+                      if (hasInheritedCover && formatCoverUpload == null) ...[
+                        Text(
+                          "Обложка будет такой же, как у текущего произведения.",
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
-                      ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed:
+                                isSubmitting
+                                    ? null
+                                    : () async {
+                                      final result = await FilePicker.platform
+                                          .pickFiles(
+                                            type: FileType.custom,
+                                            allowedExtensions: const [
+                                              "jpg",
+                                              "jpeg",
+                                              "png",
+                                              "webp",
+                                            ],
+                                            withData: kIsWeb,
+                                          );
+                                      if (!context.mounted ||
+                                          result == null ||
+                                          result.files.isEmpty) {
+                                        return;
+                                      }
+                                      final file = result.files.first;
+                                      final mime =
+                                          _inferImageMimeFromFilename(
+                                            file.name,
+                                          ) ??
+                                          "image/jpeg";
+                                      final payload =
+                                          MediaUploadPayload.tryFromPlatformFile(
+                                            file: file,
+                                            contentType: mime,
+                                          );
+                                      if (payload == null) {
+                                        setDialogState(() {
+                                          submitError =
+                                              "Не удалось прочитать файл обложки";
+                                        });
+                                        return;
+                                      }
+                                      setDialogState(() {
+                                        formatCoverUpload = payload;
+                                        submitError = null;
+                                      });
+                                    },
+                            child: const Text("Другая обложка…"),
+                          ),
+                        ),
+                      ] else if (formatCoverUpload != null) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "Обложка: ${formatCoverUpload!.filename}",
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            if (hasInheritedCover)
+                              TextButton(
+                                onPressed:
+                                    isSubmitting
+                                        ? null
+                                        : () {
+                                          setDialogState(() {
+                                            formatCoverUpload = null;
+                                          });
+                                        },
+                                child: const Text("Как у произведения"),
+                              ),
+                          ],
+                        ),
+                        if (!hasInheritedCover) ...[
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed:
+                                  isSubmitting
+                                      ? null
+                                      : () async {
+                                        final result = await FilePicker.platform
+                                            .pickFiles(
+                                              type: FileType.custom,
+                                              allowedExtensions: const [
+                                                "jpg",
+                                                "jpeg",
+                                                "png",
+                                                "webp",
+                                              ],
+                                              withData: kIsWeb,
+                                            );
+                                        if (!context.mounted ||
+                                            result == null ||
+                                            result.files.isEmpty) {
+                                          return;
+                                        }
+                                        final file = result.files.first;
+                                        final mime =
+                                            _inferImageMimeFromFilename(
+                                              file.name,
+                                            ) ??
+                                            "image/jpeg";
+                                        final payload =
+                                            MediaUploadPayload.tryFromPlatformFile(
+                                              file: file,
+                                              contentType: mime,
+                                            );
+                                        if (payload == null) {
+                                          setDialogState(() {
+                                            submitError =
+                                                "Не удалось прочитать файл обложки";
+                                          });
+                                          return;
+                                        }
+                                        setDialogState(() {
+                                          formatCoverUpload = payload;
+                                          submitError = null;
+                                        });
+                                      },
+                              icon: const Icon(Icons.image_outlined, size: 20),
+                              label: const Text("Сменить файл"),
+                            ),
+                          ),
+                        ],
+                      ] else ...[
+                        OutlinedButton.icon(
+                          onPressed:
+                              isSubmitting
+                                  ? null
+                                  : () async {
+                                    final result = await FilePicker.platform
+                                        .pickFiles(
+                                          type: FileType.custom,
+                                          allowedExtensions: const [
+                                            "jpg",
+                                            "jpeg",
+                                            "png",
+                                            "webp",
+                                          ],
+                                          withData: kIsWeb,
+                                        );
+                                    if (!context.mounted ||
+                                        result == null ||
+                                        result.files.isEmpty) {
+                                      return;
+                                    }
+                                    final file = result.files.first;
+                                    final mime =
+                                        _inferImageMimeFromFilename(
+                                          file.name,
+                                        ) ??
+                                        "image/jpeg";
+                                    final payload =
+                                        MediaUploadPayload.tryFromPlatformFile(
+                                          file: file,
+                                          contentType: mime,
+                                        );
+                                    if (payload == null) {
+                                      setDialogState(() {
+                                        submitError =
+                                            "Не удалось прочитать файл обложки";
+                                      });
+                                      return;
+                                    }
+                                    setDialogState(() {
+                                      formatCoverUpload = payload;
+                                    });
+                                  },
+                          icon: const Icon(Icons.image_outlined),
+                          label: const Text("Выбрать обложку (опционально)"),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: descriptionController,
@@ -770,6 +932,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                               "webm",
                                               "mov",
                                               "avi",
+                                              "avl",
                                             ]
                                             : const <String>[
                                               "txt",
@@ -860,294 +1023,339 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     });
   }
 
+  Widget _workDetailsHeader(BuildContext context, String title) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, right: 8),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: "Назад",
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            Expanded(child: Text(title, style: theme.textTheme.headlineSmall)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = widget.group.displayTitle;
     if (_variants.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          title: Text(title),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _workDetailsHeader(context, title),
+            const Expanded(
+              child: Center(child: Text("Нет доступных форм произведения")),
+            ),
+          ],
         ),
-        body: const Center(child: Text("Нет доступных форм произведения")),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(title),
-      ),
-      body: DefaultTabController(
-        length: _variants.length,
-        child: Builder(
-          builder: (context) {
-            final tabController = DefaultTabController.of(context);
-            return AnimatedBuilder(
-              animation: tabController,
-              builder: (context, child) {
-                final selectedIndex = tabController.index.clamp(
-                  0,
-                  _variants.length - 1,
-                );
-                final activeItem = _variants[selectedIndex];
-                final activeAuthor =
-                    activeItem.author?.trim().isNotEmpty == true
-                        ? activeItem.author!.trim()
-                        : "Не указан";
-                final activeGenres = _uniqueGenres([...?activeItem.genres]);
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _workDetailsHeader(context, title),
+          Expanded(
+            child: DefaultTabController(
+              length: _variants.length,
+              child: Builder(
+                builder: (context) {
+                  final tabController = DefaultTabController.of(context);
+                  return AnimatedBuilder(
+                    animation: tabController,
+                    builder: (context, child) {
+                      final selectedIndex = tabController.index.clamp(
+                        0,
+                        _variants.length - 1,
+                      );
+                      final activeItem = _variants[selectedIndex];
+                      final activeAuthor =
+                          activeItem.author?.trim().isNotEmpty == true
+                              ? activeItem.author!.trim()
+                              : "Не указан";
+                      final activeGenres = _uniqueGenres([
+                        ...?activeItem.genres,
+                      ]);
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Row(
+                      return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              height: 160,
-                              width: 110,
-                              child:
-                                  activeItem.coverUrl?.isNotEmpty == true
-                                      ? Image.network(
-                                        activeItem.coverUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (_, __, ___) => Container(
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SizedBox(
+                                    height: 160,
+                                    width: 110,
+                                    child:
+                                        activeItem.coverUrl?.isNotEmpty == true
+                                            ? Image.network(
+                                              activeItem.coverUrl!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (_, __, ___) => Container(
+                                                    color: Colors.black12,
+                                                    child: const Center(
+                                                      child: Icon(
+                                                        Icons
+                                                            .broken_image_outlined,
+                                                      ),
+                                                    ),
+                                                  ),
+                                            )
+                                            : Container(
                                               color: Colors.black12,
                                               child: const Center(
                                                 child: Icon(
-                                                  Icons.broken_image_outlined,
+                                                  Icons
+                                                      .image_not_supported_outlined,
                                                 ),
                                               ),
                                             ),
-                                      )
-                                      : Container(
-                                        color: Colors.black12,
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.image_not_supported_outlined,
-                                          ),
-                                        ),
-                                      ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  activeItem.title,
-                                  style:
-                                      Theme.of(context).textTheme.headlineSmall,
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(activeAuthor),
-                                if (activeGenres.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: activeGenres
-                                        .map(
-                                          (genre) => Chip(label: Text(genre)),
-                                        )
-                                        .toList(growable: false),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        activeItem.title,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.headlineSmall,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(activeAuthor),
+                                      if (activeGenres.isNotEmpty) ...[
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: activeGenres
+                                              .map(
+                                                (genre) =>
+                                                    Chip(label: Text(genre)),
+                                              )
+                                              .toList(growable: false),
+                                        ),
+                                      ],
+                                      if (_isLoadingLinked) ...[
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          "Загружаем связанные формы произведения...",
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                                ],
-                                if (_isLoadingLinked) ...[
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    "Загружаем связанные формы произведения...",
-                                  ),
-                                ],
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    TabBar(
-                      isScrollable: true,
-                      tabs: _variants
-                          .map((item) => Tab(text: _labelForType(item.type)))
-                          .toList(growable: false),
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: _variants
-                            .map(
-                              (item) => ListView(
-                                key: ValueKey<String>(item.id),
-                                padding: const EdgeInsets.all(16),
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(12),
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.surfaceContainerLow,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "Описание",
-                                            style:
-                                                Theme.of(
-                                                  context,
-                                                ).textTheme.labelLarge,
+                          TabBar(
+                            isScrollable: true,
+                            tabs: _variants
+                                .map(
+                                  (item) => Tab(text: _labelForType(item.type)),
+                                )
+                                .toList(growable: false),
+                          ),
+                          Expanded(
+                            child: TabBarView(
+                              children: _variants
+                                  .map(
+                                    (item) => ListView(
+                                      key: ValueKey<String>(item.id),
+                                      padding: const EdgeInsets.all(16),
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            item.description?.isNotEmpty == true
-                                                ? item.description!
-                                                : "Описание отсутствует",
+                                          child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.all(12),
+                                            color:
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .surfaceContainerLow,
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  "Описание",
+                                                  style:
+                                                      Theme.of(
+                                                        context,
+                                                      ).textTheme.labelLarge,
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  item
+                                                              .description
+                                                              ?.isNotEmpty ==
+                                                          true
+                                                      ? item.description!
+                                                      : "Описание отсутствует",
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        if (widget.currentUserId != null &&
+                                            item.userId ==
+                                                widget.currentUserId &&
+                                            !item.id.startsWith("demo-")) ...[
+                                          const SizedBox(height: 16),
+                                          OutlinedButton.icon(
+                                            onPressed: () {
+                                              setState(() {
+                                                if (_ownerMainFileSectionOpen
+                                                    .contains(item.id)) {
+                                                  _ownerMainFileSectionOpen
+                                                      .remove(item.id);
+                                                } else {
+                                                  _ownerMainFileSectionOpen.add(
+                                                    item.id,
+                                                  );
+                                                }
+                                              });
+                                            },
+                                            icon: Icon(
+                                              _ownerMainFileSectionOpen
+                                                      .contains(item.id)
+                                                  ? Icons.expand_less
+                                                  : Icons.folder_open_outlined,
+                                            ),
+                                            label: Text(
+                                              _ownerMainFileSectionOpen
+                                                      .contains(item.id)
+                                                  ? "Скрыть основной файл контента"
+                                                  : "Основной файл контента",
+                                            ),
+                                          ),
+                                          if (_ownerMainFileSectionOpen
+                                              .contains(item.id)) ...[
+                                            const SizedBox(height: 12),
+                                            _OwnerMainMediaFileCard(
+                                              item: item,
+                                              onFetchFiles:
+                                                  widget.onFetchMediaFiles,
+                                              onBindFile:
+                                                  widget.onBindMainMediaFile,
+                                              onUploadAndBind:
+                                                  widget
+                                                      .onUploadAndBindMainMediaFile,
+                                              onVariantRefreshed:
+                                                  () =>
+                                                      _refreshVariant(item.id),
+                                              fallbackContentType:
+                                                  _fallbackContentType,
+                                              inferContentTypeFromName:
+                                                  _inferContentTypeFromName,
+                                              isFileCompatibleWithType:
+                                                  _isFileCompatibleWithType,
+                                            ),
+                                          ],
+                                        ],
+                                        if (item.type == "book") ...[
+                                          const SizedBox(height: 16),
+                                          _BookContentPanel(
+                                            item: item,
+                                            onLoadBookContent:
+                                                widget.onLoadBookContent,
                                           ),
                                         ],
-                                      ),
-                                    ),
-                                  ),
-                                  if (widget.currentUserId != null &&
-                                      item.userId == widget.currentUserId &&
-                                      !item.id.startsWith("demo-")) ...[
-                                    const SizedBox(height: 16),
-                                    OutlinedButton.icon(
-                                      onPressed: () {
-                                        setState(() {
-                                          if (_ownerMainFileSectionOpen
-                                              .contains(item.id)) {
-                                            _ownerMainFileSectionOpen.remove(
-                                              item.id,
-                                            );
-                                          } else {
-                                            _ownerMainFileSectionOpen.add(
-                                              item.id,
-                                            );
-                                          }
-                                        });
-                                      },
-                                      icon: Icon(
-                                        _ownerMainFileSectionOpen.contains(
-                                              item.id,
-                                            )
-                                            ? Icons.expand_less
-                                            : Icons.folder_open_outlined,
-                                      ),
-                                      label: Text(
-                                        _ownerMainFileSectionOpen.contains(
-                                              item.id,
-                                            )
-                                            ? "Скрыть основной файл контента"
-                                            : "Основной файл контента",
-                                      ),
-                                    ),
-                                    if (_ownerMainFileSectionOpen.contains(
-                                      item.id,
-                                    )) ...[
-                                      const SizedBox(height: 12),
-                                      _OwnerMainMediaFileCard(
-                                        item: item,
-                                        onFetchFiles: widget.onFetchMediaFiles,
-                                        onBindFile: widget.onBindMainMediaFile,
-                                        onUploadAndBind:
-                                            widget.onUploadAndBindMainMediaFile,
-                                        onVariantRefreshed:
-                                            () => _refreshVariant(item.id),
-                                        fallbackContentType:
-                                            _fallbackContentType,
-                                        inferContentTypeFromName:
-                                            _inferContentTypeFromName,
-                                        isFileCompatibleWithType:
-                                            _isFileCompatibleWithType,
-                                      ),
-                                    ],
-                                  ],
-                                  if (item.type == "book") ...[
-                                    const SizedBox(height: 16),
-                                    _BookContentPanel(
-                                      item: item,
-                                      onLoadBookContent:
-                                          widget.onLoadBookContent,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      if (widget.currentUserId != null &&
-                                          item.userId == widget.currentUserId)
-                                        OutlinedButton.icon(
-                                          onPressed:
-                                              () =>
-                                                  _showEditVariantDialog(item),
-                                          icon: const Icon(Icons.edit),
-                                          label: const Text("Редактировать"),
+                                        const SizedBox(height: 12),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            if (widget.currentUserId != null &&
+                                                item.userId ==
+                                                    widget.currentUserId)
+                                              OutlinedButton.icon(
+                                                onPressed:
+                                                    () =>
+                                                        _showEditVariantDialog(
+                                                          item,
+                                                        ),
+                                                icon: const Icon(Icons.edit),
+                                                label: const Text(
+                                                  "Редактировать",
+                                                ),
+                                              ),
+                                            FilledButton.icon(
+                                              onPressed: _showAddFormatDialog,
+                                              icon: const Icon(
+                                                Icons.add_circle_outline,
+                                              ),
+                                              label: const Text(
+                                                "Добавить формат",
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      FilledButton.icon(
-                                        onPressed: _showAddFormatDialog,
-                                        icon: const Icon(
-                                          Icons.add_circle_outline,
-                                        ),
-                                        label: const Text("Добавить формат"),
-                                      ),
-                                    ],
-                                  ),
-                                  if (item.type == "audiobook" ||
-                                      item.type == "video") ...[
-                                    const SizedBox(height: 16),
-                                    _PlayableMediaPanel(
-                                      item: item,
-                                      onBeginPlaybackSession:
-                                          widget.onBeginPlaybackSession,
-                                      onPlaybackProgressChanged:
-                                          widget.onPlaybackProgressChanged,
-                                      onPausePlaybackSession:
-                                          widget.onPausePlaybackSession,
-                                      onCompletePlaybackSession:
-                                          widget.onCompletePlaybackSession,
-                                      onFlushPlaybackSession:
-                                          widget.onFlushPlaybackSession,
-                                      onEndPlaybackSession:
-                                          widget.onEndPlaybackSession,
-                                      playbackSpeed: widget.playbackSpeed,
-                                      onSetPlaybackSpeed:
-                                          widget.onSetPlaybackSpeed,
-                                      pendingPlaybackSync:
-                                          widget.pendingPlaybackSync,
-                                      onFetchPlaybackStreamUrl:
-                                          widget.onFetchPlaybackStreamUrl,
-                                      playbackError: widget.playbackError,
+                                        if (item.type == "audiobook" ||
+                                            item.type == "video") ...[
+                                          const SizedBox(height: 16),
+                                          _PlayableMediaPanel(
+                                            item: item,
+                                            onBeginPlaybackSession:
+                                                widget.onBeginPlaybackSession,
+                                            onPlaybackProgressChanged:
+                                                widget
+                                                    .onPlaybackProgressChanged,
+                                            onPausePlaybackSession:
+                                                widget.onPausePlaybackSession,
+                                            onCompletePlaybackSession:
+                                                widget
+                                                    .onCompletePlaybackSession,
+                                            onFlushPlaybackSession:
+                                                widget.onFlushPlaybackSession,
+                                            onEndPlaybackSession:
+                                                widget.onEndPlaybackSession,
+                                            playbackSpeed: widget.playbackSpeed,
+                                            onSetPlaybackSpeed:
+                                                widget.onSetPlaybackSpeed,
+                                            pendingPlaybackSync:
+                                                widget.pendingPlaybackSync,
+                                            onFetchPlaybackStreamUrl:
+                                                widget.onFetchPlaybackStreamUrl,
+                                            playbackError: widget.playbackError,
+                                          ),
+                                        ],
+                                      ],
                                     ),
-                                  ],
-                                ],
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        ),
+                                  )
+                                  .toList(growable: false),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
