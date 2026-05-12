@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 
 import "../features/admin/presentation/admin_media_screen.dart";
 import "../features/auth/presentation/auth_screen.dart";
@@ -254,13 +255,21 @@ class _AuthRoute extends StatelessWidget {
   }
 }
 
-class _HomeShell extends StatelessWidget {
+class _HomeShell extends StatefulWidget {
   const _HomeShell({required this.state});
 
   final AppState state;
 
   @override
+  State<_HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<_HomeShell> {
+  DateTime? _lastExitBackPress;
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     Future<void> openItemFromHome(MediaListItem item) {
       return _pushMediaItemDetailsPage(
         context,
@@ -359,13 +368,13 @@ class _HomeShell extends StatelessWidget {
       AddItemScreen(
         onAddItem:
             ({
-              required String type,
-              required String title,
-              String? author,
-              String? coverUrl,
-              List<String>? genres,
-              MediaUploadPayload? coverUploadPayload,
-              MediaUploadPayload? uploadPayload,
+              required type,
+              required title,
+              author,
+              coverUrl,
+              genres,
+              coverUploadPayload,
+              uploadPayload,
             }) => state.createMediaItem(
               type: type,
               title: title,
@@ -400,22 +409,20 @@ class _HomeShell extends StatelessWidget {
         onLogout: state.logout,
         onUpdateProfile:
             ({
-              required String displayName,
-              String? newEmail,
-              String? currentPasswordForEmail,
+              required displayName,
+              newEmail,
+              currentPasswordForEmail,
             }) => state.updateUserProfile(
               displayName: displayName,
               newEmail: newEmail,
               currentPasswordForEmail: currentPasswordForEmail,
             ),
         onChangePassword:
-            ({
-              required String currentPassword,
-              required String newPassword,
-            }) => state.changeUserPassword(
-              currentPassword: currentPassword,
-              newPassword: newPassword,
-            ),
+            ({required currentPassword, required newPassword}) =>
+                state.changeUserPassword(
+                  currentPassword: currentPassword,
+                  newPassword: newPassword,
+                ),
         onOpenAdminMedia:
             state.isAdminUser
                 ? () {
@@ -435,37 +442,78 @@ class _HomeShell extends StatelessWidget {
       _ => 1,
     };
 
-    return Scaffold(
-      body: pages[state.selectedTab],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedNavIndex,
-        onDestinationSelected: (index) {
-          switch (index) {
-            case 0:
-              state.setSelectedTab(0);
-            case 1:
-              state.setSelectedTab(1);
-            case 2:
-              state.setSelectedTab(4);
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: "Главная",
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        if (!mounted) {
+          return;
+        }
+        final nav = Navigator.of(context);
+        if (nav.canPop()) {
+          nav.pop();
+          return;
+        }
+        final tab = state.selectedTab;
+        if (tab == 2 || tab == 3) {
+          state.setSelectedTab(1);
+          return;
+        }
+        if (tab == 4) {
+          state.setSelectedTab(1);
+          return;
+        }
+        final now = DateTime.now();
+        if (_lastExitBackPress != null &&
+            now.difference(_lastExitBackPress!) <
+                const Duration(seconds: 2)) {
+          _lastExitBackPress = null;
+          SystemNavigator.pop();
+          return;
+        }
+        _lastExitBackPress = now;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Нажмите «Назад» ещё раз, чтобы выйти"),
+            duration: Duration(seconds: 2),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.video_library_outlined),
-            selectedIcon: Icon(Icons.video_library),
-            label: "Библиотека",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: "Профиль",
-          ),
-        ],
+        );
+      },
+      child: Scaffold(
+        body: pages[state.selectedTab],
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: selectedNavIndex,
+          onDestinationSelected: (index) {
+            _lastExitBackPress = null;
+            switch (index) {
+              case 0:
+                state.setSelectedTab(0);
+              case 1:
+                state.setSelectedTab(1);
+              case 2:
+                state.setSelectedTab(4);
+            }
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: "Главная",
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.video_library_outlined),
+              selectedIcon: Icon(Icons.video_library),
+              label: "Библиотека",
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: "Профиль",
+            ),
+          ],
+        ),
       ),
     );
   }
