@@ -233,13 +233,17 @@ class MediaUploadPayload {
     required String mediaItemType,
   }) {
     final inferred = inferMainFileContentTypeFromFilename(filename);
+    // OS MIME is often wrong or not in the API allowlist (e.g. video/avi,
+    // application/octet-stream). Prefer extension-based type when known.
+    if (inferred != null && inferred.isNotEmpty) {
+      return inferred;
+    }
     final d = declaredContentType.trim();
     final low = d.toLowerCase();
     if (low.isEmpty ||
         low == "application/octet-stream" ||
         low == "binary/octet-stream") {
-      return inferred ??
-          _fallbackMainFileContentTypeForMediaKind(mediaItemType);
+      return _fallbackMainFileContentTypeForMediaKind(mediaItemType);
     }
     return d;
   }
