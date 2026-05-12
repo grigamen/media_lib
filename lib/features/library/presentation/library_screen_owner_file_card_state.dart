@@ -50,9 +50,8 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
     if (_busy) {
       return;
     }
-    final result = await FilePicker.platform.pickFiles(
-      withData: kIsWeb,
-      type: FileType.custom,
+    final result = await pickMediaFileForUpload(
+      context: context,
       allowedExtensions: const [
         "mp3",
         "m4a",

@@ -4,6 +4,7 @@ import "package:flutter/material.dart";
 
 import "../data/library_repository.dart";
 import "../../../app/app_state.dart";
+import "../../../core/files/media_upload_file_pick.dart";
 import "../../../core/network/api_client.dart";
 
 List<String> _uniqueGenres(Iterable<String> genres) {
@@ -160,10 +161,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
             ? const ["mp4", "mkv", "webm", "mov", "avi", "avl"]
             : const ["txt", "md", "pdf", "epub", "docx"];
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
+      final result = await pickMediaFileForUpload(
+        context: context,
         allowedExtensions: allowedExtensions,
-        withData: kIsWeb,
       );
       if (!mounted || result == null || result.files.isEmpty) {
         return;

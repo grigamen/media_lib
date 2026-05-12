@@ -7,6 +7,7 @@ import "package:just_audio/just_audio.dart";
 import "package:video_player/video_player.dart";
 
 import "../../../app/app_state.dart";
+import "../../../core/files/media_upload_file_pick.dart";
 import "../../../core/network/api_client.dart";
 import "../data/library_repository.dart";
 

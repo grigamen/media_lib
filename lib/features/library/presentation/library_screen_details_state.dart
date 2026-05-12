@@ -393,12 +393,10 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                               "epub",
                                               "docx",
                                             ];
-                                    final result = await FilePicker.platform
-                                        .pickFiles(
-                                          type: FileType.custom,
-                                          allowedExtensions: allowedExtensions,
-                                          withData: kIsWeb,
-                                        );
+                                    final result = await pickMediaFileForUpload(
+                                      context: context,
+                                      allowedExtensions: allowedExtensions,
+                                    );
                                     if (!context.mounted ||
                                         result == null ||
                                         result.files.isEmpty) {
@@ -941,12 +939,10 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                               "epub",
                                               "docx",
                                             ];
-                                    final result = await FilePicker.platform
-                                        .pickFiles(
-                                          type: FileType.custom,
-                                          allowedExtensions: allowedExtensions,
-                                          withData: kIsWeb,
-                                        );
+                                    final result = await pickMediaFileForUpload(
+                                      context: context,
+                                      allowedExtensions: allowedExtensions,
+                                    );
                                     if (!context.mounted ||
                                         result == null ||
                                         result.files.isEmpty) {
