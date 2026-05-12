@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     S3_BUCKET: str = "medialib-dev"
     S3_REGION: str = "us-east-1"
     S3_ENDPOINT_URL: str | None = None
+    #: Для presigned GET/PUT: базовый URL, с которого клиенты (телефоны) достучатся до S3/MinIO.
+    #: Если не задан, используется S3_ENDPOINT_URL (на ВМ с MinIO на localhost телефоны не откроют файл).
+    S3_PUBLIC_ENDPOINT_URL: str | None = None
     AWS_ACCESS_KEY_ID: str = "test-access-key"
     AWS_SECRET_ACCESS_KEY: str = "test-secret-key"
     S3_PRESIGNED_EXPIRES_SEC: int = 900

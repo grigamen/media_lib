@@ -577,12 +577,19 @@ class LibraryRepository {
       accessToken: accessToken,
     );
     final streamInfo = MediaStreamInfo.fromJson(response);
-    final normalizedStreamUrl =
-        _normalizeStreamUri(streamInfo.streamUrl).toString();
+    final normalizedUri = _normalizeStreamUri(streamInfo.streamUrl);
+    if (!_isLocalDevApiBase &&
+        _streamHostIsUnreachableFromMobileClients(normalizedUri.host)) {
+      throw ApiException(
+        "Сервер отдал ссылку на хранилище (${normalizedUri.host}) — с телефона до неё не достучаться. "
+        "Укажите в backend переменную S3_PUBLIC_ENDPOINT_URL (публичный URL MinIO/S3, как для браузера) "
+        "и перезапустите API.",
+      );
+    }
     return MediaStreamInfo(
       fileId: streamInfo.fileId,
       mediaItemId: streamInfo.mediaItemId,
-      streamUrl: normalizedStreamUrl,
+      streamUrl: normalizedUri.toString(),
       expiresInSec: streamInfo.expiresInSec,
     );
   }
@@ -690,10 +697,30 @@ class LibraryRepository {
     if (!Platform.isAndroid) {
       return false;
     }
+    return _isLocalDevApiBase;
+  }
+
+  /// API ходит на машину разработчика (эмулятор / симулятор), а не на облако или LAN-only сервер.
+  bool get _isLocalDevApiBase {
     final base = AppConfig.apiBaseUrl.trim().toLowerCase();
     return base.contains("10.0.2.2") ||
         base.contains("127.0.0.1") ||
         base.contains("localhost");
+  }
+
+  bool _streamHostIsUnreachableFromMobileClients(String host) {
+    final h = host.toLowerCase();
+    if (h == "localhost" ||
+        h == "127.0.0.1" ||
+        h == "0.0.0.0" ||
+        h == "minio" ||
+        h == "host.docker.internal") {
+      return true;
+    }
+    if (h.endsWith(".localhost") || h.endsWith(".127.0.0.1")) {
+      return true;
+    }
+    return false;
   }
 
   Uri _normalizeUploadUri(String uploadUrl) {

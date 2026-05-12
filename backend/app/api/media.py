@@ -135,11 +135,23 @@ def _build_storage_key(current_user: User, media_item_id: UUID, filename: str) -
     return f"{current_user.id}/{media_item_id}/{uuid4().hex}_{safe_filename}"
 
 
-def _build_s3_client():
+def _build_s3_client_internal():
     return boto3.client(
         "s3",
         region_name=settings.S3_REGION,
         endpoint_url=settings.S3_ENDPOINT_URL,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+    )
+
+
+def _build_s3_client_presign():
+    endpoint = settings.S3_PUBLIC_ENDPOINT_URL or settings.S3_ENDPOINT_URL
+    return boto3.client(
+        "s3",
+        region_name=settings.S3_REGION,
+        endpoint_url=endpoint,
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
@@ -506,9 +518,10 @@ def initiate_file_upload(
     db.commit()
     db.refresh(media_file)
 
-    s3_client = _build_s3_client()
-    _ensure_bucket_exists(s3_client)
-    upload_url = s3_client.generate_presigned_url(
+    s3_internal = _build_s3_client_internal()
+    _ensure_bucket_exists(s3_internal)
+    s3_presign = _build_s3_client_presign()
+    upload_url = s3_presign.generate_presigned_url(
         ClientMethod="put_object",
         Params={
             "Bucket": settings.S3_BUCKET,
@@ -579,9 +592,10 @@ def get_stream_url(
     if media_file.upload_status != "ready":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="File upload is not completed")
 
-    s3_client = _build_s3_client()
-    _ensure_bucket_exists(s3_client)
-    stream_url = s3_client.generate_presigned_url(
+    s3_internal = _build_s3_client_internal()
+    _ensure_bucket_exists(s3_internal)
+    s3_presign = _build_s3_client_presign()
+    stream_url = s3_presign.generate_presigned_url(
         ClientMethod="get_object",
         Params={
             "Bucket": media_file.storage_bucket,
