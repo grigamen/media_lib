@@ -98,11 +98,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
               children: [
                 _LibraryControls(
                   searchController: _searchController,
-                  typeFilter: widget.typeFilter,
+                  searchQuery: widget.searchQuery,
+                  selectedTypes: widget.selectedTypes,
                   selectedGenres: widget.selectedGenres,
-                  availableGenres: widget.availableGenres,
-                  onApplyFilters: widget.onApplyFilters,
-                  onSearchPressed: widget.onOpenSearchTab,
+                  onSetLibraryFilters: widget.onSetLibraryFilters,
+                  onSearchFieldTap: widget.onOpenSearchTab,
                 ),
                 const SizedBox(height: 64),
                 Center(
@@ -126,11 +126,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
               children: [
                 _LibraryControls(
                   searchController: _searchController,
-                  typeFilter: widget.typeFilter,
+                  searchQuery: widget.searchQuery,
+                  selectedTypes: widget.selectedTypes,
                   selectedGenres: widget.selectedGenres,
-                  availableGenres: widget.availableGenres,
-                  onApplyFilters: widget.onApplyFilters,
-                  onSearchPressed: widget.onOpenSearchTab,
+                  onSetLibraryFilters: widget.onSetLibraryFilters,
+                  onSearchFieldTap: widget.onOpenSearchTab,
                 ),
                 const SizedBox(height: 64),
                 Center(
@@ -149,11 +149,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
             children: [
               _LibraryControls(
                 searchController: _searchController,
-                typeFilter: widget.typeFilter,
+                searchQuery: widget.searchQuery,
+                selectedTypes: widget.selectedTypes,
                 selectedGenres: widget.selectedGenres,
-                availableGenres: widget.availableGenres,
-                onApplyFilters: widget.onApplyFilters,
-                onSearchPressed: widget.onOpenSearchTab,
+                onSetLibraryFilters: widget.onSetLibraryFilters,
+                onSearchFieldTap: widget.onOpenSearchTab,
               ),
               if (widget.usingDemoItems) ...[
                 const SizedBox(height: 8),

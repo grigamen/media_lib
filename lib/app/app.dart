@@ -283,12 +283,12 @@ class _HomeShell extends StatelessWidget {
         errorMessage: state.libraryError,
         onRefresh: state.fetchLibrary,
         searchQuery: state.searchQuery,
-        typeFilter: state.libraryTypeFilterChip,
+        selectedTypes: state.selectedTypes,
         selectedGenres: state.selectedGenres,
-        onApplyFilters:
-            (searchQuery, typeFilter, genres) => state.applyLibraryFilters(
-              searchQuery: searchQuery,
-              selectedTypes: typeFilter == null ? [] : [typeFilter],
+        onSetLibraryFilters:
+            (query, types, genres) => state.applyLibraryFilters(
+              searchQuery: query,
+              selectedTypes: types,
               selectedGenres: genres,
             ),
         availableGenres: state.availableGenres,

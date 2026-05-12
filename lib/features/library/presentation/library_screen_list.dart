@@ -1,214 +1,118 @@
 part of 'library_screen.dart';
 
-List<String> _genresAfterToggling(List<String> genres, String genre) {
-  final g = genre.trim();
-  if (g.isEmpty) {
-    return genres;
+String _libraryMediaTypeLabel(String key) {
+  switch (key) {
+    case "book":
+      return "Книги";
+    case "audiobook":
+      return "Аудиокниги";
+    case "video":
+      return "Видео";
+    default:
+      return key;
   }
-  final lower = g.toLowerCase();
-  final has = genres.any((existing) => existing.toLowerCase() == lower);
-  if (has) {
-    return genres
-        .where((existing) => existing.toLowerCase() != lower)
-        .toList(growable: false);
-  }
-  return [...genres, g];
 }
 
-bool _genreChipSelected(List<String> selected, String genre) {
-  final lower = genre.trim().toLowerCase();
-  return selected.any((g) => g.toLowerCase() == lower);
+String _truncateForChip(String value, int maxLen) {
+  final t = value.trim();
+  if (t.length <= maxLen) {
+    return t;
+  }
+  return "${t.substring(0, maxLen)}…";
 }
 
 class _LibraryControls extends StatelessWidget {
   const _LibraryControls({
     required this.searchController,
-    required this.typeFilter,
+    required this.searchQuery,
+    required this.selectedTypes,
     required this.selectedGenres,
-    required this.availableGenres,
-    required this.onApplyFilters,
-    required this.onSearchPressed,
+    required this.onSetLibraryFilters,
+    required this.onSearchFieldTap,
   });
 
   final TextEditingController searchController;
-  final String? typeFilter;
+  final String searchQuery;
+  final List<String> selectedTypes;
   final List<String> selectedGenres;
-  final List<String> availableGenres;
   final Future<void> Function(
     String searchQuery,
-    String? typeFilter,
+    List<String> selectedTypes,
     List<String> selectedGenres,
   )
-  onApplyFilters;
-  final VoidCallback onSearchPressed;
+  onSetLibraryFilters;
+  final VoidCallback onSearchFieldTap;
 
   @override
   Widget build(BuildContext context) {
-    final selectedType = typeFilter ?? "all";
+    final q = searchQuery.trim();
+    final hasActiveFilters =
+        q.isNotEmpty || selectedTypes.isNotEmpty || selectedGenres.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                "Библиотека",
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-            ),
-            IconButton(
-              onPressed: onSearchPressed,
-              icon: const Icon(Icons.search),
-            ),
-          ],
+        Text(
+          "Библиотека",
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 10),
         TextField(
           controller: searchController,
-          onSubmitted:
-              (_) => onApplyFilters(
-                searchController.text.trim(),
-                typeFilter,
-                selectedGenres,
-              ),
-          decoration: InputDecoration(
-            hintText: "Поиск в библиотеке...",
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: IconButton(
-              onPressed:
-                  () => onApplyFilters(
-                    searchController.text.trim(),
-                    typeFilter,
-                    selectedGenres,
-                  ),
-              icon: const Icon(Icons.filter_alt_outlined),
-            ),
+          readOnly: true,
+          enableInteractiveSelection: false,
+          onTap: onSearchFieldTap,
+          decoration: const InputDecoration(
+            hintText: "Поиск и фильтры…",
+            prefixIcon: Icon(Icons.search),
           ),
         ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
+        if (hasActiveFilters) ...[
+          const SizedBox(height: 12),
+          Text(
+            "Активные фильтры",
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _FilterChip(
-                label: "Все",
-                selected: selectedType == "all",
-                onTap:
-                    () => onApplyFilters(
-                      searchController.text.trim(),
-                      null,
-                      selectedGenres,
-                    ),
-              ),
-              _FilterChip(
-                label: "Книги",
-                selected: selectedType == "book",
-                onTap:
-                    () => onApplyFilters(
-                      searchController.text.trim(),
-                      "book",
-                      selectedGenres,
-                    ),
-              ),
-              _FilterChip(
-                label: "Аудиокниги",
-                selected: selectedType == "audiobook",
-                onTap:
-                    () => onApplyFilters(
-                      searchController.text.trim(),
-                      "audiobook",
-                      selectedGenres,
-                    ),
-              ),
-              _FilterChip(
-                label: "Видео",
-                selected: selectedType == "video",
-                onTap:
-                    () => onApplyFilters(
-                      searchController.text.trim(),
-                      "video",
-                      selectedGenres,
-                    ),
-              ),
+              if (q.isNotEmpty)
+                InputChip(
+                  label: Text(
+                    "Запрос: «${_truncateForChip(q, 28)}»",
+                  ),
+                  onDeleted: () {
+                    unawaited(
+                      onSetLibraryFilters("", selectedTypes, selectedGenres),
+                    );
+                  },
+                ),
+              for (final typeKey in selectedTypes)
+                InputChip(
+                  label: Text(_libraryMediaTypeLabel(typeKey)),
+                  onDeleted: () {
+                    final next = selectedTypes
+                        .where((t) => t != typeKey)
+                        .toList(growable: false);
+                    unawaited(onSetLibraryFilters(q, next, selectedGenres));
+                  },
+                ),
+              for (final genre in selectedGenres)
+                InputChip(
+                  label: Text(genre),
+                  onDeleted: () {
+                    final lower = genre.toLowerCase();
+                    final next = selectedGenres
+                        .where((g) => g.toLowerCase() != lower)
+                        .toList(growable: false);
+                    unawaited(onSetLibraryFilters(q, selectedTypes, next));
+                  },
+                ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        Text("Жанры", style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 4),
-        Text(
-          selectedGenres.isEmpty
-              ? "Не выбрано — любые. Нажмите несколько или откройте расширенный поиск."
-              : "Показываются произведения с любым из выбранных жанров.",
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (availableGenres.isEmpty)
-          Text(
-            "Список жанров подгружается вместе с каталогом. Потяните вниз для обновления.",
-            style: Theme.of(context).textTheme.bodySmall,
-          )
-        else
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final genre in availableGenres)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(genre),
-                      selected: _genreChipSelected(selectedGenres, genre),
-                      onSelected: (_) {
-                        final next = _genresAfterToggling(selectedGenres, genre);
-                        unawaited(
-                          onApplyFilters(
-                            searchController.text.trim(),
-                            typeFilter,
-                            next,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: onSearchPressed,
-            icon: const Icon(Icons.tune, size: 20),
-            label: const Text("Расширенный поиск и виды"),
-          ),
-        ),
+        ],
       ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
-      ),
     );
   }
 }
