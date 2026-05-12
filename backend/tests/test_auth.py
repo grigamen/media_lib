@@ -33,6 +33,8 @@ def test_register_and_login_success() -> None:
     assert data["requires_2fa"] is False
     assert data["access_token"]
     assert data["refresh_token"]
+    assert data["email"] == email
+    assert data["display_name"] == "Tester"
 
 
 def test_login_wrong_password_returns_401() -> None:
@@ -110,3 +112,92 @@ def test_2fa_setup_and_verify_success() -> None:
     verify_data = verify_res.json()
     assert verify_data["access_token"]
     assert verify_data["refresh_token"]
+    assert verify_data["email"] == email
+    assert verify_data["display_name"] == "Tester"
+
+
+def test_me_get_and_patch_display_name() -> None:
+    email = _email("me_user")
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": "Test123!",
+            "display_name": "Ann",
+        },
+    )
+    login_res = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+    token = login_res.json()["access_token"]
+
+    me_res = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me_res.status_code == 200
+    assert me_res.json()["display_name"] == "Ann"
+
+    patch_res = client.patch(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"display_name": "Anna"},
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["display_name"] == "Anna"
+
+
+def test_me_patch_email_requires_password() -> None:
+    email = _email("email_change")
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": "Test123!",
+            "display_name": "U",
+        },
+    )
+    login_res = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+    token = login_res.json()["access_token"]
+    new_email = _email("email_new")
+
+    bad = client.patch(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"email": new_email},
+    )
+    assert bad.status_code == 401
+
+    ok = client.patch(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "display_name": "U",
+            "email": new_email,
+            "current_password": "Test123!",
+        },
+    )
+    assert ok.status_code == 200
+    assert ok.json()["email"] == new_email
+
+
+def test_change_password() -> None:
+    email = _email("pwd_change")
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": "Test123!",
+            "display_name": "P",
+        },
+    )
+    login_res = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+    token = login_res.json()["access_token"]
+
+    cp = client.post(
+        "/auth/change-password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"current_password": "Test123!", "new_password": "NewTest123!"},
+    )
+    assert cp.status_code == 204
+
+    old_login = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+    assert old_login.status_code == 401
+
+    new_login = client.post("/auth/login", json={"email": email, "password": "NewTest123!"})
+    assert new_login.status_code == 200

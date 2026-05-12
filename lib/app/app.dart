@@ -10,6 +10,97 @@ import "../features/profile/presentation/profile_screen.dart";
 import "../features/search/presentation/search_screen.dart";
 import "app_state.dart";
 
+List<MediaListItem> _workGroupItemsFor(AppState state, MediaListItem anchorItem) {
+  final titleKey = anchorItem.title.trim().toLowerCase();
+  final authorKey = (anchorItem.author ?? "").trim().toLowerCase();
+  final grouped = state.items
+      .where(
+        (item) =>
+            item.title.trim().toLowerCase() == titleKey &&
+            (item.author ?? "").trim().toLowerCase() == authorKey,
+      )
+      .toList(growable: false);
+  if (grouped.isNotEmpty) {
+    return grouped;
+  }
+  return [anchorItem];
+}
+
+Future<void> _pushMediaItemDetailsPage(
+  BuildContext context,
+  AppState state,
+  List<MediaListItem> groupItems,
+) {
+  return openMediaItemDetailsPage(
+    context: context,
+    currentUserId: state.currentUserId,
+    groupItems: groupItems,
+    availableGenres: state.availableGenres,
+    onLoadLinks: state.fetchLinksForItem,
+    onLoadItemById: state.fetchMediaItemById,
+    onUpdateItem:
+        ({
+          required mediaItemId,
+          required type,
+          required title,
+          author,
+          coverUrl,
+          genres,
+          coverUploadPayload,
+          uploadPayload,
+          description,
+        }) => state.updateMediaItem(
+          mediaItemId: mediaItemId,
+          type: type,
+          title: title,
+          author: author,
+          coverUrl: coverUrl,
+          genres: genres,
+          coverUploadPayload: coverUploadPayload,
+          uploadPayload: uploadPayload,
+          description: description,
+        ),
+    onAddFormatToWork:
+        ({
+          required sourceMediaItemId,
+          required type,
+          required title,
+          author,
+          coverUrl,
+          genres,
+          coverUploadPayload,
+          description,
+          uploadPayload,
+        }) => state.addFormatToWork(
+          sourceMediaItemId: sourceMediaItemId,
+          type: type,
+          title: title,
+          author: author,
+          coverUrl: coverUrl,
+          genres: genres,
+          coverUploadPayload: coverUploadPayload,
+          description: description,
+          uploadPayload: uploadPayload,
+        ),
+    onBeginPlaybackSession: state.beginPlaybackSession,
+    onPlaybackProgressChanged: state.updatePlaybackProgress,
+    onPausePlaybackSession: state.pausePlaybackSession,
+    onCompletePlaybackSession: state.completePlaybackSession,
+    onFlushPlaybackSession: state.flushPlaybackProgress,
+    onEndPlaybackSession: state.endPlaybackSession,
+    playbackSpeed: state.playbackSpeed,
+    onSetPlaybackSpeed: state.setPlaybackSpeed,
+    pendingPlaybackSync: state.pendingPlaybackSync,
+    playbackError: state.playbackError,
+    onLoadBookContent: state.loadBookContent,
+    onMarkItemViewed: state.markItemViewed,
+    onFetchMediaFiles: state.fetchMediaFilesForItem,
+    onBindMainMediaFile: state.bindMainMediaFileToItem,
+    onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
+    onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
+  );
+}
+
 class MediaLibApp extends StatefulWidget {
   const MediaLibApp({super.key});
 
@@ -156,74 +247,10 @@ class _HomeShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Future<void> openItemFromHome(MediaListItem item) {
-      final groupItems = _resolveGroupItems(item);
-      return openMediaItemDetailsPage(
-        context: context,
-        currentUserId: state.currentUserId,
-        groupItems: groupItems,
-        availableGenres: state.availableGenres,
-        onLoadLinks: state.fetchLinksForItem,
-        onLoadItemById: state.fetchMediaItemById,
-        onUpdateItem:
-            ({
-              required mediaItemId,
-              required type,
-              required title,
-              author,
-              coverUrl,
-              genres,
-              coverUploadPayload,
-              uploadPayload,
-              description,
-            }) => state.updateMediaItem(
-              mediaItemId: mediaItemId,
-              type: type,
-              title: title,
-              author: author,
-              coverUrl: coverUrl,
-              genres: genres,
-              coverUploadPayload: coverUploadPayload,
-              uploadPayload: uploadPayload,
-              description: description,
-            ),
-        onAddFormatToWork:
-            ({
-              required sourceMediaItemId,
-              required type,
-              required title,
-              author,
-              coverUrl,
-              genres,
-              coverUploadPayload,
-              description,
-              uploadPayload,
-            }) => state.addFormatToWork(
-              sourceMediaItemId: sourceMediaItemId,
-              type: type,
-              title: title,
-              author: author,
-              coverUrl: coverUrl,
-              genres: genres,
-              coverUploadPayload: coverUploadPayload,
-              description: description,
-              uploadPayload: uploadPayload,
-            ),
-        onBeginPlaybackSession: state.beginPlaybackSession,
-        onPlaybackProgressChanged: state.updatePlaybackProgress,
-        onPausePlaybackSession: state.pausePlaybackSession,
-        onCompletePlaybackSession: state.completePlaybackSession,
-        onFlushPlaybackSession: state.flushPlaybackProgress,
-        onEndPlaybackSession: state.endPlaybackSession,
-        playbackSpeed: state.playbackSpeed,
-        onSetPlaybackSpeed: state.setPlaybackSpeed,
-        pendingPlaybackSync: state.pendingPlaybackSync,
-        playbackError: state.playbackError,
-        onLoadBookContent: state.loadBookContent,
-        onMarkItemViewed: state.markItemViewed,
-        onFetchMediaFiles: state.fetchMediaFilesForItem,
-        onBindMainMediaFile: state.bindMainMediaFileToItem,
-        onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
-        onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
+      return _pushMediaItemDetailsPage(
+        context,
+        state,
+        _workGroupItemsFor(state, item),
       );
     }
 
@@ -241,29 +268,13 @@ class _HomeShell extends StatelessWidget {
         errorMessage: state.libraryError,
         onRefresh: state.fetchLibrary,
         searchQuery: state.searchQuery,
-        typeFilter: state.typeFilter,
+        typeFilter: state.libraryTypeFilterChip,
+        selectedGenres: state.selectedGenres,
         onApplyFilters:
             (searchQuery, typeFilter) => state.applyLibraryFilters(
               searchQuery: searchQuery,
-              typeFilter: typeFilter,
-            ),
-        onAddItem:
-            ({
-              required String type,
-              required String title,
-              String? author,
-              String? coverUrl,
-              List<String>? genres,
-              MediaUploadPayload? coverUploadPayload,
-              MediaUploadPayload? uploadPayload,
-            }) => state.createMediaItem(
-              type: type,
-              title: title,
-              author: author,
-              coverUrl: coverUrl,
-              genres: genres,
-              coverUploadPayload: coverUploadPayload,
-              uploadPayload: uploadPayload,
+              selectedTypes: typeFilter == null ? [] : [typeFilter],
+              selectedGenres: state.selectedGenres,
             ),
         availableGenres: state.availableGenres,
         onLoadLinks: state.fetchLinksForItem,
@@ -353,18 +364,43 @@ class _HomeShell extends StatelessWidget {
       ),
       SearchScreen(
         initialQuery: state.searchQuery,
-        onSearch:
-            (query) =>
-                state.applyLibraryFilters(searchQuery: query, typeFilter: null),
+        selectedTypes: state.selectedTypes,
+        selectedGenres: state.selectedGenres,
+        availableGenres: state.availableGenres,
+        onApply:
+            (query, types, genres) => state.applyLibraryFilters(
+              searchQuery: query,
+              selectedTypes: types,
+              selectedGenres: genres,
+            ),
         onOpenLibrary: () => state.setSelectedTab(1),
       ),
       ProfileScreen(
         email: state.userEmail,
+        displayName: state.userDisplayName,
         isDarkMode: state.isDarkMode,
         onThemeToggle: state.toggleTheme,
         onDeleteAllWorks: state.deleteAllMediaItems,
         onOpenAddWork: () => state.setSelectedTab(2),
         onLogout: state.logout,
+        onUpdateProfile:
+            ({
+              required String displayName,
+              String? newEmail,
+              String? currentPasswordForEmail,
+            }) => state.updateUserProfile(
+              displayName: displayName,
+              newEmail: newEmail,
+              currentPasswordForEmail: currentPasswordForEmail,
+            ),
+        onChangePassword:
+            ({
+              required String currentPassword,
+              required String newPassword,
+            }) => state.changeUserPassword(
+              currentPassword: currentPassword,
+              newPassword: newPassword,
+            ),
         onOpenAdminMedia:
             state.isAdminUser
                 ? () {
@@ -418,22 +454,6 @@ class _HomeShell extends StatelessWidget {
       ),
     );
   }
-
-  List<MediaListItem> _resolveGroupItems(MediaListItem anchorItem) {
-    final titleKey = anchorItem.title.trim().toLowerCase();
-    final authorKey = (anchorItem.author ?? "").trim().toLowerCase();
-    final grouped = state.items
-        .where(
-          (item) =>
-              item.title.trim().toLowerCase() == titleKey &&
-              (item.author ?? "").trim().toLowerCase() == authorKey,
-        )
-        .toList(growable: false);
-    if (grouped.isNotEmpty) {
-      return grouped;
-    }
-    return [anchorItem];
-  }
 }
 
 class _AdminMediaShell extends StatefulWidget {
@@ -477,6 +497,11 @@ class _AdminMediaShellState extends State<_AdminMediaShell> {
                   mediaItemId: mediaItemId,
                   approve: approve,
                 ),
+            onOpenItem: (item) => _pushMediaItemDetailsPage(
+              context,
+              widget.state,
+              _workGroupItemsFor(widget.state, item),
+            ),
           ),
     );
   }

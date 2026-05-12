@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: medialib
+          POSTGRES_PASSWORD: medialib
+          POSTGRES_DB: medialib
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U medialib -d medialib"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: medialib
+          MINIO_ROOT_PASSWORD: medialib_dev_secret
+        ports:
+          - 9000:9000
+    env:
+      DATABASE_URL: postgresql://medialib:medialib@127.0.0.1:5432/medialib
+      JWT_SECRET: ci-test-jwt-secret-key-min-32-chars-x
+      S3_BUCKET: medialib-ci
+      S3_REGION: us-east-1
+      S3_ENDPOINT_URL: http://127.0.0.1:9000
+      AWS_ACCESS_KEY_ID: medialib
+      AWS_SECRET_ACCESS_KEY: medialib_dev_secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Wait for MinIO
+        working-directory: .
+        run: |
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:9000/minio/health/live; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become ready"; exit 1
+      - run: alembic upgrade head
+      - run: pytest -q
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.29.2"
+          channel: "stable"
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

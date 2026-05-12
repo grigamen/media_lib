@@ -8,7 +8,7 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import and_, bindparam, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -223,6 +223,8 @@ def create_media_item(
 def list_media_items(
     q: str | None = Query(default=None, min_length=1, max_length=255),
     type: MediaType | None = Query(default=None),
+    types: list[MediaType] | None = Query(default=None),
+    genres: list[str] | None = Query(default=None),
     include_deleted: bool = Query(default=False),
     moderation_status: ModerationStatus | None = Query(default=None),
     exclude_pending: bool = Query(default=False),
@@ -257,14 +259,36 @@ def list_media_items(
                 MediaItem.user_id == current_user.id,
             )
         )
-    if type:
-        conditions.append(MediaItem.type == type)
+    effective_types: list[str] = []
+    if types:
+        effective_types = list(types)
+    elif type is not None:
+        effective_types = [type]
+    if effective_types:
+        conditions.append(MediaItem.type.in_(tuple(effective_types)))
     if q:
         conditions.append(
             or_(
                 MediaItem.title.ilike(f"%{q}%"),
                 MediaItem.author.ilike(f"%{q}%"),
             )
+        )
+    genre_terms: list[str] = []
+    if genres:
+        seen_g: set[str] = set()
+        for raw in genres[:24]:
+            g = (raw or "").strip().lower()
+            if not g or g in seen_g:
+                continue
+            seen_g.add(g)
+            genre_terms.append(g[:120])
+    if genre_terms:
+        conditions.append(
+            text(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text("
+                "COALESCE(media_items.genres, '[]'::jsonb)) AS _genre_el "
+                "WHERE lower(trim(_genre_el::text)) IN :gf)"
+            ).bindparams(bindparam("gf", expanding=True, value=genre_terms))
         )
 
     where_clause = and_(*conditions)

@@ -69,6 +69,8 @@ class AdminMediaScreen extends StatelessWidget {
 
     required this.onModerateItem,
 
+    required this.onOpenItem,
+
     super.key,
 
   });
@@ -100,6 +102,8 @@ class AdminMediaScreen extends StatelessWidget {
   final Future<bool> Function(String mediaItemId) onDeleteItem;
 
   final Future<bool> Function(String mediaItemId, bool approve) onModerateItem;
+
+  final Future<void> Function(MediaListItem item) onOpenItem;
 
 
 
@@ -203,6 +207,8 @@ class AdminMediaScreen extends StatelessWidget {
 
               onModerateItem: onModerateItem,
 
+              onOpenItem: onOpenItem,
+
               tabKeyPrefix: "p",
 
               showLoadMoreFooter: hasMorePending,
@@ -236,6 +242,8 @@ class AdminMediaScreen extends StatelessWidget {
               onDeleteItem: onDeleteItem,
 
               onModerateItem: onModerateItem,
+
+              onOpenItem: onOpenItem,
 
               tabKeyPrefix: "a",
 
@@ -287,6 +295,8 @@ class _AdminMediaTabPage extends StatelessWidget {
 
     required this.onModerateItem,
 
+    required this.onOpenItem,
+
     required this.tabKeyPrefix,
 
     required this.intro,
@@ -316,6 +326,8 @@ class _AdminMediaTabPage extends StatelessWidget {
   final Future<bool> Function(String mediaItemId) onDeleteItem;
 
   final Future<bool> Function(String mediaItemId, bool approve) onModerateItem;
+
+  final Future<void> Function(MediaListItem item) onOpenItem;
 
   final String tabKeyPrefix;
 
@@ -398,6 +410,10 @@ class _AdminMediaTabPage extends StatelessWidget {
                         key: ValueKey<String>("$tabKeyPrefix-${item.id}"),
 
                         child: ListTile(
+
+                          onTap: () {
+                            onOpenItem(item);
+                          },
 
                           title: Text(item.title),
 

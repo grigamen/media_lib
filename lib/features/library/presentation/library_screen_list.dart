@@ -4,16 +4,16 @@ class _LibraryControls extends StatelessWidget {
   const _LibraryControls({
     required this.searchController,
     required this.typeFilter,
+    required this.selectedGenres,
     required this.onApplyFilters,
-    required this.onAddPressed,
     required this.onSearchPressed,
   });
 
   final TextEditingController searchController;
   final String? typeFilter;
+  final List<String> selectedGenres;
   final Future<void> Function(String searchQuery, String? typeFilter)
   onApplyFilters;
-  final Future<void> Function() onAddPressed;
   final VoidCallback onSearchPressed;
 
   @override
@@ -33,10 +33,6 @@ class _LibraryControls extends StatelessWidget {
             IconButton(
               onPressed: onSearchPressed,
               icon: const Icon(Icons.search),
-            ),
-            IconButton(
-              onPressed: onAddPressed,
-              icon: const Icon(Icons.add_circle_outline),
             ),
           ],
         ),
@@ -90,6 +86,15 @@ class _LibraryControls extends StatelessWidget {
             ],
           ),
         ),
+        if (selectedGenres.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            "Жанры: ${selectedGenres.join(", ")} — изменить в разделе «Поиск»",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ],
     );
   }

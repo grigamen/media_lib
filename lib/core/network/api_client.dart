@@ -185,10 +185,19 @@ class ApiClient {
   }
 
   Map<String, dynamic> _parseObject(http.Response response) {
-    final body =
-        response.body.isEmpty
-            ? const <String, dynamic>{}
-            : jsonDecode(response.body) as Object?;
+    final Object? body;
+    try {
+      body =
+          response.body.isEmpty
+              ? const <String, dynamic>{}
+              : jsonDecode(response.body) as Object?;
+    } on FormatException {
+      throw ApiException(
+        "Сервер вернул ответ не в формате JSON (код ${response.statusCode}). "
+        "Часто это страница ошибки nginx или сбой backend — смотрите journalctl.",
+        statusCode: response.statusCode,
+      );
+    }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (body is Map<String, dynamic>) {
         return body;
@@ -205,10 +214,19 @@ class ApiClient {
   }
 
   List<dynamic> _parseList(http.Response response) {
-    final body =
-        response.body.isEmpty
-            ? const <dynamic>[]
-            : jsonDecode(response.body) as Object?;
+    final Object? body;
+    try {
+      body =
+          response.body.isEmpty
+              ? const <dynamic>[]
+              : jsonDecode(response.body) as Object?;
+    } on FormatException {
+      throw ApiException(
+        "Сервер вернул ответ не в формате JSON (код ${response.statusCode}). "
+        "Часто это страница ошибки nginx или сбой backend — смотрите journalctl.",
+        statusCode: response.statusCode,
+      );
+    }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (body is List<dynamic>) {
         return body;

@@ -307,6 +307,8 @@ class LibraryRepository {
     required String accessToken,
     String? query,
     String? type,
+    List<String> types = const [],
+    List<String> genres = const [],
     int limit = 50,
     int offset = 0,
   }) async {
@@ -314,6 +316,8 @@ class LibraryRepository {
       accessToken: accessToken,
       query: query,
       type: type,
+      types: types,
+      genres: genres,
       moderationStatus: null,
       limit: limit,
       offset: offset,
@@ -325,6 +329,8 @@ class LibraryRepository {
     required String accessToken,
     String? query,
     String? type,
+    List<String> types = const [],
+    List<String> genres = const [],
     String? moderationStatus,
     bool excludePending = false,
     int limit = 50,
@@ -335,9 +341,11 @@ class LibraryRepository {
     if (normalizedQuery != null && normalizedQuery.isNotEmpty) {
       params.add("q=${Uri.encodeQueryComponent(normalizedQuery)}");
     }
-    final normalizedType = type?.trim();
-    if (normalizedType != null && normalizedType.isNotEmpty) {
-      params.add("type=${Uri.encodeQueryComponent(normalizedType)}");
+    for (final t in _normalizeQueryTypes(types, type)) {
+      params.add("types=${Uri.encodeQueryComponent(t)}");
+    }
+    for (final g in _normalizeGenresForQuery(genres)) {
+      params.add("genres=${Uri.encodeQueryComponent(g)}");
     }
     final mod = moderationStatus?.trim();
     if (mod != null && mod.isNotEmpty) {
@@ -729,4 +737,46 @@ class LibraryRepository {
     }
     return uri;
   }
+}
+
+List<String> _normalizeQueryTypes(List<String> types, String? legacyType) {
+  const allowed = {'book', 'audiobook', 'video'};
+  final out = <String>[];
+  final seen = <String>{};
+  for (final raw in types) {
+    final t = raw.trim().toLowerCase();
+    if (!allowed.contains(t) || seen.contains(t)) {
+      continue;
+    }
+    seen.add(t);
+    out.add(t);
+  }
+  if (out.isEmpty) {
+    final lt = legacyType?.trim().toLowerCase();
+    if (lt != null && lt.isNotEmpty && allowed.contains(lt)) {
+      out.add(lt);
+    }
+  }
+  return out;
+}
+
+List<String> _normalizeGenresForQuery(List<String> genres) {
+  final out = <String>[];
+  final seen = <String>{};
+  for (final raw in genres) {
+    final g = raw.trim();
+    if (g.isEmpty) {
+      continue;
+    }
+    final key = g.toLowerCase();
+    if (seen.contains(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.add(g);
+    if (out.length >= 24) {
+      break;
+    }
+  }
+  return out;
 }

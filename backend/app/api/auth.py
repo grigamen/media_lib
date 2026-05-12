@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db import get_db
 from app.jwt_utils import (
     create_access_token,
@@ -16,6 +17,9 @@ from app.models import User
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
+    MePatchRequest,
+    MeResponse,
+    PasswordChangeRequest,
     RefreshRequest,
     RefreshResponse,
     RegisterRequest,
@@ -69,7 +73,63 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
+        email=user.email,
+        display_name=user.display_name,
     )
+
+
+@router.get("/me", response_model=MeResponse)
+def read_me(current_user: User = Depends(get_current_user)) -> MeResponse:
+    return MeResponse(user_id=current_user.id, email=current_user.email, display_name=current_user.display_name)
+
+
+@router.patch("/me", response_model=MeResponse)
+def patch_me(
+    payload: MePatchRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MeResponse:
+    if payload.display_name is not None:
+        current_user.display_name = payload.display_name.strip()
+
+    if payload.email is not None:
+        new_email = payload.email.lower()
+        if new_email != current_user.email:
+            if payload.current_password is None or not verify_password(
+                payload.current_password, current_user.password_hash
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Неверный текущий пароль",
+                )
+            existing = db.scalar(select(User).where(User.email == new_email))
+            if existing is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email already registered",
+                )
+            current_user.email = new_email
+
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return MeResponse(user_id=current_user.id, email=current_user.email, display_name=current_user.display_name)
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    payload: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный текущий пароль",
+        )
+    current_user.password_hash = hash_password(payload.new_password)
+    db.add(current_user)
+    db.commit()
 
 
 @router.post("/refresh", response_model=RefreshResponse)
@@ -138,4 +198,9 @@ def twofa_verify(payload: TwoFAVerifyRequest, db: Session = Depends(get_db)) -> 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid OTP code")
 
     access_token, refresh_token = _token_pair(user)
-    return RefreshResponse(access_token=access_token, refresh_token=refresh_token)
+    return RefreshResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        email=user.email,
+        display_name=user.display_name,
+    )

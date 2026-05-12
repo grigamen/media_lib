@@ -31,8 +31,8 @@ class LibraryScreen extends StatefulWidget {
     required this.onRefresh,
     required this.searchQuery,
     required this.typeFilter,
+    required this.selectedGenres,
     required this.onApplyFilters,
-    required this.onAddItem,
     required this.availableGenres,
     required this.onLoadLinks,
     required this.onLoadItemById,
@@ -66,18 +66,9 @@ class LibraryScreen extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final String searchQuery;
   final String? typeFilter;
+  final List<String> selectedGenres;
   final Future<void> Function(String searchQuery, String? typeFilter)
   onApplyFilters;
-  final Future<MediaListItem?> Function({
-    required String type,
-    required String title,
-    String? author,
-    String? coverUrl,
-    List<String>? genres,
-    MediaUploadPayload? coverUploadPayload,
-    MediaUploadPayload? uploadPayload,
-  })
-  onAddItem;
   final List<String> availableGenres;
   final Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks;
   final Future<MediaListItem?> Function(String mediaItemId) onLoadItemById;

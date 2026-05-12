@@ -38,14 +38,26 @@ class CatalogCacheStore {
   static String buildCacheKey({
     required String userId,
     required String searchQuery,
-    required String? typeFilter,
+    required List<String> selectedTypes,
+    required List<String> selectedGenres,
   }) {
-    return "$userId\x1e${searchQuery.trim()}\x1e${typeFilter ?? ""}";
+    final t =
+        [...selectedTypes.map((e) => e.trim()).where((e) => e.isNotEmpty)]
+          ..sort();
+    final g =
+        [...selectedGenres.map((e) => e.trim()).where((e) => e.isNotEmpty)]
+          ..sort();
+    return "$userId\x1e${searchQuery.trim()}\x1e${t.join(",")}\x1e${g.join("\x1d")}";
   }
 
-  /// Ключ «полный список»: без поиска и без фильтра по типу.
+  /// Ключ «полный список»: без поиска и без фильтров.
   static String buildBaseCacheKey(String userId) {
-    return buildCacheKey(userId: userId, searchQuery: "", typeFilter: null);
+    return buildCacheKey(
+      userId: userId,
+      searchQuery: "",
+      selectedTypes: const [],
+      selectedGenres: const [],
+    );
   }
 
   Future<void> replaceCatalog({

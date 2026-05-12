@@ -141,7 +141,8 @@ class AppState extends ChangeNotifier {
   /// data for an empty list (avoids "deletes don't work" when the library becomes empty).
   bool _sawNonEmptyServerLibrary = false;
   String _searchQuery = "";
-  String? _typeFilter;
+  List<String> _selectedTypes = const [];
+  List<String> _selectedGenres = const [];
   int _selectedTab = 0;
   PlaybackLoadState _playbackLoadState = PlaybackLoadState.idle;
   String? _playbackError;
@@ -171,6 +172,8 @@ class AppState extends ChangeNotifier {
   String? get authError => _authError;
   String? get libraryError => _libraryError;
   String get userEmail => _session?.email ?? "";
+
+  String get userDisplayName => _session?.displayName ?? "";
   List<MediaListItem> get items => _items;
   List<MediaListItem> get adminPendingItems => _adminPendingItems;
   List<MediaListItem> get adminAllItems => _adminAllItems;
@@ -183,7 +186,16 @@ class AppState extends ChangeNotifier {
   List<String> get availableGenres => _availableGenres;
   bool get usingDemoItems => _usingDemoItems;
   String get searchQuery => _searchQuery;
-  String? get typeFilter => _typeFilter;
+
+  List<String> get selectedTypes => List.unmodifiable(_selectedTypes);
+
+  List<String> get selectedGenres => List.unmodifiable(_selectedGenres);
+
+  /// Одна выбранная категория для чипов на экране библиотеки, иначе «Все».
+  String? get libraryTypeFilterChip =>
+      _selectedTypes.length == 1 ? _selectedTypes.first : null;
+
+  String? get typeFilter => libraryTypeFilterChip;
   int get selectedTab => _selectedTab;
   PlaybackLoadState get playbackLoadState => _playbackLoadState;
   String? get playbackError => _playbackError;
@@ -366,7 +378,8 @@ class AppState extends ChangeNotifier {
             ? CatalogCacheStore.buildCacheKey(
               userId: userId,
               searchQuery: _searchQuery,
-              typeFilter: _typeFilter,
+              selectedTypes: _selectedTypes,
+              selectedGenres: _selectedGenres,
             )
             : null;
     try {
@@ -374,7 +387,8 @@ class AppState extends ChangeNotifier {
         await _libraryRepository.fetchMediaItems(
           accessToken: session.accessToken,
           query: _searchQuery,
-          type: _typeFilter,
+          types: _selectedTypes,
+          genres: _selectedGenres,
         ),
       );
       if (fetchedItems.isEmpty) {
@@ -583,9 +597,24 @@ class AppState extends ChangeNotifier {
     final query = _searchQuery.toLowerCase();
     return _demoLibraryItems
         .where((item) {
-          final matchesType = _typeFilter == null || item.type == _typeFilter;
-          if (!matchesType) {
+          if (_selectedTypes.isNotEmpty &&
+              !_selectedTypes.contains(item.type)) {
             return false;
+          }
+          if (_selectedGenres.isNotEmpty) {
+            final itemLower = (item.genres ?? const <String>[])
+                .map((g) => g.trim().toLowerCase())
+                .where((g) => g.isNotEmpty)
+                .toSet();
+            final wanted =
+                _selectedGenres
+                    .map((g) => g.trim().toLowerCase())
+                    .where((g) => g.isNotEmpty)
+                    .toSet();
+            final overlap = wanted.any(itemLower.contains);
+            if (!overlap) {
+              return false;
+            }
           }
           if (query.isEmpty) {
             return true;
@@ -598,10 +627,12 @@ class AppState extends ChangeNotifier {
 
   Future<void> applyLibraryFilters({
     required String searchQuery,
-    required String? typeFilter,
+    List<String> selectedTypes = const [],
+    List<String> selectedGenres = const [],
   }) async {
     _searchQuery = searchQuery.trim();
-    _typeFilter = typeFilter;
+    _selectedTypes = _normalizeSelectedTypes(selectedTypes);
+    _selectedGenres = _normalizeGenres(selectedGenres);
     await fetchLibrary();
   }
 
@@ -1639,6 +1670,53 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> updateUserProfile({
+    required String displayName,
+    String? newEmail,
+    String? currentPasswordForEmail,
+  }) async {
+    final session = _session;
+    if (session == null) {
+      return;
+    }
+    final emailTrim = newEmail?.trim();
+    final emailChanged =
+        emailTrim != null &&
+        emailTrim.isNotEmpty &&
+        emailTrim.toLowerCase() != session.email.toLowerCase();
+    if (emailChanged &&
+        (currentPasswordForEmail == null || currentPasswordForEmail.isEmpty)) {
+      throw ApiException("Укажите текущий пароль для смены email");
+    }
+    final result = await _authRepository.patchProfile(
+      accessToken: session.accessToken,
+      displayName: displayName,
+      currentEmail: session.email,
+      newEmail: emailChanged ? emailTrim : null,
+      currentPassword: emailChanged ? currentPasswordForEmail : null,
+    );
+    _session = session.copyWith(
+      email: result.email,
+      displayName: result.displayName,
+    );
+    notifyListeners();
+  }
+
+  Future<void> changeUserPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = _session;
+    if (session == null) {
+      throw ApiException("Сессия недействительна. Выйдите и войдите снова.");
+    }
+    await _authRepository.changePassword(
+      accessToken: session.accessToken,
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
+
   void logout() {
     final userIdForPurge = _currentUserId;
     _stopConnectivityWatcher();
@@ -1667,7 +1745,8 @@ class AppState extends ChangeNotifier {
     _allowDemoFallback = true;
     _sawNonEmptyServerLibrary = false;
     _searchQuery = "";
-    _typeFilter = null;
+    _selectedTypes = const [];
+    _selectedGenres = const [];
     _selectedTab = 0;
     _currentUserId = null;
     _isAdminUser = false;
@@ -1848,6 +1927,21 @@ class AppState extends ChangeNotifier {
       }
       seen.add(id);
       out.add(item);
+    }
+    return out;
+  }
+
+  List<String> _normalizeSelectedTypes(Iterable<String> raw) {
+    const allowed = {'book', 'audiobook', 'video'};
+    final out = <String>[];
+    final seen = <String>{};
+    for (final r in raw) {
+      final t = r.trim().toLowerCase();
+      if (!allowed.contains(t) || seen.contains(t)) {
+        continue;
+      }
+      seen.add(t);
+      out.add(t);
     }
     return out;
   }

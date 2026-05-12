@@ -322,6 +322,32 @@ def test_media_items_filter_search_and_sort() -> None:
     assert titles == sorted(titles)
 
 
+def test_media_items_filter_types_list_and_genres() -> None:
+    token = _register_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+    marker = uuid4().hex[:8]
+
+    for spec in (
+        {"type": "book", "title": f"A {marker}", "genres": ["Фэнтези", "Ужасы"]},
+        {"type": "audiobook", "title": f"B {marker}", "genres": ["Фэнтези"]},
+        {"type": "video", "title": f"C {marker}", "genres": ["Комедия"]},
+    ):
+        r = client.post("/media-items", json=spec, headers=headers)
+        assert r.status_code == 201
+
+    both = client.get(f"/media-items?types=book&types=audiobook&q={marker}", headers=headers)
+    assert both.status_code == 200
+    assert both.json()["total"] == 2
+
+    fantasy = client.get(f"/media-items?genres=Фэнтези&q={marker}", headers=headers)
+    assert fantasy.status_code == 200
+    assert fantasy.json()["total"] == 2
+
+    fantasy_ci = client.get(f"/media-items?genres=фэнтези&q={marker}", headers=headers)
+    assert fantasy_ci.status_code == 200
+    assert fantasy_ci.json()["total"] == 2
+
+
 def test_media_genres_includes_existing_and_defaults() -> None:
     admin_email = f"genres_adm_{uuid4().hex[:8]}@test.com"
     password = "Test123!"
