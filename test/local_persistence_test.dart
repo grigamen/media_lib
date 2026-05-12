@@ -23,7 +23,8 @@ void main() {
     final key = CatalogCacheStore.buildCacheKey(
       userId: userId,
       searchQuery: "",
-      typeFilter: null,
+      selectedTypes: const [],
+      selectedGenres: const [],
     );
     final items = <MediaListItem>[
       const MediaListItem(
@@ -59,7 +60,8 @@ void main() {
         cacheKey: CatalogCacheStore.buildCacheKey(
           userId: userId,
           searchQuery: "$i",
-          typeFilter: null,
+          selectedTypes: const [],
+          selectedGenres: const [],
         ),
         items: [item],
       );
@@ -100,14 +102,16 @@ void main() {
       cacheKey: CatalogCacheStore.buildCacheKey(
         userId: userId,
         searchQuery: "qq",
-        typeFilter: null,
+        selectedTypes: const [],
+        selectedGenres: const [],
       ),
       items: const [filteredItem],
     );
     final missing = CatalogCacheStore.buildCacheKey(
       userId: userId,
       searchQuery: "nope",
-      typeFilter: null,
+      selectedTypes: const [],
+      selectedGenres: const [],
     );
     final r = await store.loadCatalogWithFallback(
       userId: userId,

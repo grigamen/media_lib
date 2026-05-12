@@ -69,6 +69,27 @@ class AuthRepository {
     );
   }
 
+  /// Восстановление сессии по refresh-токену (старт приложения).
+  Future<AuthSession> restoreSession({required String refreshToken}) async {
+    final response = await _apiClient.postJson("/auth/refresh", {
+      "refresh_token": refreshToken,
+    });
+    final accessToken = response["access_token"] as String?;
+    final newRefresh = response["refresh_token"] as String?;
+    if (accessToken == null || newRefresh == null) {
+      throw ApiException("Некорректный ответ при обновлении сессии");
+    }
+    final me = await _apiClient.getJson("/auth/me", accessToken: accessToken);
+    final email = me["email"] as String? ?? "";
+    final dn = me["display_name"] as String?;
+    return AuthSession(
+      accessToken: accessToken,
+      refreshToken: newRefresh,
+      email: email,
+      displayName: _normalizeDisplayName(dn, fallbackEmail: email),
+    );
+  }
+
   /// Обновление профиля: имя; смена email требует [currentPassword].
   Future<({String email, String displayName})> patchProfile({
     required String accessToken,

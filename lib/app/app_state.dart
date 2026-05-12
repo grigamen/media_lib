@@ -9,6 +9,7 @@ import "package:http/http.dart" as http;
 import "../core/sync/playback_progress_resolution.dart";
 
 import "../core/config/app_config.dart";
+import "../core/local/auth_token_store.dart";
 import "../core/local/catalog_cache_store.dart";
 import "../core/local/media_lib_database.dart";
 import "../core/local/progress_local_store.dart";
@@ -105,11 +106,15 @@ class AppState extends ChangeNotifier {
       _isDarkMode = false {
     _authRepository = AuthRepository(_apiClient);
     _libraryRepository = LibraryRepository(_apiClient);
+    unawaited(_bootstrap());
   }
 
   final ApiClient _apiClient;
   late final AuthRepository _authRepository;
   late final LibraryRepository _libraryRepository;
+  final AuthTokenStore _authTokenStore = AuthTokenStore();
+
+  bool _bootstrapComplete = false;
 
   bool _isDarkMode;
   bool _isAuthLoading = false;
@@ -164,6 +169,8 @@ class AppState extends ChangeNotifier {
   CatalogCacheStore? _catalogCache;
   ProgressLocalStore? _progressStore;
   RecentlyViewedLocalStore? _recentlyViewedStore;
+
+  bool get isBootstrapComplete => _bootstrapComplete;
 
   bool get isDarkMode => _isDarkMode;
   bool get isAuthenticated => _session != null;
@@ -294,6 +301,60 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _bootstrap() async {
+    try {
+      final refresh = await _authTokenStore.readRefreshToken();
+      if (refresh != null && refresh.isNotEmpty) {
+        try {
+          final session = await _authRepository.restoreSession(
+            refreshToken: refresh,
+          );
+          await _activateSession(session, resetLibraryState: true);
+        } on ApiException {
+          await _authTokenStore.clear();
+          _session = null;
+          _currentUserId = null;
+          _isAdminUser = false;
+        } catch (_) {
+          await _authTokenStore.clear();
+          _session = null;
+          _currentUserId = null;
+          _isAdminUser = false;
+        }
+      }
+    } catch (_) {
+      await _authTokenStore.clear();
+    } finally {
+      _bootstrapComplete = true;
+      notifyListeners();
+    }
+  }
+
+  /// Общая активация залогиненного пользователя (вход, регистрация, восстановление).
+  Future<void> _activateSession(
+    AuthSession session, {
+    required bool resetLibraryState,
+  }) async {
+    _session = session;
+    _currentUserId = _extractUserIdFromAccessToken(session.accessToken);
+    _isAdminUser = _extractIsAdminFromAccessToken(session.accessToken);
+    if (resetLibraryState) {
+      _sawNonEmptyServerLibrary = false;
+      _adminPendingItems = const [];
+      _adminAllItems = const [];
+      _adminPendingTotal = 0;
+      _adminAllTotal = 0;
+      _isAdminPendingLoadingMore = false;
+      _isAdminAllLoadingMore = false;
+      _adminCatalogError = null;
+    }
+    await _authTokenStore.saveSession(session);
+    await _ensureLocalPersistence();
+    await _hydrateRecentlyViewedFromDisk();
+    _startConnectivityWatcherIfNeeded();
+    await fetchLibrary();
+  }
+
   Future<void> register({
     required String email,
     required String password,
@@ -309,20 +370,7 @@ class AppState extends ChangeNotifier {
         displayName: displayName,
       );
       _session = await _authRepository.login(email: email, password: password);
-      _currentUserId = _extractUserIdFromAccessToken(_session!.accessToken);
-      _isAdminUser = _extractIsAdminFromAccessToken(_session!.accessToken);
-      _sawNonEmptyServerLibrary = false;
-      _adminPendingItems = const [];
-      _adminAllItems = const [];
-      _adminPendingTotal = 0;
-      _adminAllTotal = 0;
-      _isAdminPendingLoadingMore = false;
-      _isAdminAllLoadingMore = false;
-      _adminCatalogError = null;
-      await _ensureLocalPersistence();
-      await _hydrateRecentlyViewedFromDisk();
-      _startConnectivityWatcherIfNeeded();
-      await fetchLibrary();
+      await _activateSession(_session!, resetLibraryState: true);
     } on ApiException catch (e) {
       _authError = e.message;
     } catch (_) {
@@ -339,20 +387,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       _session = await _authRepository.login(email: email, password: password);
-      _currentUserId = _extractUserIdFromAccessToken(_session!.accessToken);
-      _isAdminUser = _extractIsAdminFromAccessToken(_session!.accessToken);
-      _sawNonEmptyServerLibrary = false;
-      _adminPendingItems = const [];
-      _adminAllItems = const [];
-      _adminPendingTotal = 0;
-      _adminAllTotal = 0;
-      _isAdminPendingLoadingMore = false;
-      _isAdminAllLoadingMore = false;
-      _adminCatalogError = null;
-      await _ensureLocalPersistence();
-      await _hydrateRecentlyViewedFromDisk();
-      _startConnectivityWatcherIfNeeded();
-      await fetchLibrary();
+      await _activateSession(_session!, resetLibraryState: true);
     } on ApiException catch (e) {
       _authError = e.message;
     } catch (_) {
@@ -1699,6 +1734,7 @@ class AppState extends ChangeNotifier {
       email: result.email,
       displayName: result.displayName,
     );
+    await _authTokenStore.saveSession(_session!);
     notifyListeners();
   }
 
@@ -1721,6 +1757,7 @@ class AppState extends ChangeNotifier {
     final userIdForPurge = _currentUserId;
     _stopConnectivityWatcher();
     _stopProgressSyncTimer();
+    unawaited(_authTokenStore.clear());
     _session = null;
     _authError = null;
     _libraryError = null;

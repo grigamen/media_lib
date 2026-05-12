@@ -150,6 +150,11 @@ class _MediaLibAppState extends State<MediaLibApp> {
       home: ListenableBuilder(
         listenable: _state,
         builder: (context, _) {
+          if (!_state.isBootstrapComplete) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
           return _state.isAuthenticated
               ? _HomeShell(state: _state)
               : _AuthRoute(state: _state);
