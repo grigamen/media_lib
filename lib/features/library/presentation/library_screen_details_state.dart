@@ -65,7 +65,9 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     if (lower.endsWith(".webm")) return "video/webm";
     if (lower.endsWith(".mov")) return "video/quicktime";
     if (lower.endsWith(".mkv")) return "video/x-matroska";
-    if (lower.endsWith(".avi")) return "video/x-msvideo";
+    if (lower.endsWith(".avi") || lower.endsWith(".avl")) {
+      return "video/x-msvideo";
+    }
     return null;
   }
 
@@ -1030,8 +1032,9 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                         setState(() {
                                           if (_ownerMainFileSectionOpen
                                               .contains(item.id)) {
-                                            _ownerMainFileSectionOpen
-                                                .remove(item.id);
+                                            _ownerMainFileSectionOpen.remove(
+                                              item.id,
+                                            );
                                           } else {
                                             _ownerMainFileSectionOpen.add(
                                               item.id,
@@ -1040,29 +1043,30 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                         });
                                       },
                                       icon: Icon(
-                                        _ownerMainFileSectionOpen
-                                                .contains(item.id)
+                                        _ownerMainFileSectionOpen.contains(
+                                              item.id,
+                                            )
                                             ? Icons.expand_less
                                             : Icons.folder_open_outlined,
                                       ),
                                       label: Text(
-                                        _ownerMainFileSectionOpen
-                                                .contains(item.id)
+                                        _ownerMainFileSectionOpen.contains(
+                                              item.id,
+                                            )
                                             ? "Скрыть основной файл контента"
                                             : "Основной файл контента",
                                       ),
                                     ),
-                                    if (_ownerMainFileSectionOpen
-                                        .contains(item.id)) ...[
+                                    if (_ownerMainFileSectionOpen.contains(
+                                      item.id,
+                                    )) ...[
                                       const SizedBox(height: 12),
                                       _OwnerMainMediaFileCard(
                                         item: item,
-                                        onFetchFiles:
-                                            widget.onFetchMediaFiles,
+                                        onFetchFiles: widget.onFetchMediaFiles,
                                         onBindFile: widget.onBindMainMediaFile,
                                         onUploadAndBind:
-                                            widget
-                                                .onUploadAndBindMainMediaFile,
+                                            widget.onUploadAndBindMainMediaFile,
                                         onVariantRefreshed:
                                             () => _refreshVariant(item.id),
                                         fallbackContentType:

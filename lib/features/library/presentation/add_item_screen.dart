@@ -130,9 +130,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           created?.moderationStatus == "pending"
               ? "Произведение отправлено на модерацию"
               : "Произведение добавлено";
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } on ApiException catch (e) {
       setState(() {
         _error = e.message;
@@ -210,8 +208,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         return;
       }
       final file = result.files.first;
-      final mime =
-          _inferImageContentTypeFromName(file.name) ?? "image/jpeg";
+      final mime = _inferImageContentTypeFromName(file.name) ?? "image/jpeg";
       final payload = MediaUploadPayload.tryFromPlatformFile(
         file: file,
         contentType: mime,
@@ -291,7 +288,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
     if (lower.endsWith(".webm")) return "video/webm";
     if (lower.endsWith(".mov")) return "video/quicktime";
     if (lower.endsWith(".mkv")) return "video/x-matroska";
-    if (lower.endsWith(".avi")) return "video/x-msvideo";
+    if (lower.endsWith(".avi") || lower.endsWith(".avl")) {
+      return "video/x-msvideo";
+    }
     return null;
   }
 
