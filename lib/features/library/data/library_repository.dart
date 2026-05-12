@@ -304,6 +304,8 @@ class LibraryRepository {
 
   final ApiClient _apiClient;
 
+  static const Duration _presignedUploadTimeout = Duration(minutes: 30);
+
   Future<List<MediaListItem>> fetchMediaItems({
     required String accessToken,
     String? query,
@@ -627,12 +629,7 @@ class LibraryRepository {
         .toList(growable: false);
   }
 
-  Future<void> uploadBytesToPresignedUrl({
-    required String uploadUrl,
-    required Uint8List bytes,
-    required String contentType,
-  }) async {
-    final targetUri = _normalizeUploadUri(uploadUrl);
+  void _ensurePresignedTargetConfigured(Uri targetUri) {
     final credential = targetUri.queryParameters["X-Amz-Credential"];
     if (credential != null && credential.startsWith("test-access-key/")) {
       throw ApiException(
@@ -640,6 +637,15 @@ class LibraryRepository {
         "Заполните S3_ENDPOINT_URL/AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/S3_BUCKET в backend/.env.",
       );
     }
+  }
+
+  Future<void> uploadBytesToPresignedUrl({
+    required String uploadUrl,
+    required Uint8List bytes,
+    required String contentType,
+  }) async {
+    final targetUri = _normalizeUploadUri(uploadUrl);
+    _ensurePresignedTargetConfigured(targetUri);
     http.Response response;
     try {
       response = await http
@@ -648,7 +654,7 @@ class LibraryRepository {
             headers: <String, String>{"Content-Type": contentType},
             body: bytes,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(_presignedUploadTimeout);
     } on TimeoutException {
       throw ApiException("Таймаут при загрузке файла в хранилище");
     } on Exception {
@@ -663,6 +669,52 @@ class LibraryRepository {
         "Хранилище вернуло ошибку при загрузке файла: HTTP ${response.statusCode}",
         statusCode: response.statusCode,
       );
+    }
+  }
+
+  /// Потоковая загрузка без удержания всего файла в памяти (важно для больших аудио/видео).
+  Future<void> uploadFileToPresignedUrl({
+    required String uploadUrl,
+    required String filePath,
+    required int contentLength,
+    required String contentType,
+  }) async {
+    final targetUri = _normalizeUploadUri(uploadUrl);
+    _ensurePresignedTargetConfigured(targetUri);
+    final file = File(filePath);
+    final client = http.Client();
+    try {
+      final request = http.StreamedRequest("PUT", targetUri);
+      request.headers["Content-Type"] = contentType;
+      request.contentLength = contentLength;
+      file.openRead().listen(
+        request.sink.add,
+        onError: (Object e, StackTrace st) => request.sink.addError(e, st),
+        onDone: request.sink.close,
+        cancelOnError: true,
+      );
+      final streamed = await client
+          .send(request)
+          .timeout(_presignedUploadTimeout);
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          "Хранилище вернуло ошибку при загрузке файла: HTTP ${response.statusCode}",
+          statusCode: response.statusCode,
+        );
+      }
+    } on TimeoutException {
+      throw ApiException("Таймаут при загрузке файла в хранилище");
+    } on ApiException {
+      rethrow;
+    } on Exception {
+      throw ApiException(
+        "Не удалось загрузить файл в хранилище. "
+        "Endpoint: ${targetUri.host}. "
+        "Проверьте доступность S3 endpoint (для Android эмулятора используйте 10.0.2.2 вместо localhost).",
+      );
+    } finally {
+      client.close();
     }
   }
 

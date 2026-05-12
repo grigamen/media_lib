@@ -3,6 +3,7 @@ import "dart:convert";
 
 import "package:archive/archive.dart";
 import "package:connectivity_plus/connectivity_plus.dart";
+import "package:file_picker/file_picker.dart";
 import "package:flutter/foundation.dart";
 import "package:http/http.dart" as http;
 import "package:shared_preferences/shared_preferences.dart";
@@ -100,15 +101,88 @@ String? _pickPlaybackFileIdFromReady(
 }
 
 class MediaUploadPayload {
-  const MediaUploadPayload({
+  const MediaUploadPayload._({
     required this.filename,
     required this.contentType,
-    required this.bytes,
-  });
+    required this.byteLength,
+    this.bytes,
+    this.filePath,
+  }) : assert((bytes != null) ^ (filePath != null));
+
+  factory MediaUploadPayload.fromBytes({
+    required String filename,
+    required String contentType,
+    required Uint8List bytes,
+  }) {
+    return MediaUploadPayload._(
+      filename: filename,
+      contentType: contentType,
+      byteLength: bytes.length,
+      bytes: bytes,
+      filePath: null,
+    );
+  }
+
+  factory MediaUploadPayload.fromFilePath({
+    required String filename,
+    required String contentType,
+    required String filePath,
+    required int byteLength,
+  }) {
+    return MediaUploadPayload._(
+      filename: filename,
+      contentType: contentType,
+      byteLength: byteLength,
+      bytes: null,
+      filePath: filePath,
+    );
+  }
+
+  /// Без загрузки файла в RAM: на мобильных [PlatformFile.path] + [PlatformFile.size];
+  /// на веб — только [PlatformFile.bytes].
+  static MediaUploadPayload? tryFromPlatformFile({
+    required PlatformFile file,
+    required String contentType,
+  }) {
+    if (file.name.trim().isEmpty) {
+      return null;
+    }
+    if (kIsWeb) {
+      final data = file.bytes;
+      if (data == null || data.isEmpty) {
+        return null;
+      }
+      return MediaUploadPayload.fromBytes(
+        filename: file.name,
+        contentType: contentType,
+        bytes: data,
+      );
+    }
+    final path = file.path;
+    if (path != null && path.isNotEmpty && file.size > 0) {
+      return MediaUploadPayload.fromFilePath(
+        filename: file.name,
+        contentType: contentType,
+        filePath: path,
+        byteLength: file.size,
+      );
+    }
+    final data = file.bytes;
+    if (data != null && data.isNotEmpty) {
+      return MediaUploadPayload.fromBytes(
+        filename: file.name,
+        contentType: contentType,
+        bytes: data,
+      );
+    }
+    return null;
+  }
 
   final String filename;
   final String contentType;
-  final Uint8List bytes;
+  final int byteLength;
+  final Uint8List? bytes;
+  final String? filePath;
 }
 
 class AppState extends ChangeNotifier {
@@ -1587,13 +1661,22 @@ class AppState extends ChangeNotifier {
       mediaItemId: item.id,
       filename: uploadPayload.filename,
       contentType: uploadPayload.contentType,
-      fileSize: uploadPayload.bytes.length,
+      fileSize: uploadPayload.byteLength,
     );
-    await _libraryRepository.uploadBytesToPresignedUrl(
-      uploadUrl: initUpload.uploadUrl,
-      bytes: uploadPayload.bytes,
-      contentType: uploadPayload.contentType,
-    );
+    if (uploadPayload.bytes != null) {
+      await _libraryRepository.uploadBytesToPresignedUrl(
+        uploadUrl: initUpload.uploadUrl,
+        bytes: uploadPayload.bytes!,
+        contentType: uploadPayload.contentType,
+      );
+    } else {
+      await _libraryRepository.uploadFileToPresignedUrl(
+        uploadUrl: initUpload.uploadUrl,
+        filePath: uploadPayload.filePath!,
+        contentLength: uploadPayload.byteLength,
+        contentType: uploadPayload.contentType,
+      );
+    }
     await _libraryRepository.completeFileUpload(
       accessToken: session.accessToken,
       fileId: initUpload.fileId,
@@ -1622,13 +1705,22 @@ class AppState extends ChangeNotifier {
       mediaItemId: item.id,
       filename: coverUploadPayload.filename,
       contentType: coverUploadPayload.contentType,
-      fileSize: coverUploadPayload.bytes.length,
+      fileSize: coverUploadPayload.byteLength,
     );
-    await _libraryRepository.uploadBytesToPresignedUrl(
-      uploadUrl: initUpload.uploadUrl,
-      bytes: coverUploadPayload.bytes,
-      contentType: coverUploadPayload.contentType,
-    );
+    if (coverUploadPayload.bytes != null) {
+      await _libraryRepository.uploadBytesToPresignedUrl(
+        uploadUrl: initUpload.uploadUrl,
+        bytes: coverUploadPayload.bytes!,
+        contentType: coverUploadPayload.contentType,
+      );
+    } else {
+      await _libraryRepository.uploadFileToPresignedUrl(
+        uploadUrl: initUpload.uploadUrl,
+        filePath: coverUploadPayload.filePath!,
+        contentLength: coverUploadPayload.byteLength,
+        contentType: coverUploadPayload.contentType,
+      );
+    }
     await _libraryRepository.completeFileUpload(
       accessToken: session.accessToken,
       fileId: initUpload.fileId,

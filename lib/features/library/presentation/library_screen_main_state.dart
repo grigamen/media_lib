@@ -85,44 +85,68 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: widget.onRefresh,
-      child: Builder(
-        builder: (context) {
-          if (widget.isLoading && widget.items.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (widget.errorMessage != null && widget.items.isEmpty) {
-            return ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                _LibraryControls(
-                  searchController: _searchController,
-                  searchQuery: widget.searchQuery,
-                  selectedTypes: widget.selectedTypes,
-                  selectedGenres: widget.selectedGenres,
-                  onSetLibraryFilters: widget.onSetLibraryFilters,
-                  onSearchFieldTap: widget.onOpenSearchTab,
-                ),
-                const SizedBox(height: 64),
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      widget.errorMessage!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: widget.onRefresh,
+        child: Builder(
+          builder: (context) {
+            if (widget.isLoading && widget.items.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (widget.errorMessage != null && widget.items.isEmpty) {
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                children: [
+                  _LibraryControls(
+                    searchController: _searchController,
+                    searchQuery: widget.searchQuery,
+                    selectedTypes: widget.selectedTypes,
+                    selectedGenres: widget.selectedGenres,
+                    onSetLibraryFilters: widget.onSetLibraryFilters,
+                    onSearchFieldTap: widget.onOpenSearchTab,
+                  ),
+                  const SizedBox(height: 64),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        widget.errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
-              ],
-            );
-          }
-          if (widget.items.isEmpty) {
+                ],
+              );
+            }
+            if (widget.items.isEmpty) {
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                children: [
+                  _LibraryControls(
+                    searchController: _searchController,
+                    searchQuery: widget.searchQuery,
+                    selectedTypes: widget.selectedTypes,
+                    selectedGenres: widget.selectedGenres,
+                    onSetLibraryFilters: widget.onSetLibraryFilters,
+                    onSearchFieldTap: widget.onOpenSearchTab,
+                  ),
+                  const SizedBox(height: 64),
+                  Center(
+                    child: Text(
+                      widget.usingDemoItems
+                          ? "Тестовые произведения не найдены по текущему фильтру"
+                          : "Библиотека пока пустая",
+                    ),
+                  ),
+                ],
+              );
+            }
+            final groups = _buildWorkGroups(widget.items);
             return ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 16),
               children: [
                 _LibraryControls(
                   searchController: _searchController,
@@ -132,96 +156,75 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   onSetLibraryFilters: widget.onSetLibraryFilters,
                   onSearchFieldTap: widget.onOpenSearchTab,
                 ),
-                const SizedBox(height: 64),
-                Center(
-                  child: Text(
-                    widget.usingDemoItems
-                        ? "Тестовые произведения не найдены по текущему фильтру"
-                        : "Библиотека пока пустая",
+                if (widget.usingDemoItems) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      "Показаны тестовые произведения (backend вернул пустую библиотеку).",
+                    ),
                   ),
+                ],
+                const SizedBox(height: 10),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.58,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 14,
+                  ),
+                  itemCount: groups.length,
+                  itemBuilder: (context, index) {
+                    final group = groups[index];
+                    return _LibraryItemCard(
+                      group: group,
+                      currentUserId: widget.currentUserId,
+                      onTap: () {
+                        openMediaItemDetailsPage(
+                          context: context,
+                          currentUserId: widget.currentUserId,
+                          groupItems: group.groupItems,
+                          availableGenres: widget.availableGenres,
+                          onLoadLinks: widget.onLoadLinks,
+                          onLoadItemById: widget.onLoadItemById,
+                          onUpdateItem: widget.onUpdateItem,
+                          onAddFormatToWork: widget.onAddFormatToWork,
+                          onBeginPlaybackSession: widget.onBeginPlaybackSession,
+                          onPlaybackProgressChanged:
+                              widget.onPlaybackProgressChanged,
+                          onPausePlaybackSession: widget.onPausePlaybackSession,
+                          onCompletePlaybackSession:
+                              widget.onCompletePlaybackSession,
+                          onFlushPlaybackSession: widget.onFlushPlaybackSession,
+                          onEndPlaybackSession: widget.onEndPlaybackSession,
+                          playbackSpeed: widget.playbackSpeed,
+                          onSetPlaybackSpeed: widget.onSetPlaybackSpeed,
+                          pendingPlaybackSync: widget.pendingPlaybackSync,
+                          onFetchPlaybackStreamUrl:
+                              widget.onFetchPlaybackStreamUrl,
+                          playbackError: widget.playbackError,
+                          onLoadBookContent: widget.onLoadBookContent,
+                          onMarkItemViewed: widget.onMarkItemViewed,
+                          onFetchMediaFiles: widget.onFetchMediaFiles,
+                          onBindMainMediaFile: widget.onBindMainMediaFile,
+                          onUploadAndBindMainMediaFile:
+                              widget.onUploadAndBindMainMediaFile,
+                        );
+                      },
+                      onOpenLinks: () => _showLinksDialog(group.primaryItem),
+                    );
+                  },
                 ),
               ],
             );
-          }
-          final groups = _buildWorkGroups(widget.items);
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-            children: [
-              _LibraryControls(
-                searchController: _searchController,
-                searchQuery: widget.searchQuery,
-                selectedTypes: widget.selectedTypes,
-                selectedGenres: widget.selectedGenres,
-                onSetLibraryFilters: widget.onSetLibraryFilters,
-                onSearchFieldTap: widget.onOpenSearchTab,
-              ),
-              if (widget.usingDemoItems) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    "Показаны тестовые произведения (backend вернул пустую библиотеку).",
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.58,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 14,
-                ),
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  final group = groups[index];
-                  return _LibraryItemCard(
-                    group: group,
-                    currentUserId: widget.currentUserId,
-                    onTap: () {
-                      openMediaItemDetailsPage(
-                        context: context,
-                        currentUserId: widget.currentUserId,
-                        groupItems: group.groupItems,
-                        availableGenres: widget.availableGenres,
-                        onLoadLinks: widget.onLoadLinks,
-                        onLoadItemById: widget.onLoadItemById,
-                        onUpdateItem: widget.onUpdateItem,
-                        onAddFormatToWork: widget.onAddFormatToWork,
-                        onBeginPlaybackSession: widget.onBeginPlaybackSession,
-                        onPlaybackProgressChanged:
-                            widget.onPlaybackProgressChanged,
-                        onPausePlaybackSession: widget.onPausePlaybackSession,
-                        onCompletePlaybackSession:
-                            widget.onCompletePlaybackSession,
-                        onFlushPlaybackSession: widget.onFlushPlaybackSession,
-                        onEndPlaybackSession: widget.onEndPlaybackSession,
-                        playbackSpeed: widget.playbackSpeed,
-                        onSetPlaybackSpeed: widget.onSetPlaybackSpeed,
-                        pendingPlaybackSync: widget.pendingPlaybackSync,
-                        onFetchPlaybackStreamUrl: widget.onFetchPlaybackStreamUrl,
-                        playbackError: widget.playbackError,
-                        onLoadBookContent: widget.onLoadBookContent,
-                        onMarkItemViewed: widget.onMarkItemViewed,
-                        onFetchMediaFiles: widget.onFetchMediaFiles,
-                        onBindMainMediaFile: widget.onBindMainMediaFile,
-                        onUploadAndBindMainMediaFile:
-                            widget.onUploadAndBindMainMediaFile,
-                      );
-                    },
-                    onOpenLinks: () => _showLinksDialog(group.primaryItem),
-                  );
-                },
-              ),
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
   }

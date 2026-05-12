@@ -65,6 +65,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     if (lower.endsWith(".webm")) return "video/webm";
     if (lower.endsWith(".mov")) return "video/quicktime";
     if (lower.endsWith(".mkv")) return "video/x-matroska";
+    if (lower.endsWith(".avi")) return "video/x-msvideo";
     return null;
   }
 
@@ -141,12 +142,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     final titleController = TextEditingController(text: item.title);
     final authorController = TextEditingController(text: item.author ?? "");
     List<String> selectedGenres = _uniqueGenres([...?item.genres]);
-    String? selectedCoverFileName;
-    List<int>? selectedCoverFileBytes;
-    String? selectedCoverFileMime;
-    String? selectedFileName;
-    List<int>? selectedFileBytes;
-    String? selectedFileMime;
+    MediaUploadPayload? coverUpload;
+    MediaUploadPayload? mainFileUpload;
     String? genrePickerValue;
     final descriptionController = TextEditingController(
       text: item.description ?? "",
@@ -175,30 +172,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                   title: titleController.text.trim(),
                   author: authorController.text.trim(),
                   genres: selectedGenres.isEmpty ? null : selectedGenres,
-                  coverUploadPayload:
-                      selectedCoverFileName != null &&
-                              selectedCoverFileBytes != null
-                          ? MediaUploadPayload(
-                            filename: selectedCoverFileName!,
-                            contentType:
-                                selectedCoverFileMime ??
-                                _inferImageMimeFromFilename(
-                                  selectedCoverFileName!,
-                                ) ??
-                                "image/jpeg",
-                            bytes: Uint8List.fromList(selectedCoverFileBytes!),
-                          )
-                          : null,
-                  uploadPayload:
-                      selectedFileName != null && selectedFileBytes != null
-                          ? MediaUploadPayload(
-                            filename: selectedFileName!,
-                            contentType:
-                                selectedFileMime ??
-                                _fallbackContentType(item.type),
-                            bytes: Uint8List.fromList(selectedFileBytes!),
-                          )
-                          : null,
+                  coverUploadPayload: coverUpload,
+                  uploadPayload: mainFileUpload,
                   description: descriptionController.text.trim(),
                 );
                 final refreshedUpdated =
@@ -329,7 +304,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                           "png",
                                           "webp",
                                         ],
-                                        withData: true,
+                                        withData: kIsWeb,
                                       );
                                   if (!context.mounted ||
                                       result == null ||
@@ -337,8 +312,15 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                     return;
                                   }
                                   final file = result.files.first;
-                                  if (file.bytes == null ||
-                                      file.bytes!.isEmpty) {
+                                  final mime =
+                                      _inferImageMimeFromFilename(file.name) ??
+                                      "image/jpeg";
+                                  final payload =
+                                      MediaUploadPayload.tryFromPlatformFile(
+                                        file: file,
+                                        contentType: mime,
+                                      );
+                                  if (payload == null) {
                                     setDialogState(() {
                                       submitError =
                                           "Не удалось прочитать файл обложки";
@@ -346,17 +328,14 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                     return;
                                   }
                                   setDialogState(() {
-                                    selectedCoverFileName = file.name;
-                                    selectedCoverFileBytes = file.bytes!;
-                                    selectedCoverFileMime =
-                                        _inferImageMimeFromFilename(file.name);
+                                    coverUpload = payload;
                                   });
                                 },
                         icon: const Icon(Icons.image_outlined),
                         label: Text(
-                          selectedCoverFileName == null
+                          coverUpload == null
                               ? "Обновить обложку"
-                              : "Обложка: $selectedCoverFileName",
+                              : "Обложка: ${coverUpload!.filename}",
                         ),
                       ),
                       if (item.type == "book" ||
@@ -383,6 +362,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                               "mkv",
                                               "webm",
                                               "mov",
+                                              "avi",
                                             ]
                                             : const <String>[
                                               "txt",
@@ -395,7 +375,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                         .pickFiles(
                                           type: FileType.custom,
                                           allowedExtensions: allowedExtensions,
-                                          withData: true,
+                                          withData: kIsWeb,
                                         );
                                     if (!context.mounted ||
                                         result == null ||
@@ -403,8 +383,15 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                       return;
                                     }
                                     final file = result.files.first;
-                                    if (file.bytes == null ||
-                                        file.bytes!.isEmpty) {
+                                    final mime =
+                                        _inferContentTypeFromName(file.name) ??
+                                        _fallbackContentType(item.type);
+                                    final payload =
+                                        MediaUploadPayload.tryFromPlatformFile(
+                                          file: file,
+                                          contentType: mime,
+                                        );
+                                    if (payload == null) {
                                       setDialogState(() {
                                         submitError =
                                             "Не удалось прочитать выбранный файл";
@@ -412,21 +399,15 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                       return;
                                     }
                                     setDialogState(() {
-                                      selectedFileName = file.name;
-                                      selectedFileBytes = file.bytes!;
-                                      selectedFileMime =
-                                          _inferContentTypeFromName(
-                                            file.name,
-                                          ) ??
-                                          _fallbackContentType(item.type);
+                                      mainFileUpload = payload;
                                       submitError = null;
                                     });
                                   },
                           icon: const Icon(Icons.attach_file_outlined),
                           label: Text(
-                            selectedFileName == null
+                            mainFileUpload == null
                                 ? "Заменить файл"
-                                : "Файл: $selectedFileName",
+                                : "Файл: ${mainFileUpload!.filename}",
                           ),
                         ),
                       ],
@@ -503,14 +484,10 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
     List<String> selectedGenres = _uniqueGenres([
       ...(sourceItem.genres ?? const <String>[]),
     ]);
-    String? selectedCoverFileName;
-    List<int>? selectedCoverFileBytes;
-    String? selectedCoverFileMime;
+    MediaUploadPayload? formatCoverUpload;
+    MediaUploadPayload? formatMainUpload;
     String? genrePickerValue;
     String selectedType = "book";
-    String? selectedFileName;
-    String? selectedFileMime;
-    List<int>? selectedFileBytes;
     String? submitError;
     bool isSubmitting = false;
     final genreOptions = _uniqueGenres(widget.availableGenres);
@@ -532,10 +509,11 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                 });
                 return;
               }
-              if (selectedFileName != null &&
+              final mainUpload = formatMainUpload;
+              if (mainUpload != null &&
                   !_isFileCompatibleWithType(
-                    filename: selectedFileName,
-                    mimeType: selectedFileMime,
+                    filename: mainUpload.filename,
+                    mimeType: mainUpload.contentType,
                     mediaType: selectedType,
                   )) {
                 setDialogState(() {
@@ -546,8 +524,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
               }
               final requiresUpload =
                   selectedType == "audiobook" || selectedType == "video";
-              if (requiresUpload &&
-                  (selectedFileName == null || selectedFileBytes == null)) {
+              if (requiresUpload && formatMainUpload == null) {
                 setDialogState(() {
                   submitError = "Для аудио/видео выберите файл";
                 });
@@ -564,31 +541,9 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                   title: titleController.text.trim(),
                   author: authorController.text.trim(),
                   genres: selectedGenres.isEmpty ? null : selectedGenres,
-                  coverUploadPayload:
-                      selectedCoverFileName != null &&
-                              selectedCoverFileBytes != null
-                          ? MediaUploadPayload(
-                            filename: selectedCoverFileName!,
-                            contentType:
-                                selectedCoverFileMime ??
-                                _inferImageMimeFromFilename(
-                                  selectedCoverFileName!,
-                                ) ??
-                                "image/jpeg",
-                            bytes: Uint8List.fromList(selectedCoverFileBytes!),
-                          )
-                          : null,
+                  coverUploadPayload: formatCoverUpload,
                   description: descriptionController.text.trim(),
-                  uploadPayload:
-                      selectedFileName != null && selectedFileBytes != null
-                          ? MediaUploadPayload(
-                            filename: selectedFileName!,
-                            contentType:
-                                selectedFileMime ??
-                                _fallbackContentType(selectedType),
-                            bytes: Uint8List.fromList(selectedFileBytes!),
-                          )
-                          : null,
+                  uploadPayload: formatMainUpload,
                 );
                 if (!mounted) {
                   return;
@@ -642,9 +597,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                   }
                                   setDialogState(() {
                                     selectedType = value;
-                                    selectedFileName = null;
-                                    selectedFileMime = null;
-                                    selectedFileBytes = null;
+                                    formatMainUpload = null;
                                   });
                                 },
                       ),
@@ -746,7 +699,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                           "png",
                                           "webp",
                                         ],
-                                        withData: true,
+                                        withData: kIsWeb,
                                       );
                                   if (!context.mounted ||
                                       result == null ||
@@ -754,8 +707,15 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                     return;
                                   }
                                   final file = result.files.first;
-                                  if (file.bytes == null ||
-                                      file.bytes!.isEmpty) {
+                                  final mime =
+                                      _inferImageMimeFromFilename(file.name) ??
+                                      "image/jpeg";
+                                  final payload =
+                                      MediaUploadPayload.tryFromPlatformFile(
+                                        file: file,
+                                        contentType: mime,
+                                      );
+                                  if (payload == null) {
                                     setDialogState(() {
                                       submitError =
                                           "Не удалось прочитать файл обложки";
@@ -763,17 +723,14 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                     return;
                                   }
                                   setDialogState(() {
-                                    selectedCoverFileName = file.name;
-                                    selectedCoverFileBytes = file.bytes!;
-                                    selectedCoverFileMime =
-                                        _inferImageMimeFromFilename(file.name);
+                                    formatCoverUpload = payload;
                                   });
                                 },
                         icon: const Icon(Icons.image_outlined),
                         label: Text(
-                          selectedCoverFileName == null
+                          formatCoverUpload == null
                               ? "Выбрать обложку"
-                              : "Обложка: $selectedCoverFileName",
+                              : "Обложка: ${formatCoverUpload!.filename}",
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -810,6 +767,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                               "mkv",
                                               "webm",
                                               "mov",
+                                              "avi",
                                             ]
                                             : const <String>[
                                               "txt",
@@ -822,7 +780,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                         .pickFiles(
                                           type: FileType.custom,
                                           allowedExtensions: allowedExtensions,
-                                          withData: true,
+                                          withData: kIsWeb,
                                         );
                                     if (!context.mounted ||
                                         result == null ||
@@ -830,8 +788,15 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                       return;
                                     }
                                     final file = result.files.first;
-                                    if (file.bytes == null ||
-                                        file.bytes!.isEmpty) {
+                                    final mime =
+                                        _inferContentTypeFromName(file.name) ??
+                                        _fallbackContentType(selectedType);
+                                    final payload =
+                                        MediaUploadPayload.tryFromPlatformFile(
+                                          file: file,
+                                          contentType: mime,
+                                        );
+                                    if (payload == null) {
                                       setDialogState(() {
                                         submitError =
                                             "Не удалось прочитать выбранный файл";
@@ -839,20 +804,14 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                       return;
                                     }
                                     setDialogState(() {
-                                      selectedFileName = file.name;
-                                      selectedFileBytes = file.bytes!;
-                                      selectedFileMime =
-                                          _inferContentTypeFromName(
-                                            file.name,
-                                          ) ??
-                                          _fallbackContentType(selectedType);
+                                      formatMainUpload = payload;
                                     });
                                   },
                           icon: const Icon(Icons.attach_file),
                           label: Text(
-                            selectedFileName == null
+                            formatMainUpload == null
                                 ? "Выбрать файл"
-                                : "Файл: $selectedFileName",
+                                : "Файл: ${formatMainUpload!.filename}",
                           ),
                         ),
                       ],

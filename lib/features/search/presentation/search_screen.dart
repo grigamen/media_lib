@@ -31,14 +31,6 @@ class _SearchScreenState extends State<SearchScreen> {
   late List<String> _types;
   late List<String> _genres;
 
-  static const _quickQueries = [
-    "Космос",
-    "Детектив",
-    "Фантастика",
-    "Классика",
-    "Саморазвитие",
-  ];
-
   static const _typeSpecs = <({String key, String label})>[
     (key: "book", label: "Книги"),
     (key: "audiobook", label: "Аудиокниги"),
@@ -210,27 +202,6 @@ class _SearchScreenState extends State<SearchScreen> {
             FilledButton(
               onPressed: () => unawaited(_submit()),
               child: const Text("Показать в библиотеке"),
-            ),
-            const SizedBox(height: 28),
-            Text(
-              "Популярные запросы",
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _quickQueries
-                  .map(
-                    (query) => ActionChip(
-                      label: Text(query),
-                      onPressed: () {
-                        _controller.text = query;
-                        unawaited(_submit());
-                      },
-                    ),
-                  )
-                  .toList(growable: false),
             ),
           ],
         ),

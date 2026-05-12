@@ -285,7 +285,6 @@ class _HomeShellState extends State<_HomeShell> {
 
     final pages = <Widget>[
       HomeScreen(
-        items: state.items,
         recentlyViewedItems: state.recentlyViewedItems,
         onOpenItem: openItemFromHome,
       ),

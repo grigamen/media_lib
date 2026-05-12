@@ -50,7 +50,8 @@ class ProfileScreen extends StatelessWidget {
         String? errorText;
         return StatefulBuilder(
           builder: (dialogInnerContext, setDialogState) {
-            final emailChanged = emailCtrl.text.trim().toLowerCase() !=
+            final emailChanged =
+                emailCtrl.text.trim().toLowerCase() !=
                 email.trim().toLowerCase();
 
             Future<void> submit() async {
@@ -61,8 +62,7 @@ class ProfileScreen extends StatelessWidget {
                 });
                 return;
               }
-              if (emailChanged &&
-                  (passwordCtrl.text.isEmpty)) {
+              if (emailChanged && (passwordCtrl.text.isEmpty)) {
                 setDialogState(() {
                   errorText = "Для смены email введите текущий пароль";
                 });
@@ -120,9 +120,7 @@ class ProfileScreen extends StatelessWidget {
                     TextField(
                       controller: emailCtrl,
                       enabled: !busy,
-                      decoration: const InputDecoration(
-                        labelText: "Email",
-                      ),
+                      decoration: const InputDecoration(labelText: "Email"),
                       keyboardType: TextInputType.emailAddress,
                       onChanged: (_) => setDialogState(() {}),
                     ),
@@ -142,10 +140,7 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         errorText!,
                         style: TextStyle(
-                          color:
-                              Theme.of(
-                                dialogInnerContext,
-                              ).colorScheme.error,
+                          color: Theme.of(dialogInnerContext).colorScheme.error,
                         ),
                       ),
                     ],
@@ -288,10 +283,7 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         errorText!,
                         style: TextStyle(
-                          color:
-                              Theme.of(
-                                dialogInnerContext,
-                              ).colorScheme.error,
+                          color: Theme.of(dialogInnerContext).colorScheme.error,
                         ),
                       ),
                     ],
@@ -328,174 +320,175 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            children: [
-              Text(
-                "Профиль",
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.28),
-                      shape: BoxShape.circle,
+    return SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              children: [
+                Text(
+                  "Профиль",
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.28),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.person_outline,
+                        size: 34,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.person_outline,
-                      size: 34,
-                      color: Theme.of(context).colorScheme.primary,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName.isNotEmpty
+                                ? displayName
+                                : "Пользователь",
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          Text(email),
+                        ],
+                      ),
                     ),
+                    IconButton(
+                      tooltip: "Выйти",
+                      onPressed: onLogout,
+                      icon: const Icon(Icons.logout),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _openEditProfileDialog(context),
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      label: const Text("Имя и email"),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text("Общие", style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 8),
+                _SettingsSwitchTile(
+                  icon: Icons.dark_mode_outlined,
+                  title: "Темная тема",
+                  value: isDarkMode,
+                  onChanged: onThemeToggle,
+                ),
+                if (onOpenAdminMedia != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    "Администрирование",
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName.isNotEmpty ? displayName : "Пользователь",
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        Text(email),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: "Выйти",
-                    onPressed: onLogout,
-                    icon: const Icon(Icons.logout),
+                  const SizedBox(height: 8),
+                  _ActionTile(
+                    icon: Icons.admin_panel_settings_outlined,
+                    title: "Панель администратора",
+                    subtitle: "Вкладки: подтверждение и удаление произведений",
+                    onTap: onOpenAdminMedia!,
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  TextButton.icon(
-                    onPressed: () => _openEditProfileDialog(context),
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    label: const Text("Имя и email"),
-                  ),
-                  TextButton.icon(
-                    onPressed: () => _openChangePasswordDialog(context),
-                    icon: const Icon(Icons.password_outlined, size: 20),
-                    label: const Text("Пароль"),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text("Общие", style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              _SettingsSwitchTile(
-                icon: Icons.dark_mode_outlined,
-                title: "Темная тема",
-                value: isDarkMode,
-                onChanged: onThemeToggle,
-              ),
-              if (onOpenAdminMedia != null) ...[
                 const SizedBox(height: 16),
                 Text(
-                  "Администрирование",
+                  "Безопасность",
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
                 _ActionTile(
-                  icon: Icons.admin_panel_settings_outlined,
-                  title: "Панель администратора",
-                  subtitle: "Вкладки: подтверждение и удаление произведений",
-                  onTap: onOpenAdminMedia!,
+                  icon: Icons.lock_outline,
+                  title: "Двухфакторная\nаутентификация",
+                  onTap: () {},
+                ),
+                _ActionTile(
+                  icon: Icons.password,
+                  title: "Изменить пароль",
+                  onTap: () => _openChangePasswordDialog(context),
+                ),
+                _ActionTile(
+                  icon: Icons.add_box_outlined,
+                  title: "Добавить произведение",
+                  onTap: onOpenAddWork,
                 ),
               ],
-              const SizedBox(height: 16),
-              Text(
-                "Безопасность",
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              _ActionTile(
-                icon: Icons.lock_outline,
-                title: "Двухфакторная\nаутентификация",
-                onTap: () {},
-              ),
-              _ActionTile(
-                icon: Icons.password,
-                title: "Изменить пароль",
-                onTap: () => _openChangePasswordDialog(context),
-              ),
-              _ActionTile(
-                icon: Icons.add_box_outlined,
-                title: "Добавить произведение",
-                onTap: onOpenAddWork,
-              ),
-            ],
+            ),
           ),
-        ),
-        SafeArea(
-          top: false,
-          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder:
-                          (dialogContext) => AlertDialog(
-                            title: const Text("Удалить созданные произведения"),
-                            content: const Text(
-                              "Это удалит только произведения, созданные вашим аккаунтом. Действие необратимо.",
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder:
+                            (dialogContext) => AlertDialog(
+                              title: const Text(
+                                "Удалить созданные произведения",
+                              ),
+                              content: const Text(
+                                "Это удалит только произведения, созданные вашим аккаунтом. Действие необратимо.",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed:
+                                      () => Navigator.of(
+                                        dialogContext,
+                                      ).pop(false),
+                                  child: const Text("Отмена"),
+                                ),
+                                FilledButton(
+                                  onPressed:
+                                      () =>
+                                          Navigator.of(dialogContext).pop(true),
+                                  child: const Text("Удалить"),
+                                ),
+                              ],
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed:
-                                    () =>
-                                        Navigator.of(dialogContext).pop(false),
-                                child: const Text("Отмена"),
-                              ),
-                              FilledButton(
-                                onPressed:
-                                    () =>
-                                        Navigator.of(dialogContext).pop(true),
-                                child: const Text("Удалить"),
-                              ),
-                            ],
-                          ),
-                    );
-                    if (confirmed != true) {
-                      return;
-                    }
-                    await onDeleteAllWorks();
-                    if (!context.mounted) {
-                      return;
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Ваши произведения удалены"),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.delete_sweep_outlined),
-                  label: const Text("Удалить созданные произведения"),
+                      );
+                      if (confirmed != true) {
+                        return;
+                      }
+                      await onDeleteAllWorks();
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Ваши произведения удалены"),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_sweep_outlined),
+                    label: const Text("Удалить созданные произведения"),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

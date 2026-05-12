@@ -4,13 +4,11 @@ import "../../library/data/library_repository.dart";
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
-    required this.items,
     required this.recentlyViewedItems,
     required this.onOpenItem,
     super.key,
   });
 
-  final List<MediaListItem> items;
   final List<MediaListItem> recentlyViewedItems;
   final Future<void> Function(MediaListItem item) onOpenItem;
 
@@ -33,9 +31,6 @@ class HomeScreen extends StatelessWidget {
         recentlyViewedItems.length > 1
             ? recentlyViewedItems.skip(1).toList(growable: false)
             : <MediaListItem>[];
-    final booksCount = items.where((item) => item.type == "book").length;
-    final audioCount = items.where((item) => item.type == "audiobook").length;
-    final videoCount = items.where((item) => item.type == "video").length;
 
     return Scaffold(
       body: SafeArea(
@@ -43,35 +38,7 @@ class HomeScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
           children: [
             Text("Главная", style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    label: "Книг в\nбиблиотеке",
-                    value: "$booksCount",
-                    color: Color(0xFF5A43B6),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatCard(
-                    label: "Аудио в\nбиблиотеке",
-                    value: "$audioCount",
-                    color: Color(0xFF403D6E),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatCard(
-                    label: "Видео в\nбиблиотеке",
-                    value: "$videoCount",
-                    color: Color(0xFF6E3D51),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             Text(
               "Последнее",
               style: Theme.of(context).textTheme.headlineSmall,
@@ -156,39 +123,6 @@ class _ContinueCard extends StatelessWidget {
                 Text(displayAuthor),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Text(value, style: Theme.of(context).textTheme.headlineSmall),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
           ),
         ],
       ),

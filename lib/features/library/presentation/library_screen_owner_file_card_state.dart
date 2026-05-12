@@ -51,7 +51,7 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
       return;
     }
     final result = await FilePicker.platform.pickFiles(
-      withData: true,
+      withData: kIsWeb,
       type: FileType.custom,
       allowedExtensions: const [
         "mp3",
@@ -63,6 +63,7 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
         "webm",
         "mov",
         "mkv",
+        "avi",
         "txt",
         "md",
         "pdf",
@@ -78,8 +79,7 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
     }
     final file = result.files.single;
     final name = file.name;
-    final bytes = file.bytes;
-    if (bytes == null || name.trim().isEmpty) {
+    if (name.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Не удалось прочитать файл")),
       );
@@ -101,15 +101,21 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
       );
       return;
     }
+    final payload = MediaUploadPayload.tryFromPlatformFile(
+      file: file,
+      contentType: resolvedMime,
+    );
+    if (payload == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Не удалось прочитать файл")),
+      );
+      return;
+    }
     setState(() => _busy = true);
     try {
       await widget.onUploadAndBind(
         mediaItemId: widget.item.id,
-        uploadPayload: MediaUploadPayload(
-          filename: name,
-          contentType: resolvedMime,
-          bytes: Uint8List.fromList(bytes),
-        ),
+        uploadPayload: payload,
       );
       await widget.onVariantRefreshed();
       _reloadFilesList();

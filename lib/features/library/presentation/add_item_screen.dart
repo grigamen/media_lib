@@ -1,6 +1,5 @@
-import "dart:typed_data";
-
 import "package:file_picker/file_picker.dart";
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 import "../data/library_repository.dart";
@@ -55,10 +54,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
   String _selectedType = "book";
   String? _selectedFileName;
   String? _selectedFileMime;
-  Uint8List? _selectedFileBytes;
-  String? _selectedCoverFileName;
-  String? _selectedCoverFileMime;
-  Uint8List? _selectedCoverFileBytes;
+  MediaUploadPayload? _selectedFileUpload;
+  MediaUploadPayload? _selectedCoverUpload;
   List<String> _selectedGenres = [];
   String? _genrePickerValue;
   bool _isSubmitting = false;
@@ -97,7 +94,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       final requiresUpload =
           _selectedType == "audiobook" || _selectedType == "video";
       if (requiresUpload &&
-          (_selectedFileName == null || _selectedFileBytes == null)) {
+          (_selectedFileName == null || _selectedFileUpload == null)) {
         setState(() {
           _error = "Для аудиокниги и видео нужно выбрать файл";
           _isSubmitting = false;
@@ -112,25 +109,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 ? null
                 : _authorController.text.trim(),
         genres: _selectedGenres.isEmpty ? null : _selectedGenres,
-        coverUploadPayload:
-            _selectedCoverFileName != null && _selectedCoverFileBytes != null
-                ? MediaUploadPayload(
-                  filename: _selectedCoverFileName!,
-                  contentType:
-                      _selectedCoverFileMime ??
-                      _inferImageContentTypeFromName(_selectedCoverFileName!) ??
-                      "image/jpeg",
-                  bytes: _selectedCoverFileBytes!,
-                )
-                : null,
+        coverUploadPayload: _selectedCoverUpload,
         uploadPayload:
-            _selectedFileName != null && _selectedFileBytes != null
-                ? MediaUploadPayload(
-                  filename: _selectedFileName!,
-                  contentType:
-                      _selectedFileMime ?? _fallbackContentType(_selectedType),
-                  bytes: _selectedFileBytes!,
-                )
+            _selectedFileName != null && _selectedFileUpload != null
+                ? _selectedFileUpload
                 : null,
       );
       if (!mounted) {
@@ -140,10 +122,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
       _authorController.clear();
       _selectedFileName = null;
       _selectedFileMime = null;
-      _selectedFileBytes = null;
-      _selectedCoverFileName = null;
-      _selectedCoverFileMime = null;
-      _selectedCoverFileBytes = null;
+      _selectedFileUpload = null;
+      _selectedCoverUpload = null;
       _selectedGenres = [];
       _genrePickerValue = null;
       final msg =
@@ -179,19 +159,26 @@ class _AddItemScreenState extends State<AddItemScreen> {
         _selectedType == "audiobook"
             ? const ["mp3", "m4a", "aac", "wav", "ogg"]
             : _selectedType == "video"
-            ? const ["mp4", "mkv", "webm", "mov"]
+            ? const ["mp4", "mkv", "webm", "mov", "avi"]
             : const ["txt", "md", "pdf", "epub", "docx"];
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExtensions,
-        withData: true,
+        withData: kIsWeb,
       );
       if (!mounted || result == null || result.files.isEmpty) {
         return;
       }
       final file = result.files.first;
-      if (file.bytes == null || file.bytes!.isEmpty) {
+      final inferred =
+          _inferContentTypeFromName(file.name) ??
+          _fallbackContentType(_selectedType);
+      final payload = MediaUploadPayload.tryFromPlatformFile(
+        file: file,
+        contentType: inferred,
+      );
+      if (payload == null) {
         setState(() {
           _error = "Не удалось прочитать выбранный файл";
         });
@@ -199,10 +186,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
       }
       setState(() {
         _selectedFileName = file.name;
-        _selectedFileBytes = file.bytes!;
-        _selectedFileMime =
-            _inferContentTypeFromName(file.name) ??
-            _fallbackContentType(_selectedType);
+        _selectedFileMime = inferred;
+        _selectedFileUpload = payload;
         _error = null;
       });
     } finally {
@@ -219,22 +204,26 @@ class _AddItemScreenState extends State<AddItemScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ["jpg", "jpeg", "png", "webp"],
-        withData: true,
+        withData: kIsWeb,
       );
       if (!mounted || result == null || result.files.isEmpty) {
         return;
       }
       final file = result.files.first;
-      if (file.bytes == null || file.bytes!.isEmpty) {
+      final mime =
+          _inferImageContentTypeFromName(file.name) ?? "image/jpeg";
+      final payload = MediaUploadPayload.tryFromPlatformFile(
+        file: file,
+        contentType: mime,
+      );
+      if (payload == null) {
         setState(() {
           _error = "Не удалось прочитать файл обложки";
         });
         return;
       }
       setState(() {
-        _selectedCoverFileName = file.name;
-        _selectedCoverFileBytes = file.bytes!;
-        _selectedCoverFileMime = _inferImageContentTypeFromName(file.name);
+        _selectedCoverUpload = payload;
         _error = null;
       });
     } finally {
@@ -302,6 +291,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     if (lower.endsWith(".webm")) return "video/webm";
     if (lower.endsWith(".mov")) return "video/quicktime";
     if (lower.endsWith(".mkv")) return "video/x-matroska";
+    if (lower.endsWith(".avi")) return "video/x-msvideo";
     return null;
   }
 
@@ -359,7 +349,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                   _selectedType = selection.first;
                   _selectedFileName = null;
                   _selectedFileMime = null;
-                  _selectedFileBytes = null;
+                  _selectedFileUpload = null;
                   _error = null;
                 });
               },
@@ -393,7 +383,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                       if (_selectedFileName != null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          "${_selectedFileMime ?? "unknown"} • ${_selectedFileBytes?.length ?? 0} bytes",
+                          "${_selectedFileMime ?? "unknown"} • ${_selectedFileUpload?.byteLength ?? 0} bytes",
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -424,9 +414,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                       const Icon(Icons.image_outlined, size: 28),
                       const SizedBox(height: 8),
                       Text(
-                        _selectedCoverFileName == null
+                        _selectedCoverUpload == null
                             ? "Выбрать обложку"
-                            : _selectedCoverFileName!,
+                            : _selectedCoverUpload!.filename,
                       ),
                     ],
                   ),
