@@ -4,6 +4,7 @@ import "dart:typed_data";
 
 import "package:http/http.dart" as http;
 
+import "../../../core/config/app_config.dart";
 import "../../../core/network/api_client.dart";
 
 class MediaListItem {
@@ -682,9 +683,22 @@ class LibraryRepository {
     return MediaListItem.fromJson(response);
   }
 
+  /// Подмена localhost → 10.0.2.2 нужна только при API с хоста эмулятора.
+  /// На физическом устройстве с облаком presigned URL не трогаем — иначе запросы
+  /// уходят на 10.0.2.2 на самом телефоне и плеер не готовится.
+  bool get _shouldRewriteLocalS3HostsForAndroidEmulator {
+    if (!Platform.isAndroid) {
+      return false;
+    }
+    final base = AppConfig.apiBaseUrl.trim().toLowerCase();
+    return base.contains("10.0.2.2") ||
+        base.contains("127.0.0.1") ||
+        base.contains("localhost");
+  }
+
   Uri _normalizeUploadUri(String uploadUrl) {
     final uri = Uri.parse(uploadUrl);
-    if (!Platform.isAndroid) {
+    if (!_shouldRewriteLocalS3HostsForAndroidEmulator) {
       return uri;
     }
     if (uri.host == "localhost" ||
@@ -712,7 +726,7 @@ class LibraryRepository {
 
   Uri _normalizeStreamUri(String streamUrl) {
     final uri = Uri.parse(streamUrl);
-    if (!Platform.isAndroid) {
+    if (!_shouldRewriteLocalS3HostsForAndroidEmulator) {
       return uri;
     }
     if (uri.host == "localhost" ||
