@@ -121,18 +121,21 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel> {
       _localError = null;
     });
 
-    final config = await widget.onBeginPlaybackSession(widget.item);
+    final outcome = await widget.onBeginPlaybackSession(widget.item);
     if (!mounted) {
       return;
     }
-    if (config == null) {
+    if (outcome.config == null) {
       setState(() {
         _isInitializing = false;
-        _localError = widget.playbackError ?? "Не удалось подготовить плеер";
+        _localError =
+            outcome.errorMessage ??
+            widget.playbackError ??
+            "Не удалось подготовить плеер";
       });
       return;
     }
-
+    final config = outcome.config!;
     try {
       if (_isAudio) {
         final player = AudioPlayer();

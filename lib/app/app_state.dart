@@ -51,6 +51,16 @@ class PlaybackSessionConfig {
   final String? activeStreamFileId;
 }
 
+/// Результат запуска сессии воспроизведения ([config] или [errorMessage], не оба сразу).
+class PlaybackSessionOutcome {
+  PlaybackSessionOutcome.success(this.config) : errorMessage = null;
+
+  PlaybackSessionOutcome.failure(this.errorMessage) : config = null;
+
+  final PlaybackSessionConfig? config;
+  final String? errorMessage;
+}
+
 String _shortMediaFileIdForLabel(String id) {
   if (id.length <= 10) {
     return id;
@@ -1093,14 +1103,15 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<PlaybackSessionConfig?> beginPlaybackSession(
+  Future<PlaybackSessionOutcome> beginPlaybackSession(
     MediaListItem item,
   ) async {
     if (!_isPlayableType(item.type)) {
+      const message = "Для этого типа контента плеер не поддерживается";
       _playbackLoadState = PlaybackLoadState.error;
-      _playbackError = "Для этого типа контента плеер не поддерживается";
+      _playbackError = message;
       notifyListeners();
-      return null;
+      return PlaybackSessionOutcome.failure(message);
     }
     final currentMediaId = _activePlaybackMediaItemId;
     if (currentMediaId != null &&
@@ -1130,16 +1141,18 @@ class AppState extends ChangeNotifier {
         }
         _playbackLoadState = PlaybackLoadState.ready;
         notifyListeners();
-        return PlaybackSessionConfig(
-          mediaItemId: item.id,
-          mediaType: item.type,
-          streamUrl: demoUrl,
-          initialPositionSeconds: 0,
-          initialDurationSeconds: null,
-          initialSpeed: _playbackSpeed,
-          isDemoStream: true,
-          streamOptions: const [],
-          activeStreamFileId: null,
+        return PlaybackSessionOutcome.success(
+          PlaybackSessionConfig(
+            mediaItemId: item.id,
+            mediaType: item.type,
+            streamUrl: demoUrl,
+            initialPositionSeconds: 0,
+            initialDurationSeconds: null,
+            initialSpeed: _playbackSpeed,
+            isDemoStream: true,
+            streamOptions: const [],
+            activeStreamFileId: null,
+          ),
         );
       }
 
@@ -1261,27 +1274,30 @@ class AppState extends ChangeNotifier {
       _playbackIsCompleted = progress.isCompleted;
       _playbackLoadState = PlaybackLoadState.ready;
       notifyListeners();
-      return PlaybackSessionConfig(
-        mediaItemId: item.id,
-        mediaType: item.type,
-        streamUrl: streamInfo.streamUrl,
-        initialPositionSeconds: progress.positionSeconds,
-        initialDurationSeconds: progress.durationSeconds,
-        initialSpeed: _playbackSpeed,
-        isDemoStream: false,
-        streamOptions: streamOptions,
-        activeStreamFileId: activeStreamFileId,
+      return PlaybackSessionOutcome.success(
+        PlaybackSessionConfig(
+          mediaItemId: item.id,
+          mediaType: item.type,
+          streamUrl: streamInfo.streamUrl,
+          initialPositionSeconds: progress.positionSeconds,
+          initialDurationSeconds: progress.durationSeconds,
+          initialSpeed: _playbackSpeed,
+          isDemoStream: false,
+          streamOptions: streamOptions,
+          activeStreamFileId: activeStreamFileId,
+        ),
       );
     } on ApiException catch (e) {
       _playbackLoadState = PlaybackLoadState.error;
       _playbackError = e.message;
       notifyListeners();
-      return null;
+      return PlaybackSessionOutcome.failure(e.message);
     } catch (_) {
+      const fallback = "Не удалось подготовить воспроизведение";
       _playbackLoadState = PlaybackLoadState.error;
-      _playbackError = "Не удалось подготовить воспроизведение";
+      _playbackError = fallback;
       notifyListeners();
-      return null;
+      return PlaybackSessionOutcome.failure(fallback);
     }
   }
 

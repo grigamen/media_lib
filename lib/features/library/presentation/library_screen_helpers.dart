@@ -76,7 +76,7 @@ Future<void> openMediaItemDetailsPage({
     MediaUploadPayload? uploadPayload,
   })
   onAddFormatToWork,
-  required Future<PlaybackSessionConfig?> Function(MediaListItem item)
+  required Future<PlaybackSessionOutcome> Function(MediaListItem item)
   onBeginPlaybackSession,
   required void Function({
     required int positionSeconds,

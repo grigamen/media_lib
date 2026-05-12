@@ -100,7 +100,7 @@ class LibraryScreen extends StatefulWidget {
     MediaUploadPayload? uploadPayload,
   })
   onAddFormatToWork;
-  final Future<PlaybackSessionConfig?> Function(MediaListItem item)
+  final Future<PlaybackSessionOutcome> Function(MediaListItem item)
   onBeginPlaybackSession;
   final void Function({
     required int positionSeconds,
