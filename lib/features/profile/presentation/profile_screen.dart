@@ -49,7 +49,7 @@ class ProfileScreen extends StatelessWidget {
         var busy = false;
         String? errorText;
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogInnerContext, setDialogState) {
             final emailChanged = emailCtrl.text.trim().toLowerCase() !=
                 email.trim().toLowerCase();
 
@@ -142,7 +142,10 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         errorText!,
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                          color:
+                              Theme.of(
+                                dialogInnerContext,
+                              ).colorScheme.error,
                         ),
                       ),
                     ],
@@ -187,7 +190,7 @@ class ProfileScreen extends StatelessWidget {
         var busy = false;
         String? errorText;
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogInnerContext, setDialogState) {
             Future<void> submit() async {
               if (currentCtrl.text.length < 8 ||
                   newCtrl.text.length < 8 ||
@@ -285,7 +288,10 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         errorText!,
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                          color:
+                              Theme.of(
+                                dialogInnerContext,
+                              ).colorScheme.error,
                         ),
                       ),
                     ],
