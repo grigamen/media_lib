@@ -125,20 +125,35 @@ class _MediaLibAppState extends State<MediaLibApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _state,
-      builder: (context, _) {
-        return MaterialApp(
-          title: "MediaLib",
-          themeMode: _state.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          theme: _buildTheme(Brightness.light),
-          darkTheme: _buildTheme(Brightness.dark),
-          home:
-              _state.isAuthenticated
-                  ? _HomeShell(state: _state)
-                  : _AuthRoute(state: _state),
+    // Keep MaterialApp outside AnimatedBuilder/ListenableBuilder so the app
+    // shell is not rebuilt on every notifyListeners (e.g. profile PATCH while
+    // a dialog route is closing — that pattern hit _dependents.isEmpty).
+    return MaterialApp(
+      title: "MediaLib",
+      theme: _buildTheme(Brightness.light),
+      darkTheme: _buildTheme(Brightness.dark),
+      themeMode: ThemeMode.light,
+      builder: (context, child) {
+        return ListenableBuilder(
+          listenable: _state,
+          builder: (context, _) {
+            return Theme(
+              data: _buildTheme(
+                _state.isDarkMode ? Brightness.dark : Brightness.light,
+              ),
+              child: child!,
+            );
+          },
         );
       },
+      home: ListenableBuilder(
+        listenable: _state,
+        builder: (context, _) {
+          return _state.isAuthenticated
+              ? _HomeShell(state: _state)
+              : _AuthRoute(state: _state);
+        },
+      ),
     );
   }
 
