@@ -286,10 +286,10 @@ class _HomeShell extends StatelessWidget {
         typeFilter: state.libraryTypeFilterChip,
         selectedGenres: state.selectedGenres,
         onApplyFilters:
-            (searchQuery, typeFilter) => state.applyLibraryFilters(
+            (searchQuery, typeFilter, genres) => state.applyLibraryFilters(
               searchQuery: searchQuery,
               selectedTypes: typeFilter == null ? [] : [typeFilter],
-              selectedGenres: state.selectedGenres,
+              selectedGenres: genres,
             ),
         availableGenres: state.availableGenres,
         onLoadLinks: state.fetchLinksForItem,

@@ -67,7 +67,11 @@ class LibraryScreen extends StatefulWidget {
   final String searchQuery;
   final String? typeFilter;
   final List<String> selectedGenres;
-  final Future<void> Function(String searchQuery, String? typeFilter)
+  final Future<void> Function(
+    String searchQuery,
+    String? typeFilter,
+    List<String> selectedGenres,
+  )
   onApplyFilters;
   final List<String> availableGenres;
   final Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks;
