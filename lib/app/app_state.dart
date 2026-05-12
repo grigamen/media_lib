@@ -5,6 +5,7 @@ import "package:archive/archive.dart";
 import "package:connectivity_plus/connectivity_plus.dart";
 import "package:flutter/foundation.dart";
 import "package:http/http.dart" as http;
+import "package:shared_preferences/shared_preferences.dart";
 
 import "../core/sync/playback_progress_resolution.dart";
 
@@ -243,6 +244,8 @@ class AppState extends ChangeNotifier {
 
   static const Duration _progressSyncInterval = Duration(seconds: 10);
   static const int _adminPageSize = 40;
+  static const String _prefsKeyDarkMode = "ui.dark_mode";
+
   static const Map<String, String> _demoStreamByType = {
     "audiobook":
         "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
@@ -304,6 +307,25 @@ class AppState extends ChangeNotifier {
   void toggleTheme(bool enabled) {
     _isDarkMode = enabled;
     notifyListeners();
+    unawaited(_persistThemePreference());
+  }
+
+  Future<void> _loadThemePreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getBool(_prefsKeyDarkMode);
+      if (stored == null) {
+        return;
+      }
+      _isDarkMode = stored;
+    } catch (_) {}
+  }
+
+  Future<void> _persistThemePreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefsKeyDarkMode, _isDarkMode);
+    } catch (_) {}
   }
 
   void setSelectedTab(int value) {
@@ -313,6 +335,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> _bootstrap() async {
     try {
+      await _loadThemePreference();
+      notifyListeners();
       final refresh = await _authTokenStore.readRefreshToken();
       if (refresh != null && refresh.isNotEmpty) {
         try {
