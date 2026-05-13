@@ -84,6 +84,26 @@ List<PlaybackStreamOption> _playbackStreamOptionsFromFiles(
       .toList(growable: false);
 }
 
+/// Файлы, которые можно предлагать как варианты потока (без обложек и чужих типов).
+List<MediaFileSummary> _playbackStreamCandidates(
+  List<MediaFileSummary> readySortedAsc,
+  String mediaType,
+) {
+  return readySortedAsc.where((f) {
+    final ct = f.contentType.trim().toLowerCase();
+    if (ct.startsWith("image/")) {
+      return false;
+    }
+    if (mediaType == "video") {
+      return ct.startsWith("video/") || ct == "application/octet-stream";
+    }
+    if (mediaType == "audiobook") {
+      return ct.startsWith("audio/") || ct == "application/octet-stream";
+    }
+    return false;
+  }).toList(growable: false);
+}
+
 String? _pickPlaybackFileIdFromReady(
   List<MediaFileSummary> readySortedAsc,
   String? preferredId,
@@ -1495,16 +1515,19 @@ class AppState extends ChangeNotifier {
       final readyFiles =
           allFiles.where((f) => f.uploadStatus == "ready").toList();
       readyFiles.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final streamCandidates = _playbackStreamCandidates(readyFiles, item.type);
+      final filesToPickFrom =
+          streamCandidates.isNotEmpty ? streamCandidates : readyFiles;
       final streamOptions =
-          readyFiles.length > 1
-              ? _playbackStreamOptionsFromFiles(readyFiles)
+          streamCandidates.length > 1
+              ? _playbackStreamOptionsFromFiles(streamCandidates)
               : const <PlaybackStreamOption>[];
 
       final String streamFileId;
       final String? activeStreamFileId;
-      if (readyFiles.isNotEmpty) {
-        final picked = _pickPlaybackFileIdFromReady(readyFiles, mediaFileId);
-        streamFileId = picked ?? readyFiles.first.id;
+      if (filesToPickFrom.isNotEmpty) {
+        final picked = _pickPlaybackFileIdFromReady(filesToPickFrom, mediaFileId);
+        streamFileId = picked ?? filesToPickFrom.first.id;
         activeStreamFileId = streamFileId;
       } else {
         streamFileId = mediaFileId;

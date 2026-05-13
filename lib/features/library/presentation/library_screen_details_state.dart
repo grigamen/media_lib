@@ -1332,8 +1332,6 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                                 widget.onSetPlaybackSpeed,
                                             pendingPlaybackSync:
                                                 widget.pendingPlaybackSync,
-                                            onFetchPlaybackStreamUrl:
-                                                widget.onFetchPlaybackStreamUrl,
                                             playbackError: widget.playbackError,
                                           ),
                                         ],

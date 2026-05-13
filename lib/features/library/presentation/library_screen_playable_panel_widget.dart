@@ -12,14 +12,12 @@ class _PlayableMediaPanel extends StatefulWidget {
     required this.playbackSpeed,
     required this.onSetPlaybackSpeed,
     required this.pendingPlaybackSync,
-    required this.onFetchPlaybackStreamUrl,
     required this.playbackError,
   });
 
   final MediaListItem item;
   final Future<PlaybackSessionOutcome> Function(MediaListItem item)
   onBeginPlaybackSession;
-  final Future<String?> Function(String fileId) onFetchPlaybackStreamUrl;
   final void Function({
     required int positionSeconds,
     required int? durationSeconds,
