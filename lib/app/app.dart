@@ -11,7 +11,10 @@ import "../features/profile/presentation/profile_screen.dart";
 import "../features/search/presentation/search_screen.dart";
 import "app_state.dart";
 
-List<MediaListItem> _workGroupItemsFor(AppState state, MediaListItem anchorItem) {
+List<MediaListItem> _workGroupItemsFor(
+  AppState state,
+  MediaListItem anchorItem,
+) {
   final titleKey = anchorItem.title.trim().toLowerCase();
   final authorKey = (anchorItem.author ?? "").trim().toLowerCase();
   final grouped = state.items
@@ -138,11 +141,70 @@ class _MediaLibAppState extends State<MediaLibApp> {
         return ListenableBuilder(
           listenable: _state,
           builder: (context, _) {
+            final uploadProgress = _state.presignedUploadProgress;
             return Theme(
               data: _buildTheme(
                 _state.isDarkMode ? Brightness.dark : Brightness.light,
               ),
-              child: child!,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  child!,
+                  if (uploadProgress != null)
+                    Positioned.fill(
+                      child: AbsorbPointer(
+                        child: ColoredBox(
+                          color: Colors.black45,
+                          child: Center(
+                            child: Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  20,
+                                  24,
+                                  20,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      "Загрузка файла в хранилище…",
+                                      textAlign: TextAlign.center,
+                                      style:
+                                          Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        minHeight: 8,
+                                        value: uploadProgress,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      "${(uploadProgress * 100).clamp(0, 100).round()}%",
+                                      textAlign: TextAlign.center,
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             );
           },
         );
@@ -412,15 +474,12 @@ class _HomeShellState extends State<_HomeShell> {
         onOpenAddWork: () => state.setSelectedTab(2),
         onLogout: state.logout,
         onUpdateProfile:
-            ({
-              required displayName,
-              newEmail,
-              currentPasswordForEmail,
-            }) => state.updateUserProfile(
-              displayName: displayName,
-              newEmail: newEmail,
-              currentPasswordForEmail: currentPasswordForEmail,
-            ),
+            ({required displayName, newEmail, currentPasswordForEmail}) =>
+                state.updateUserProfile(
+                  displayName: displayName,
+                  newEmail: newEmail,
+                  currentPasswordForEmail: currentPasswordForEmail,
+                ),
         onChangePassword:
             ({required currentPassword, required newPassword}) =>
                 state.changeUserPassword(
@@ -471,8 +530,7 @@ class _HomeShellState extends State<_HomeShell> {
         }
         final now = DateTime.now();
         if (_lastExitBackPress != null &&
-            now.difference(_lastExitBackPress!) <
-                const Duration(seconds: 2)) {
+            now.difference(_lastExitBackPress!) < const Duration(seconds: 2)) {
           _lastExitBackPress = null;
           SystemNavigator.pop();
           return;
@@ -564,11 +622,12 @@ class _AdminMediaShellState extends State<_AdminMediaShell> {
                   mediaItemId: mediaItemId,
                   approve: approve,
                 ),
-            onOpenItem: (item) => _pushMediaItemDetailsPage(
-              context,
-              widget.state,
-              _workGroupItemsFor(widget.state, item),
-            ),
+            onOpenItem:
+                (item) => _pushMediaItemDetailsPage(
+                  context,
+                  widget.state,
+                  _workGroupItemsFor(widget.state, item),
+                ),
           ),
     );
   }

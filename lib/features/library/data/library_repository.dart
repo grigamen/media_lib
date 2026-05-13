@@ -30,6 +30,7 @@ class MediaListItem {
   final List<String>? genres;
   final String? description;
   final Map<String, dynamic>? metadataJson;
+
   /// Server: pending | approved | rejected
   final String moderationStatus;
 
@@ -168,7 +169,10 @@ class MediaProgress {
   /// Из ответа `GET/PUT …/progress` (`updated_at` в RFC3339).
   final int? updatedAtUtcMs;
 
-  static double computeProgressPercent(int positionSeconds, int? durationSeconds) {
+  static double computeProgressPercent(
+    int positionSeconds,
+    int? durationSeconds,
+  ) {
     if (durationSeconds == null || durationSeconds <= 0) {
       return 0.0;
     }
@@ -290,10 +294,7 @@ class MediaFileSummary {
 }
 
 class MediaItemsFetchResult {
-  const MediaItemsFetchResult({
-    required this.items,
-    required this.total,
-  });
+  const MediaItemsFetchResult({required this.items, required this.total});
 
   final List<MediaListItem> items;
   final int total;
@@ -365,12 +366,11 @@ class LibraryRepository {
     if (items is! List<dynamic>) {
       throw ApiException("Invalid library response format");
     }
-    final list =
-        items
-            .whereType<Map<String, dynamic>>()
-            .where((row) => row["deleted_at"] == null)
-            .map(MediaListItem.fromJson)
-            .toList(growable: false);
+    final list = items
+        .whereType<Map<String, dynamic>>()
+        .where((row) => row["deleted_at"] == null)
+        .map(MediaListItem.fromJson)
+        .toList(growable: false);
     final rawTotal = response["total"];
     final total = rawTotal is int ? rawTotal : int.tryParse("$rawTotal") ?? 0;
     return MediaItemsFetchResult(items: list, total: total);
@@ -643,10 +643,12 @@ class LibraryRepository {
     required String uploadUrl,
     required Uint8List bytes,
     required String contentType,
+    void Function(int uploaded, int total)? onProgress,
   }) async {
     final targetUri = _normalizeUploadUri(uploadUrl);
     _ensurePresignedTargetConfigured(targetUri);
     http.Response response;
+    onProgress?.call(0, bytes.length);
     try {
       response = await http
           .put(
@@ -670,6 +672,7 @@ class LibraryRepository {
         statusCode: response.statusCode,
       );
     }
+    onProgress?.call(bytes.length, bytes.length);
   }
 
   /// Потоковая загрузка без удержания всего файла в памяти (важно для больших аудио/видео).
@@ -678,6 +681,7 @@ class LibraryRepository {
     required String filePath,
     required int contentLength,
     required String contentType,
+    void Function(int uploaded, int total)? onProgress,
   }) async {
     final targetUri = _normalizeUploadUri(uploadUrl);
     _ensurePresignedTargetConfigured(targetUri);
@@ -687,8 +691,15 @@ class LibraryRepository {
       final request = http.StreamedRequest("PUT", targetUri);
       request.headers["Content-Type"] = contentType;
       request.contentLength = contentLength;
+      var uploaded = 0;
+      final total = contentLength;
+      onProgress?.call(0, total);
       file.openRead().listen(
-        request.sink.add,
+        (chunk) {
+          uploaded += chunk.length;
+          onProgress?.call(uploaded > total ? total : uploaded, total);
+          request.sink.add(chunk);
+        },
         onError: (Object e, StackTrace st) => request.sink.addError(e, st),
         onDone: request.sink.close,
         cancelOnError: true,

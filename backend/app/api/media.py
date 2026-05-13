@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
-from app.config import settings
+from app.config import DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES, settings
 from app.db import get_db
 from app.models import MediaFile, MediaItem, MediaLink, Progress, User
 from app.schemas.media import (
@@ -172,8 +172,22 @@ def _build_s3_host_ops_client():
     )
 
 
+def _csv_to_content_type_allowset(csv: str) -> set[str]:
+    return {item.strip().lower() for item in csv.split(",") if item.strip()}
+
+
+def _normalize_upload_content_type(content_type: str) -> str:
+    t = content_type.strip().lower()
+    if t == "video/mkv":
+        return "video/x-matroska"
+    return t
+
+
 def _allowed_upload_content_types() -> set[str]:
-    return {item.strip() for item in settings.ALLOWED_UPLOAD_CONTENT_TYPES.split(",") if item.strip()}
+    # Union: env может добавлять типы, но не должен «вырезать» форматы из приложения.
+    return _csv_to_content_type_allowset(
+        settings.ALLOWED_UPLOAD_CONTENT_TYPES
+    ) | _csv_to_content_type_allowset(DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES)
 
 
 def _ensure_bucket_exists(s3_client) -> None:
@@ -496,7 +510,7 @@ def initiate_file_upload(
     if media_item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot upload for deleted media item")
 
-    content_type = payload.content_type.strip().lower()
+    content_type = _normalize_upload_content_type(payload.content_type)
     if not content_type:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Content type cannot be blank")
 

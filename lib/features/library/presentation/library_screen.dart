@@ -10,6 +10,7 @@ import "../../../app/app_state.dart";
 import "../../../core/files/media_upload_file_pick.dart";
 import "../../../core/network/api_client.dart";
 import "../data/library_repository.dart";
+import "book_reader_screen.dart";
 
 part 'library_screen_helpers.dart';
 part 'library_screen_list.dart';

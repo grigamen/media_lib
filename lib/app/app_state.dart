@@ -3,6 +3,7 @@ import "dart:convert";
 
 import "package:archive/archive.dart";
 import "package:connectivity_plus/connectivity_plus.dart";
+import "package:enough_convert/enough_convert.dart";
 import "package:file_picker/file_picker.dart";
 import "package:flutter/foundation.dart";
 import "package:http/http.dart" as http;
@@ -340,6 +341,9 @@ class AppState extends ChangeNotifier {
   ProgressLocalStore? _progressStore;
   RecentlyViewedLocalStore? _recentlyViewedStore;
 
+  /// 0.0–1.0 во время PUT в S3 по presigned URL; иначе null.
+  double? _presignedUploadProgress;
+
   bool get isBootstrapComplete => _bootstrapComplete;
 
   bool get isDarkMode => _isDarkMode;
@@ -354,7 +358,8 @@ class AppState extends ChangeNotifier {
   List<MediaListItem> get items => _items;
   List<MediaListItem> get adminPendingItems => _adminPendingItems;
   List<MediaListItem> get adminAllItems => _adminAllItems;
-  bool get adminPendingHasMore => _adminPendingItems.length < _adminPendingTotal;
+  bool get adminPendingHasMore =>
+      _adminPendingItems.length < _adminPendingTotal;
   bool get adminAllHasMore => _adminAllItems.length < _adminAllTotal;
   bool get isAdminPendingLoadingMore => _isAdminPendingLoadingMore;
   bool get isAdminAllLoadingMore => _isAdminAllLoadingMore;
@@ -383,6 +388,7 @@ class AppState extends ChangeNotifier {
   double get playbackSpeed => _playbackSpeed;
   String? get currentUserId => _currentUserId;
   bool get isAdminUser => _isAdminUser;
+  double? get presignedUploadProgress => _presignedUploadProgress;
   List<MediaListItem> get recentlyViewedItems {
     final userId = _currentUserId;
     if (userId == null) {
@@ -692,7 +698,8 @@ class AppState extends ChangeNotifier {
             _libraryError =
                 "Нет связи с сервером. Показан сохранённый каталог без текущих фильтров.";
           } else {
-            _libraryError = "Нет связи с сервером. Показан сохранённый каталог.";
+            _libraryError =
+                "Нет связи с сервером. Показан сохранённый каталог.";
           }
         }
       }
@@ -790,7 +797,10 @@ class AppState extends ChangeNotifier {
   /// Подгрузка следующей страницы общего списка (вкладка «Удаление»).
   Future<void> loadMoreAdminAllCatalog() async {
     final session = _session;
-    if (session == null || !_isAdminUser || !adminAllHasMore || _isAdminAllLoadingMore) {
+    if (session == null ||
+        !_isAdminUser ||
+        !adminAllHasMore ||
+        _isAdminAllLoadingMore) {
       return;
     }
     _isAdminAllLoadingMore = true;
@@ -803,10 +813,7 @@ class AppState extends ChangeNotifier {
         excludePending: true,
       );
       _adminAllTotal = res.total;
-      final merged = _dedupeMediaItemsById([
-        ..._adminAllItems,
-        ...res.items,
-      ]);
+      final merged = _dedupeMediaItemsById([..._adminAllItems, ...res.items]);
       _adminAllItems = await _withFreshCoverUrls(
         session: session,
         items: merged,
@@ -830,10 +837,11 @@ class AppState extends ChangeNotifier {
             return false;
           }
           if (_selectedGenres.isNotEmpty) {
-            final itemLower = (item.genres ?? const <String>[])
-                .map((g) => g.trim().toLowerCase())
-                .where((g) => g.isNotEmpty)
-                .toSet();
+            final itemLower =
+                (item.genres ?? const <String>[])
+                    .map((g) => g.trim().toLowerCase())
+                    .where((g) => g.isNotEmpty)
+                    .toSet();
             final wanted =
                 _selectedGenres
                     .map((g) => g.trim().toLowerCase())
@@ -1364,7 +1372,10 @@ class AppState extends ChangeNotifier {
       final uid = _currentUserId;
       ProgressMirrorRow? mirror;
       if (uid != null && _progressStore != null) {
-        mirror = await _progressStore!.loadMirror(userId: uid, mediaItemId: item.id);
+        mirror = await _progressStore!.loadMirror(
+          userId: uid,
+          mediaItemId: item.id,
+        );
       }
       final lww = PlaybackProgressResolution.resolve(
         serverPositionSeconds: fetchedServer.positionSeconds,
@@ -1430,7 +1441,8 @@ class AppState extends ChangeNotifier {
         accessToken: session.accessToken,
         mediaItemId: item.id,
       );
-      final readyFiles = allFiles.where((f) => f.uploadStatus == "ready").toList();
+      final readyFiles =
+          allFiles.where((f) => f.uploadStatus == "ready").toList();
       readyFiles.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       final streamOptions =
           readyFiles.length > 1
@@ -1558,7 +1570,7 @@ class AppState extends ChangeNotifier {
     if (looksLikeDocx) {
       text = _extractDocxText(response.bodyBytes).trim();
     } else {
-      text = utf8.decode(response.bodyBytes, allowMalformed: true).trim();
+      text = _decodePlainTextBytes(response.bodyBytes).trim();
     }
     if (text.isEmpty) {
       throw ApiException("Файл книги пустой или не содержит читаемого текста.");
@@ -1571,6 +1583,70 @@ class AppState extends ChangeNotifier {
       return false;
     }
     return bytes[0] == 0x50 && bytes[1] == 0x4b;
+  }
+
+  /// Picks UTF-8 when valid; otherwise scores common legacy byte encodings so
+  /// Russian / European `.txt` files are readable instead of showing `�`.
+  String _decodePlainTextBytes(List<int> rawBytes) {
+    var bytes = rawBytes;
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xEF &&
+        bytes[1] == 0xBB &&
+        bytes[2] == 0xBF) {
+      bytes = bytes.sublist(3);
+    }
+
+    try {
+      return utf8.decode(bytes, allowMalformed: false);
+    } on FormatException {
+      // Not valid UTF-8; try permissive UTF-8 and single-byte legacy encodings.
+    }
+
+    final looseUtf8 = utf8.decode(bytes, allowMalformed: true);
+    final lenChars = looseUtf8.runes.length;
+    final fffdCount = looseUtf8.runes.where((r) => r == 0xFFFD).length;
+    if (lenChars == 0 ||
+        (fffdCount * 200 <= lenChars)) {
+      // Rare bad bytes: keep UTF-8 rather than mis-reading as CP125x.
+      return looseUtf8;
+    }
+
+    final candidates = <String>[
+      looseUtf8,
+      const Windows1251Codec().decode(bytes),
+      const Windows1252Codec().decode(bytes),
+      latin1.decode(bytes),
+    ];
+
+    String best = candidates.first;
+    var bestScore = _plainTextEncodingScore(best);
+    for (var i = 1; i < candidates.length; i++) {
+      final s = _plainTextEncodingScore(candidates[i]);
+      if (s > bestScore) {
+        bestScore = s;
+        best = candidates[i];
+      }
+    }
+    return best;
+  }
+
+  int _plainTextEncodingScore(String s) {
+    if (s.isEmpty) {
+      return 0;
+    }
+    var score = 0;
+    for (final r in s.runes) {
+      if (r == 0xFFFD) {
+        score -= 500;
+      } else if (r == 0x0A || r == 0x0D || r == 0x09) {
+        score += 2;
+      } else if (r < 0x20) {
+        score -= 8;
+      } else {
+        score += 2;
+      }
+    }
+    return score;
   }
 
   String _extractDocxText(List<int> bytes) {
@@ -1730,6 +1806,24 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _reportPresignedUploadProgress(int uploaded, int total) {
+    if (total <= 0) {
+      return;
+    }
+    _presignedUploadProgress = (uploaded / total).clamp(0.0, 1.0);
+    notifyListeners();
+  }
+
+  void _beginPresignedUploadTracking() {
+    _presignedUploadProgress = 0.0;
+    notifyListeners();
+  }
+
+  void _endPresignedUploadTracking() {
+    _presignedUploadProgress = null;
+    notifyListeners();
+  }
+
   bool _isPlayableType(String type) => type == "audiobook" || type == "video";
 
   Future<void> _attachUploadIfNeeded({
@@ -1753,33 +1847,40 @@ class AppState extends ChangeNotifier {
       contentType: contentType,
       fileSize: uploadPayload.byteLength,
     );
-    if (uploadPayload.bytes != null) {
-      await _libraryRepository.uploadBytesToPresignedUrl(
-        uploadUrl: initUpload.uploadUrl,
-        bytes: uploadPayload.bytes!,
-        contentType: contentType,
+    try {
+      _beginPresignedUploadTracking();
+      if (uploadPayload.bytes != null) {
+        await _libraryRepository.uploadBytesToPresignedUrl(
+          uploadUrl: initUpload.uploadUrl,
+          bytes: uploadPayload.bytes!,
+          contentType: contentType,
+          onProgress: _reportPresignedUploadProgress,
+        );
+      } else {
+        await _libraryRepository.uploadFileToPresignedUrl(
+          uploadUrl: initUpload.uploadUrl,
+          filePath: uploadPayload.filePath!,
+          contentLength: uploadPayload.byteLength,
+          contentType: contentType,
+          onProgress: _reportPresignedUploadProgress,
+        );
+      }
+      await _libraryRepository.completeFileUpload(
+        accessToken: session.accessToken,
+        fileId: initUpload.fileId,
       );
-    } else {
-      await _libraryRepository.uploadFileToPresignedUrl(
-        uploadUrl: initUpload.uploadUrl,
-        filePath: uploadPayload.filePath!,
-        contentLength: uploadPayload.byteLength,
-        contentType: contentType,
+      final mergedMetadata = <String, dynamic>{
+        ...(item.metadataJson ?? const <String, dynamic>{}),
+        "media_file_id": initUpload.fileId,
+      };
+      await _libraryRepository.updateMediaMetadata(
+        accessToken: session.accessToken,
+        mediaItemId: item.id,
+        metadataJson: mergedMetadata,
       );
+    } finally {
+      _endPresignedUploadTracking();
     }
-    await _libraryRepository.completeFileUpload(
-      accessToken: session.accessToken,
-      fileId: initUpload.fileId,
-    );
-    final mergedMetadata = <String, dynamic>{
-      ...(item.metadataJson ?? const <String, dynamic>{}),
-      "media_file_id": initUpload.fileId,
-    };
-    await _libraryRepository.updateMediaMetadata(
-      accessToken: session.accessToken,
-      mediaItemId: item.id,
-      metadataJson: mergedMetadata,
-    );
   }
 
   Future<void> _attachCoverUploadIfNeeded({
@@ -1801,42 +1902,49 @@ class AppState extends ChangeNotifier {
       contentType: contentType,
       fileSize: coverUploadPayload.byteLength,
     );
-    if (coverUploadPayload.bytes != null) {
-      await _libraryRepository.uploadBytesToPresignedUrl(
-        uploadUrl: initUpload.uploadUrl,
-        bytes: coverUploadPayload.bytes!,
-        contentType: contentType,
+    try {
+      _beginPresignedUploadTracking();
+      if (coverUploadPayload.bytes != null) {
+        await _libraryRepository.uploadBytesToPresignedUrl(
+          uploadUrl: initUpload.uploadUrl,
+          bytes: coverUploadPayload.bytes!,
+          contentType: contentType,
+          onProgress: _reportPresignedUploadProgress,
+        );
+      } else {
+        await _libraryRepository.uploadFileToPresignedUrl(
+          uploadUrl: initUpload.uploadUrl,
+          filePath: coverUploadPayload.filePath!,
+          contentLength: coverUploadPayload.byteLength,
+          contentType: contentType,
+          onProgress: _reportPresignedUploadProgress,
+        );
+      }
+      await _libraryRepository.completeFileUpload(
+        accessToken: session.accessToken,
+        fileId: initUpload.fileId,
       );
-    } else {
-      await _libraryRepository.uploadFileToPresignedUrl(
-        uploadUrl: initUpload.uploadUrl,
-        filePath: coverUploadPayload.filePath!,
-        contentLength: coverUploadPayload.byteLength,
-        contentType: contentType,
+      final stream = await _libraryRepository.fetchMediaStreamUrl(
+        accessToken: session.accessToken,
+        fileId: initUpload.fileId,
       );
+      final freshItem = await _libraryRepository.fetchMediaItemById(
+        accessToken: session.accessToken,
+        mediaItemId: item.id,
+      );
+      final mergedMetadata = <String, dynamic>{
+        ...(freshItem.metadataJson ?? const <String, dynamic>{}),
+        "cover_file_id": initUpload.fileId,
+      };
+      await _libraryRepository.updateMediaItem(
+        accessToken: session.accessToken,
+        mediaItemId: item.id,
+        coverUrl: stream.streamUrl,
+        metadataJson: mergedMetadata,
+      );
+    } finally {
+      _endPresignedUploadTracking();
     }
-    await _libraryRepository.completeFileUpload(
-      accessToken: session.accessToken,
-      fileId: initUpload.fileId,
-    );
-    final stream = await _libraryRepository.fetchMediaStreamUrl(
-      accessToken: session.accessToken,
-      fileId: initUpload.fileId,
-    );
-    final freshItem = await _libraryRepository.fetchMediaItemById(
-      accessToken: session.accessToken,
-      mediaItemId: item.id,
-    );
-    final mergedMetadata = <String, dynamic>{
-      ...(freshItem.metadataJson ?? const <String, dynamic>{}),
-      "cover_file_id": initUpload.fileId,
-    };
-    await _libraryRepository.updateMediaItem(
-      accessToken: session.accessToken,
-      mediaItemId: item.id,
-      coverUrl: stream.streamUrl,
-      metadataJson: mergedMetadata,
-    );
   }
 
   void _startProgressSyncTimer() {
@@ -2069,7 +2177,9 @@ class AppState extends ChangeNotifier {
     if (_session == null || _connectivitySub != null) {
       return;
     }
-    _connectivitySub = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
       final offline =
           results.isEmpty || results.every((r) => r == ConnectivityResult.none);
       if (offline) {

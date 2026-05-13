@@ -30,10 +30,21 @@ void _notifyFilePickerProgress(BuildContext context, FilePickerStatus status) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          kIsWeb
-              ? "Загрузка файла…"
-              : "Копируем файл в приложение… Для больших видео это может занять несколько минут.",
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              kIsWeb
+                  ? "Загрузка файла…"
+                  : "Копируем файл в приложение… Для больших видео это может занять несколько минут.",
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: const LinearProgressIndicator(minHeight: 6),
+            ),
+          ],
         ),
         duration: const Duration(minutes: 30),
       ),

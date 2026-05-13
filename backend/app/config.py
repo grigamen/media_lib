@@ -1,5 +1,16 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Полный список типов, которые может отправить мобильное приложение. Используется
+# в API как нижняя граница: к ALLOWED_UPLOAD_CONTENT_TYPES из env добавляется union,
+# чтобы урезанный production-.env не ломал загрузку (например MKV / Matroska).
+DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES: str = (
+    "audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,"
+    "video/mp4,video/webm,video/x-msvideo,video/avi,"
+    "video/x-matroska,video/mkv,video/quicktime,text/plain,text/markdown,application/pdf,"
+    "application/epub+zip,application/vnd.openxmlformats-officedocument."
+    "wordprocessingml.document,image/jpeg,image/png,image/webp"
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -20,12 +31,7 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = "test-secret-key"
     S3_PRESIGNED_EXPIRES_SEC: int = 900
     MAX_UPLOAD_FILE_SIZE_BYTES: int = 2147483648
-    ALLOWED_UPLOAD_CONTENT_TYPES: str = (
-        "audio/mpeg,audio/mp4,video/mp4,video/webm,video/x-msvideo,video/avi,"
-        "video/x-matroska,video/quicktime,text/plain,text/markdown,application/pdf,"
-        "application/epub+zip,application/vnd.openxmlformats-officedocument."
-        "wordprocessingml.document,image/jpeg,image/png,image/webp"
-    )
+    ALLOWED_UPLOAD_CONTENT_TYPES: str = DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES
 
 
 settings = Settings()

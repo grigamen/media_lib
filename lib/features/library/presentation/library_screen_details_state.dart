@@ -1272,7 +1272,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage> {
                                         ],
                                         if (item.type == "book") ...[
                                           const SizedBox(height: 16),
-                                          _BookContentPanel(
+                                          _BookReadLaunchPanel(
                                             item: item,
                                             onLoadBookContent:
                                                 widget.onLoadBookContent,
