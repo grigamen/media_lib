@@ -531,7 +531,14 @@ class _HomeShellState extends State<_HomeShell> {
         );
       },
       child: Scaffold(
-        body: pages[state.selectedTab],
+        // IndexedStack держит все вкладки смонтированными: иначе при любом
+        // notifyListeners (прогресс, библиотека…) пересоздаётся только текущая
+        // страница и ломаются диалоги профиля (2FA): _dependents.isEmpty.
+        body: IndexedStack(
+          index: state.selectedTab.clamp(0, pages.length - 1),
+          sizing: StackFit.expand,
+          children: pages,
+        ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: selectedNavIndex,
           onDestinationSelected: (index) {

@@ -436,6 +436,7 @@ class ProfileScreen extends StatelessWidget {
         }
         return;
       }
+      await Future<void>.delayed(Duration.zero);
       if (!context.mounted) {
         return;
       }
