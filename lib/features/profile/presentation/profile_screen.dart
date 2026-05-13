@@ -1,8 +1,27 @@
 import "dart:async";
 
 import "package:flutter/material.dart";
+import "package:flutter/scheduler.dart";
 
 import "../../../core/network/api_client.dart";
+
+/// После закрытия диалога и анимации клавиатуры, чтобы не ловить кадр с
+/// полуснятым деревом при notifyListeners с других подписчиков AppState.
+Future<void> _afterDialogUiSettled() async {
+  await SchedulerBinding.instance.endOfFrame;
+  await Future<void>.delayed(const Duration(milliseconds: 80));
+}
+
+void _postFrameSnackBar(BuildContext context, String message) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) {
+    return;
+  }
+  final text = message;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    messenger.showSnackBar(SnackBar(content: Text(text)));
+  });
+}
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
@@ -404,7 +423,8 @@ class ProfileScreen extends StatelessWidget {
     return t;
   }
 
-  Future<void> _handleTwoFaToggle(
+  /// [true] если 2FA реально включена/выключена; [false] при отмене или ошибке.
+  Future<bool> _handleTwoFaToggle(
     BuildContext context, {
     required bool enable,
     required Future<void> Function(String password) startTwoFaEnable,
@@ -417,56 +437,50 @@ class ProfileScreen extends StatelessWidget {
         title: "Включить 2FA — введите пароль",
       );
       if (pwd == null) {
-        return;
+        return false;
+      }
+      await _afterDialogUiSettled();
+      if (!context.mounted) {
+        return false;
       }
       try {
         await startTwoFaEnable(pwd);
       } on ApiException catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(e.message)));
+          _postFrameSnackBar(context, e.message);
         }
-        return;
+        return false;
       } catch (_) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Не удалось отправить код")),
-          );
+          _postFrameSnackBar(context, "Не удалось отправить код");
         }
-        return;
+        return false;
       }
-      await Future<void>.delayed(Duration.zero);
+      await _afterDialogUiSettled();
       if (!context.mounted) {
-        return;
+        return false;
       }
       final code = await _promptTwoFaCodeDialog(context);
       if (code == null) {
-        return;
+        return false;
       }
       try {
         await confirmTwoFaEnable(code);
       } on ApiException catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(e.message)));
+          _postFrameSnackBar(context, e.message);
         }
-        return;
+        return false;
       } catch (_) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Неверный или просроченный код")),
-          );
+          _postFrameSnackBar(context, "Неверный или просроченный код");
         }
-        return;
+        return false;
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Двухфакторная защита включена")),
-        );
+        _postFrameSnackBar(context, "Двухфакторная защита включена");
       }
-      return;
+      return true;
     }
 
     final pwd = await _promptTwoFaPasswordDialog(
@@ -474,30 +488,29 @@ class ProfileScreen extends StatelessWidget {
       title: "Выключить 2FA — введите пароль",
     );
     if (pwd == null) {
-      return;
+      return false;
+    }
+    await _afterDialogUiSettled();
+    if (!context.mounted) {
+      return false;
     }
     try {
       await disableTwoFa(pwd);
     } on ApiException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        _postFrameSnackBar(context, e.message);
       }
-      return;
+      return false;
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Не удалось выключить 2FA")),
-        );
+        _postFrameSnackBar(context, "Не удалось выключить 2FA");
       }
-      return;
+      return false;
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Двухфакторная защита выключена")),
-      );
+      _postFrameSnackBar(context, "Двухфакторная защита выключена");
     }
+    return true;
   }
 
   @override
@@ -604,26 +617,20 @@ class ProfileScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
-                _SettingsSwitchTile(
+                _EmailTwoFaSwitchTile(
+                  twofaEnabled: twofaEnabled,
                   icon: Icons.mark_email_unread_outlined,
                   title: "Код на email после пароля",
                   subtitle:
                       "Письмо с одноразовым кодом при входе (мягкая 2FA)",
-                  value: twofaEnabled,
-                  onChanged: (next) {
-                    if (next == twofaEnabled) {
-                      return;
-                    }
-                    unawaited(
-                      _handleTwoFaToggle(
-                        context,
-                        enable: next,
+                  onToggle:
+                      (ctx, enable) => _handleTwoFaToggle(
+                        ctx,
+                        enable: enable,
                         startTwoFaEnable: onStartTwoFaEnable,
                         confirmTwoFaEnable: onConfirmTwoFaEnable,
                         disableTwoFa: onDisableTwoFa,
                       ),
-                    );
-                  },
                 ),
                 const SizedBox(height: 8),
                 _ActionTile(
@@ -701,18 +708,94 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
+/// Отдельное состояние позиции переключателя: иначе [Switch] с [value] только с
+/// сервера кратко расходится с внутренним состоянием Material и в debug даёт
+/// assert / красный экран при отмене или неверном пароле.
+class _EmailTwoFaSwitchTile extends StatefulWidget {
+  const _EmailTwoFaSwitchTile({
+    required this.twofaEnabled,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onToggle,
+  });
+
+  final bool twofaEnabled;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Future<bool> Function(BuildContext context, bool enable) onToggle;
+
+  @override
+  State<_EmailTwoFaSwitchTile> createState() => _EmailTwoFaSwitchTileState();
+}
+
+class _EmailTwoFaSwitchTileState extends State<_EmailTwoFaSwitchTile> {
+  late bool _value;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.twofaEnabled;
+  }
+
+  @override
+  void didUpdateWidget(covariant _EmailTwoFaSwitchTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.twofaEnabled != oldWidget.twofaEnabled) {
+      _value = widget.twofaEnabled;
+    }
+  }
+
+  Future<void> _onChanged(bool next) async {
+    if (_busy || next == _value) {
+      return;
+    }
+    _busy = true;
+    final previous = _value;
+    setState(() => _value = next);
+    final ok = await widget.onToggle(context, next);
+    if (!mounted) {
+      return;
+    }
+    _busy = false;
+    if (!ok) {
+      setState(() => _value = previous);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+      leading: CircleAvatar(
+        backgroundColor: Theme.of(
+          context,
+        ).colorScheme.primary.withValues(alpha: 0.24),
+        child: Icon(widget.icon),
+      ),
+      title: Text(widget.title),
+      subtitle: Text(widget.subtitle),
+      isThreeLine: true,
+      trailing: Switch(
+        value: _value,
+        onChanged: _busy ? null : (n) => unawaited(_onChanged(n)),
+      ),
+    );
+  }
+}
+
 class _SettingsSwitchTile extends StatelessWidget {
   const _SettingsSwitchTile({
     required this.icon,
     required this.title,
     required this.value,
     required this.onChanged,
-    this.subtitle,
   });
 
   final IconData icon;
   final String title;
-  final String? subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
 
@@ -727,8 +810,6 @@ class _SettingsSwitchTile extends StatelessWidget {
         child: Icon(icon),
       ),
       title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      isThreeLine: subtitle != null,
       trailing: Switch(value: value, onChanged: onChanged),
     );
   }
