@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID, uuid4
@@ -36,6 +37,7 @@ from app.schemas.media import (
 )
 
 router = APIRouter(prefix="", tags=["media"])
+logger = logging.getLogger(__name__)
 SortBy = Literal["updated_at", "title", "created_at"]
 SortOrder = Literal["asc", "desc"]
 DEFAULT_GENRES: tuple[str, ...] = (
@@ -516,6 +518,13 @@ def initiate_file_upload(
 
     allowed_types = _allowed_upload_content_types()
     if content_type not in allowed_types:
+        # Временно: смотреть в консоли uvicorn / docker logs при 400.
+        logger.warning(
+            "upload rejected unsupported content_type: raw=%r normalized=%r filename=%r",
+            payload.content_type,
+            content_type,
+            payload.filename,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unsupported content type",

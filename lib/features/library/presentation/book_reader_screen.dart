@@ -37,6 +37,10 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
 
   final ValueNotifier<int> _pageIndex = ValueNotifier<int>(0);
 
+  /// Bumped when [_pageStarts] / [_enumeratedToEnd] change so only the reader
+  /// subtree rebuilds — avoids rebuilding the whole [Scaffold] on each flip.
+  final ValueNotifier<int> _paginationBump = ValueNotifier<int>(0);
+
   Timer? _persistTimer;
 
   /// True once we know the last page begins at [_pageStarts.last] and ends at EOF.
@@ -50,6 +54,9 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
 
   double? _layoutMaxW;
   double? _layoutMaxH;
+
+  /// True until first [PageView] layout + [jumpToPage] for saved offset finishes.
+  bool _initialReaderLayoutPending = false;
 
   /// [TextPainter] boundary cache: layout + start offset → exclusive end.
   final Map<String, int> _pageMeasureCache = <String, int>{};
@@ -69,6 +76,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     _persistTimer?.cancel();
     unawaited(_writeOffsetToPrefs(_savedCharOffset));
     _pageIndex.dispose();
+    _paginationBump.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -101,6 +109,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
         _layoutMaxW = null;
         _layoutMaxH = null;
         _pageMeasureCache.clear();
+        _initialReaderLayoutPending = true;
       });
     } catch (e) {
       if (!mounted) {
@@ -111,13 +120,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
         _loading = false;
       });
     }
-  }
-
-  void _persistOffsetNow(int charStart) {
-    _savedCharOffset = charStart;
-    _persistTimer?.cancel();
-    _persistTimer = null;
-    unawaited(_writeOffsetToPrefs(charStart));
   }
 
   Future<void> _writeOffsetToPrefs(int charStart) async {
@@ -136,19 +138,20 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     });
   }
 
+  void _notifyPaginationChanged() {
+    _paginationBump.value = _paginationBump.value + 1;
+  }
+
   TextStyle _bodyStyle(BuildContext context) {
     final base = Theme.of(context).textTheme.bodyLarge ?? const TextStyle();
     return base.copyWith(height: 1.35);
   }
 
-  /// [TextScaler.hashCode] is not stable across frames; use scale ratio for layout identity.
-  String _layoutScaleKey(TextStyle style, TextScaler scaler) {
-    final fs = style.fontSize ?? 14.0;
-    if (fs <= 0) {
-      return scaler.scale(14.0).toStringAsFixed(3);
-    }
-    final r = scaler.scale(fs) / fs;
-    return r.toStringAsFixed(3);
+  /// Buckets text scale so [sig] does not flip every frame on float noise (which would
+  /// reset pagination). Theme font size is part of [sig] separately.
+  String _layoutScaleBucket(TextScaler scaler) {
+    const ref = 100.0;
+    return (scaler.scale(ref) * 100 / ref).round().toString();
   }
 
   /// Slightly tighter box than [Text] in [_BookReaderPage] so pagination never
@@ -221,6 +224,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
           _enumeratedToEnd = true;
           _layoutSignature = "empty";
           _pageIndex.value = 0;
+          _initialReaderLayoutPending = false;
         });
       });
       return;
@@ -229,12 +233,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     final scaler = MediaQuery.textScalerOf(context);
     final style = _bodyStyle(context);
     final sig =
-        "${text.length}_${maxW.round()}_${maxH.round()}_${_layoutScaleKey(style, scaler)}";
+        "${text.length}_${maxW.round()}_${maxH.round()}_fs${(style.fontSize ?? 14).round()}_sc${_layoutScaleBucket(scaler)}";
 
-    if (sig == _layoutSignature &&
-        _layoutMaxW == maxW &&
-        _layoutMaxH == maxH &&
-        _pageStarts.isNotEmpty) {
+    // Only [sig] (rounded sizes + text length + scale) must match. Comparing raw
+    // [maxW]/[maxH] with == is wrong: constraints jitter by sub-pixel values every
+    // frame, which used to re-enter layout sync, reset [_pageStarts] to [0], and
+    // break pagination (e.g. stuck after two pages).
+    if (sig == _layoutSignature && _pageStarts.isNotEmpty) {
       return;
     }
     if (_splitScheduledForSig == sig) {
@@ -255,12 +260,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
         _pageStarts = <int>[0];
         _enumeratedToEnd = false;
         _pageMeasureCache.clear();
+        _initialReaderLayoutPending = true;
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) {
           return;
         }
-        final idx = _pageIndexForCharOffset(
+        final idx = await _pageIndexForCharOffset(
           text,
           maxW,
           maxH,
@@ -268,30 +274,51 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
           scaler,
           anchor,
         );
+        if (!mounted) {
+          return;
+        }
         _prepareNeighbors(text, maxW, maxH, style, scaler, idx);
         _pageIndex.value = idx;
-        if (_pageController.hasClients) {
-          _pageController.jumpToPage(idx);
-        }
+        // Rebuild [PageView] with real [itemCount] before [jumpToPage], otherwise
+        // [jumpToPage] runs while [itemCount] is still small, clamps to page 1 and
+        // [onPageChanged] overwrites [_pageIndex] — footer shows "Стр. 2" until manual flip.
+        _notifyPaginationChanged();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) {
             return;
           }
-          _clampPageToBounds(text);
+          if (_pageController.hasClients) {
+            final maxIdx = math.max(0, _itemCountForPageView(text) - 1);
+            final j = idx.clamp(0, maxIdx);
+            _pageIndex.value = j;
+            _pageController.jumpToPage(j);
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              return;
+            }
+            _clampPageToBounds(text);
+            setState(() {
+              _initialReaderLayoutPending = false;
+            });
+          });
         });
       });
     });
   }
 
   /// Walk forward with [TextPainter] until [offset] lies on page p; return p.
-  int _pageIndexForCharOffset(
+  ///
+  /// Yields the event loop every few page measures so [CircularProgressIndicator]
+  /// can tick while seeking in long books.
+  Future<int> _pageIndexForCharOffset(
     String text,
     double maxW,
     double maxH,
     TextStyle style,
     TextScaler scaler,
     int offset,
-  ) {
+  ) async {
     if (text.isEmpty) {
       return 0;
     }
@@ -299,7 +326,15 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     _pageStarts = <int>[0];
     _enumeratedToEnd = false;
     var page = 0;
+    var loops = 0;
     while (true) {
+      if (loops > 0 && loops % 2 == 0) {
+        await Future<void>.delayed(Duration.zero);
+        if (!mounted) {
+          return 0;
+        }
+      }
+      loops++;
       if (page >= _pageStarts.length) {
         if (_pageStarts.isEmpty) {
           return 0;
@@ -443,28 +478,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     }
   }
 
-  void _extendAllPagesToEnd(
-    String text,
-    double maxW,
-    double maxH,
-    TextStyle style,
-    TextScaler scaler,
-  ) {
-    while (!_enumeratedToEnd) {
-      final s = _pageStarts.last;
-      if (s >= text.length) {
-        _enumeratedToEnd = true;
-        return;
-      }
-      final e = _measurePageEnd(text, s, maxW, maxH, style, scaler);
-      if (e >= text.length) {
-        _enumeratedToEnd = true;
-        return;
-      }
-      _pageStarts.add(e);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -516,6 +529,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                       _enumeratedToEnd = false;
                       _splitScheduledForSig = null;
                       _pageMeasureCache.clear();
+                      _initialReaderLayoutPending = false;
                     });
                     _bootstrap();
                   },
@@ -531,7 +545,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
     final text = _text ?? "";
     final style = _bodyStyle(context);
     final scaler = MediaQuery.textScalerOf(context);
-    final pageCount = _itemCountForPageView(text);
 
     return Scaffold(
       appBar: AppBar(
@@ -541,24 +554,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(widget.item.title),
-        actions: [
-          ValueListenableBuilder<int>(
-            valueListenable: _pageIndex,
-            builder: (context, pageIdx, _) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Text(
-                    _enumeratedToEnd
-                        ? "${pageIdx + 1} / $pageCount"
-                        : "${pageIdx + 1} / ?",
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -572,139 +567,191 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
 
                 _scheduleLayoutSync(context, text, maxW, maxH);
 
-                if (text.isNotEmpty &&
-                    (_layoutSignature == null || _layoutMaxW == null)) {
+                final layoutReady = text.isEmpty ||
+                    (_layoutSignature != null && _layoutMaxW != null);
+
+                if (text.isNotEmpty && !layoutReady) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                return PageView.builder(
-                  controller: _pageController,
-                  itemCount: pageCount,
-                  onPageChanged: (i) {
-                    _pageIndex.value = i;
-                    if (i < _pageStarts.length) {
-                      _persistOffsetDebounced(_pageStarts[i]);
-                    }
-                    final w = _layoutMaxW ?? maxW;
-                    final h = _layoutMaxH ?? maxH;
-                    if (w > 0 && h > 0) {
-                      final lenSync = _pageStarts.length;
-                      final enumSync = _enumeratedToEnd;
-                      _ensurePageMeasurable(
-                        text,
-                        i + 1,
-                        w,
-                        h,
-                        style,
-                        scaler,
-                      );
-                      if (!mounted) {
-                        return;
-                      }
-                      if (lenSync != _pageStarts.length ||
-                          enumSync != _enumeratedToEnd) {
-                        setState(() {});
-                      }
-                    }
-                    scheduleMicrotask(() {
-                      if (!mounted) {
-                        return;
-                      }
-                      final lenBefore = _pageStarts.length;
-                      final enumBefore = _enumeratedToEnd;
-                      if (w > 0 && h > 0) {
-                        _prepareNeighbors(text, w, h, style, scaler, i);
-                        if (!_enumeratedToEnd &&
-                            i == _pageStarts.length - 1 &&
-                            i < _pageStarts.length &&
-                            _pageStarts[i] < text.length) {
-                          final endProbe = _measurePageEnd(
-                            text,
-                            _pageStarts[i],
-                            w,
-                            h,
-                            style,
-                            scaler,
-                          );
-                          if (endProbe >= text.length) {
-                            _enumeratedToEnd = true;
-                          }
-                        }
-                      }
-                      if (!mounted) {
-                        return;
-                      }
-                      if (lenBefore != _pageStarts.length ||
-                          enumBefore != _enumeratedToEnd) {
-                        setState(() {});
-                      }
-                    });
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) {
-                        return;
-                      }
-                      _clampPageToBounds(text);
-                    });
-                  },
-                  itemBuilder: (context, i) {
-                    if (text.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    final w = _layoutMaxW ?? maxW;
-                    final h = _layoutMaxH ?? maxH;
-                    if (w <= 0 || h <= 0) {
-                      return const SizedBox.shrink();
-                    }
-                    if (i >= _pageStarts.length) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) {
-                          return;
-                        }
-                        _ensurePageMeasurable(text, i, w, h, style, scaler);
-                        setState(() {});
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!mounted) {
-                            return;
-                          }
-                          _clampPageToBounds(text);
-                        });
-                      });
-                      return const Center(
-                        child: SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    }
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    AnimatedBuilder(
+                      animation:
+                          Listenable.merge([_pageIndex, _paginationBump]),
+                      builder: (context, _) {
+                        final pageCount = _itemCountForPageView(text);
+                        return PageView.builder(
+                          controller: _pageController,
+                          itemCount: pageCount,
+                          onPageChanged: (i) {
+                            _pageIndex.value = i;
+                            if (i < _pageStarts.length) {
+                              _persistOffsetDebounced(_pageStarts[i]);
+                            }
+                            final w = _layoutMaxW ?? maxW;
+                            final h = _layoutMaxH ?? maxH;
+                            scheduleMicrotask(() {
+                              if (!mounted) {
+                                return;
+                              }
+                              final lenBefore = _pageStarts.length;
+                              final enumBefore = _enumeratedToEnd;
+                              if (w > 0 && h > 0) {
+                                _ensurePageMeasurable(
+                                  text,
+                                  i + 1,
+                                  w,
+                                  h,
+                                  style,
+                                  scaler,
+                                );
+                                _prepareNeighbors(
+                                  text,
+                                  w,
+                                  h,
+                                  style,
+                                  scaler,
+                                  i,
+                                );
+                                if (!_enumeratedToEnd &&
+                                    i == _pageStarts.length - 1 &&
+                                    i < _pageStarts.length &&
+                                    _pageStarts[i] < text.length) {
+                                  final endProbe = _measurePageEnd(
+                                    text,
+                                    _pageStarts[i],
+                                    w,
+                                    h,
+                                    style,
+                                    scaler,
+                                  );
+                                  if (endProbe >= text.length) {
+                                    _enumeratedToEnd = true;
+                                  }
+                                }
+                              }
+                              if (!mounted) {
+                                return;
+                              }
+                              if (lenBefore != _pageStarts.length ||
+                                  enumBefore != _enumeratedToEnd) {
+                                _notifyPaginationChanged();
+                              }
+                            });
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (!mounted) {
+                                return;
+                              }
+                              _clampPageToBounds(text);
+                            });
+                          },
+                          itemBuilder: (context, i) {
+                            if (text.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            final w = _layoutMaxW ?? maxW;
+                            final h = _layoutMaxH ?? maxH;
+                            if (w <= 0 || h <= 0) {
+                              return const SizedBox.shrink();
+                            }
+                            if (i >= _pageStarts.length) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) {
+                                  return;
+                                }
+                                final len0 = _pageStarts.length;
+                                final enum0 = _enumeratedToEnd;
+                                _ensurePageMeasurable(
+                                  text,
+                                  i,
+                                  w,
+                                  h,
+                                  style,
+                                  scaler,
+                                );
+                                if (!mounted) {
+                                  return;
+                                }
+                                if (len0 != _pageStarts.length ||
+                                    enum0 != _enumeratedToEnd) {
+                                  _notifyPaginationChanged();
+                                }
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  _clampPageToBounds(text);
+                                });
+                              });
+                              return const Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              );
+                            }
 
-                    final start = _pageStarts[i];
-                    int end;
-                    if (i + 1 < _pageStarts.length) {
-                      end = _pageStarts[i + 1];
-                    } else if (_enumeratedToEnd) {
-                      end = text.length;
-                    } else {
-                      end = _measurePageEnd(
-                        text,
-                        start,
-                        w,
-                        h,
-                        style,
-                        scaler,
-                      );
-                      if (end >= text.length) {
-                        end = text.length;
-                      }
-                    }
-                    end = math.min(text.length, math.max(start, end));
-                    final slice = text.substring(start, end);
-                    return _BookReaderPage(
-                      key: ValueKey<int>(i),
-                      slice: slice,
-                      textStyle: _bodyStyle(context),
-                    );
-                  },
+                            final start = _pageStarts[i];
+                            int end;
+                            if (i + 1 < _pageStarts.length) {
+                              end = _pageStarts[i + 1];
+                            } else if (_enumeratedToEnd) {
+                              end = text.length;
+                            } else {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) {
+                                  return;
+                                }
+                                final len0 = _pageStarts.length;
+                                final enum0 = _enumeratedToEnd;
+                                _ensurePageMeasurable(
+                                  text,
+                                  i,
+                                  w,
+                                  h,
+                                  style,
+                                  scaler,
+                                );
+                                if (!mounted) {
+                                  return;
+                                }
+                                if (len0 != _pageStarts.length ||
+                                    enum0 != _enumeratedToEnd) {
+                                  _notifyPaginationChanged();
+                                }
+                              });
+                              return const Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              );
+                            }
+                            end = math.min(text.length, math.max(start, end));
+                            final slice = text.substring(start, end);
+                            return _BookReaderPage(
+                              key: ValueKey<int>(i),
+                              slice: slice,
+                              textStyle: _bodyStyle(context),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    if (text.isNotEmpty && _initialReaderLayoutPending)
+                      ColoredBox(
+                        color: theme.scaffoldBackgroundColor,
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),
@@ -715,18 +762,13 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                child: ValueListenableBuilder<int>(
-                  valueListenable: _pageIndex,
-                  builder: (context, pageIdx, _) {
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_pageIndex, _paginationBump]),
+                  builder: (context, _) {
+                    final pageIdx = _pageIndex.value;
+                    final pageCount = _itemCountForPageView(text);
                     return Row(
                       children: [
-                        IconButton(
-                          tooltip: "Первая страница",
-                          onPressed: pageIdx > 0
-                              ? () => _pageController.jumpToPage(0)
-                              : null,
-                          icon: const Icon(Icons.first_page),
-                        ),
                         IconButton(
                           tooltip: "Назад",
                           onPressed: pageIdx > 0
@@ -743,7 +785,7 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                           child: Text(
                             _enumeratedToEnd
                                 ? "Стр. ${pageIdx + 1} из $pageCount"
-                                : "Стр. ${pageIdx + 1}…",
+                                : "Стр. ${pageIdx + 1}",
                             textAlign: TextAlign.center,
                             style: theme.textTheme.titleSmall,
                           ),
@@ -759,28 +801,6 @@ class _BookReaderScreenState extends State<BookReaderScreen> {
                                 }
                               : null,
                           icon: const Icon(Icons.chevron_right),
-                        ),
-                        IconButton(
-                          tooltip: "Последняя страница",
-                          onPressed: () {
-                            final w = _layoutMaxW;
-                            final h = _layoutMaxH;
-                            if (w == null || h == null || w <= 0 || h <= 0) {
-                              return;
-                            }
-                            _extendAllPagesToEnd(text, w, h, style, scaler);
-                            final last = math.max(0, _pageStarts.length - 1);
-                            setState(() {});
-                            _pageController.jumpToPage(last);
-                            _persistOffsetNow(_pageStarts[last]);
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted) {
-                                return;
-                              }
-                              _clampPageToBounds(text);
-                            });
-                          },
-                          icon: const Icon(Icons.last_page),
                         ),
                       ],
                     );
