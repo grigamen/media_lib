@@ -144,6 +144,81 @@ Future<void> openMediaItemDetailsPage({
   );
 }
 
+Future<void> openMediaItemDetailsForAppState({
+  required BuildContext context,
+  required AppState state,
+  required List<MediaListItem> groupItems,
+}) {
+  return openMediaItemDetailsPage(
+    context: context,
+    currentUserId: state.currentUserId,
+    groupItems: groupItems,
+    availableGenres: state.availableGenres,
+    onLoadLinks: state.fetchLinksForItem,
+    onLoadItemById: state.fetchMediaItemById,
+    onUpdateItem:
+        ({
+          required mediaItemId,
+          required type,
+          required title,
+          author,
+          coverUrl,
+          genres,
+          coverUploadPayload,
+          uploadPayload,
+          description,
+        }) => state.updateMediaItem(
+          mediaItemId: mediaItemId,
+          type: type,
+          title: title,
+          author: author,
+          coverUrl: coverUrl,
+          genres: genres,
+          coverUploadPayload: coverUploadPayload,
+          uploadPayload: uploadPayload,
+          description: description,
+        ),
+    onAddFormatToWork:
+        ({
+          required sourceMediaItemId,
+          required type,
+          required title,
+          author,
+          coverUrl,
+          genres,
+          coverUploadPayload,
+          description,
+          uploadPayload,
+        }) => state.addFormatToWork(
+          sourceMediaItemId: sourceMediaItemId,
+          type: type,
+          title: title,
+          author: author,
+          coverUrl: coverUrl,
+          genres: genres,
+          coverUploadPayload: coverUploadPayload,
+          description: description,
+          uploadPayload: uploadPayload,
+        ),
+    onBeginPlaybackSession: state.beginPlaybackSession,
+    onPlaybackProgressChanged: state.updatePlaybackProgress,
+    onPausePlaybackSession: state.pausePlaybackSession,
+    onCompletePlaybackSession: state.completePlaybackSession,
+    onFlushPlaybackSession: state.flushPlaybackProgress,
+    onEndPlaybackSession: state.endPlaybackSession,
+    playbackSpeed: state.playbackSpeed,
+    onSetPlaybackSpeed: state.setPlaybackSpeed,
+    pendingPlaybackSync: state.pendingPlaybackSync,
+    onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
+    playbackError: state.playbackError,
+    onLoadBookContent: state.loadBookContent,
+    onMarkItemViewed: state.markItemViewed,
+    onFetchMediaFiles: state.fetchMediaFilesForItem,
+    onBindMainMediaFile: state.bindMainMediaFileToItem,
+    onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
+  );
+}
+
 class _WorkGroup {
   _WorkGroup({required this.groupItems});
 

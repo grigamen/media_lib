@@ -57,6 +57,8 @@ class LibraryScreen extends StatefulWidget {
     required this.onFetchMediaFiles,
     required this.onBindMainMediaFile,
     required this.onUploadAndBindMainMediaFile,
+    this.hideLibraryControls = false,
+    this.emptyLibraryMessage,
     super.key,
   });
 
@@ -135,6 +137,12 @@ class LibraryScreen extends StatefulWidget {
     required MediaUploadPayload uploadPayload,
   })
   onUploadAndBindMainMediaFile;
+
+  /// Если true — скрыты поиск и чипы фильтров (экран «только мои произведения»).
+  final bool hideLibraryControls;
+
+  /// Текст при пустом списке вместо стандартного «Библиотека пока пустая».
+  final String? emptyLibraryMessage;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();

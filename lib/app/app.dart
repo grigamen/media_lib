@@ -7,6 +7,7 @@ import "../features/home/presentation/home_screen.dart";
 import "../features/library/data/library_repository.dart";
 import "../features/library/presentation/add_item_screen.dart";
 import "../features/library/presentation/library_screen.dart";
+import "../features/profile/presentation/my_works_screen.dart";
 import "../features/profile/presentation/profile_screen.dart";
 import "../features/search/presentation/search_screen.dart";
 import "app_state.dart";
@@ -35,73 +36,10 @@ Future<void> _pushMediaItemDetailsPage(
   AppState state,
   List<MediaListItem> groupItems,
 ) {
-  return openMediaItemDetailsPage(
+  return openMediaItemDetailsForAppState(
     context: context,
-    currentUserId: state.currentUserId,
+    state: state,
     groupItems: groupItems,
-    availableGenres: state.availableGenres,
-    onLoadLinks: state.fetchLinksForItem,
-    onLoadItemById: state.fetchMediaItemById,
-    onUpdateItem:
-        ({
-          required mediaItemId,
-          required type,
-          required title,
-          author,
-          coverUrl,
-          genres,
-          coverUploadPayload,
-          uploadPayload,
-          description,
-        }) => state.updateMediaItem(
-          mediaItemId: mediaItemId,
-          type: type,
-          title: title,
-          author: author,
-          coverUrl: coverUrl,
-          genres: genres,
-          coverUploadPayload: coverUploadPayload,
-          uploadPayload: uploadPayload,
-          description: description,
-        ),
-    onAddFormatToWork:
-        ({
-          required sourceMediaItemId,
-          required type,
-          required title,
-          author,
-          coverUrl,
-          genres,
-          coverUploadPayload,
-          description,
-          uploadPayload,
-        }) => state.addFormatToWork(
-          sourceMediaItemId: sourceMediaItemId,
-          type: type,
-          title: title,
-          author: author,
-          coverUrl: coverUrl,
-          genres: genres,
-          coverUploadPayload: coverUploadPayload,
-          description: description,
-          uploadPayload: uploadPayload,
-        ),
-    onBeginPlaybackSession: state.beginPlaybackSession,
-    onPlaybackProgressChanged: state.updatePlaybackProgress,
-    onPausePlaybackSession: state.pausePlaybackSession,
-    onCompletePlaybackSession: state.completePlaybackSession,
-    onFlushPlaybackSession: state.flushPlaybackProgress,
-    onEndPlaybackSession: state.endPlaybackSession,
-    playbackSpeed: state.playbackSpeed,
-    onSetPlaybackSpeed: state.setPlaybackSpeed,
-    pendingPlaybackSync: state.pendingPlaybackSync,
-    playbackError: state.playbackError,
-    onLoadBookContent: state.loadBookContent,
-    onMarkItemViewed: state.markItemViewed,
-    onFetchMediaFiles: state.fetchMediaFilesForItem,
-    onBindMainMediaFile: state.bindMainMediaFileToItem,
-    onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
-    onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
   );
 }
 
@@ -493,6 +431,7 @@ class _HomeShellState extends State<_HomeShell> {
         email: state.userEmail,
         displayName: state.userDisplayName,
         isDarkMode: state.isDarkMode,
+        hasOwnedWorks: state.hasOwnedWorks,
         onThemeToggle: state.toggleTheme,
         onDeleteAllWorks: state.deleteAllMediaItems,
         onOpenAddWork: () => state.setSelectedTab(2),
@@ -510,6 +449,13 @@ class _HomeShellState extends State<_HomeShell> {
                   currentPassword: currentPassword,
                   newPassword: newPassword,
                 ),
+        onOpenMyWorks: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => MyWorksScreen(state: state),
+            ),
+          );
+        },
         onOpenAdminMedia:
             state.isAdminUser
                 ? () {

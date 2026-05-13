@@ -350,6 +350,62 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel> {
     _showControlsTemporarily();
   }
 
+  Future<void> _seekVideoRelative(int deltaSeconds) async {
+    if (!_isVideo || _videoController == null || !_isReady) {
+      return;
+    }
+    final dur = _duration ?? _videoController!.value.duration;
+    final maxSec = dur.inSeconds > 0 ? dur.inSeconds : 0;
+    var nextSec = _position.inSeconds + deltaSeconds;
+    if (nextSec < 0) {
+      nextSec = 0;
+    }
+    if (maxSec > 0 && nextSec > maxSec) {
+      nextSec = maxSec;
+    }
+    await _seekTo(nextSec.toDouble());
+  }
+
+  Widget _videoQuickSeekBar({required Color iconColor}) {
+    final enabled =
+        _isReady && _videoController != null && !_isInitializing;
+    Widget btn({required int delta, required IconData icon, required String tip}) {
+      return IconButton(
+        tooltip: tip,
+        onPressed: enabled ? () => unawaited(_seekVideoRelative(delta)) : null,
+        icon: Icon(icon, color: iconColor, size: 22),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        btn(
+          delta: -30,
+          icon: Icons.replay_30,
+          tip: "Назад на 30 секунд",
+        ),
+        btn(
+          delta: -10,
+          icon: Icons.replay_10,
+          tip: "Назад на 10 секунд",
+        ),
+        btn(
+          delta: 10,
+          icon: Icons.forward_10,
+          tip: "Вперёд на 10 секунд",
+        ),
+        btn(
+          delta: 30,
+          icon: Icons.forward_30,
+          tip: "Вперёд на 30 секунд",
+        ),
+      ],
+    );
+  }
+
   Future<void> _switchToStream(String fileId) async {
     if (fileId == _activeStreamFileId ||
         _streamOptions.length <= 1 ||
@@ -483,16 +539,10 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel> {
         builder:
             (context) => Scaffold(
               backgroundColor: Colors.black,
-              body: SafeArea(
-                child: GestureDetector(
-                  onTap: _toggleControlsVisibility,
-                  onVerticalDragEnd: (details) {
-                    final velocity = details.primaryVelocity ?? 0;
-                    if (velocity > 500) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: Stack(
+              body: LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    fit: StackFit.expand,
                     children: [
                       Center(
                         child: AspectRatio(
@@ -500,140 +550,188 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel> {
                           child: VideoPlayer(controller),
                         ),
                       ),
-                      if (_showControls)
-                        Positioned(
-                          top: 12,
-                          right: 12,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip:
-                                    _videoVolume > 0
-                                        ? "Выключить звук"
-                                        : "Включить звук",
-                                onPressed: _toggleMute,
-                                color: Colors.white,
-                                icon: Icon(
-                                  _videoVolume > 0
-                                      ? Icons.volume_up
-                                      : Icons.volume_off,
-                                ),
-                              ),
-                              PopupMenuButton<double>(
-                                tooltip: "Скорость",
-                                initialValue: _currentSpeed,
-                                onSelected: _changeSpeed,
-                                itemBuilder:
-                                    (context) => _speedOptions
-                                        .map(
-                                          (speed) => PopupMenuItem<double>(
-                                            value: speed,
-                                            child: Text(
-                                              "${speed.toStringAsFixed(speed == speed.roundToDouble() ? 0 : 2)}x",
-                                            ),
-                                          ),
-                                        )
-                                        .toList(growable: false),
-                                icon: const Icon(
-                                  Icons.speed,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () => Navigator.of(context).pop(),
-                              ),
-                            ],
-                          ),
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _toggleControlsVisibility,
+                          onDoubleTapDown: (details) {
+                            if (!_isReady) {
+                              return;
+                            }
+                            final w = constraints.maxWidth;
+                            if (w <= 0) {
+                              return;
+                            }
+                            final x = details.localPosition.dx;
+                            if (x < w / 2) {
+                              unawaited(_seekVideoRelative(-10));
+                            } else {
+                              unawaited(_seekVideoRelative(10));
+                            }
+                            _showControlsTemporarily();
+                          },
+                          onVerticalDragEnd: (details) {
+                            final velocity = details.primaryVelocity ?? 0;
+                            if (velocity > 500) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          child: const SizedBox.expand(),
                         ),
+                      ),
                       if (_showControls)
-                        ValueListenableBuilder<VideoPlayerValue>(
-                          valueListenable: controller,
-                          builder: (context, value, child) {
-                            final totalSeconds = value.duration.inSeconds;
-                            final currentSeconds = value.position.inSeconds
-                                .clamp(0, totalSeconds > 0 ? totalSeconds : 0);
-                            return Positioned(
-                              left: 12,
-                              right: 12,
-                              bottom: 12,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black45,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
+                        SafeArea(
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                top: 12,
+                                right: 12,
+                                child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        activeTrackColor: Colors.white,
-                                        inactiveTrackColor: Colors.white30,
-                                        thumbColor: Colors.white,
-                                        trackHeight: 2,
-                                      ),
-                                      child: Slider(
-                                        value: currentSeconds.toDouble(),
-                                        max:
-                                            (totalSeconds > 0
-                                                    ? totalSeconds
-                                                    : 1)
-                                                .toDouble(),
-                                        onChanged:
-                                            (_isReady && totalSeconds > 0)
-                                                ? _seekTo
-                                                : null,
+                                    IconButton(
+                                      tooltip:
+                                          _videoVolume > 0
+                                              ? "Выключить звук"
+                                              : "Включить звук",
+                                      onPressed: _toggleMute,
+                                      color: Colors.white,
+                                      icon: Icon(
+                                        _videoVolume > 0
+                                            ? Icons.volume_up
+                                            : Icons.volume_off,
                                       ),
                                     ),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          _formatDuration(value.position),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        IconButton(
-                                          onPressed:
-                                              _isInitializing
-                                                  ? null
-                                                  : _togglePlayPause,
-                                          color: Colors.white,
-                                          icon: Icon(
-                                            value.isPlaying
-                                                ? Icons.pause
-                                                : Icons.play_arrow,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        Text(
-                                          _formatDuration(value.duration),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
+                                    PopupMenuButton<double>(
+                                      tooltip: "Скорость",
+                                      initialValue: _currentSpeed,
+                                      onSelected: _changeSpeed,
+                                      itemBuilder:
+                                          (context) => _speedOptions
+                                              .map(
+                                                (speed) => PopupMenuItem<double>(
+                                                  value: speed,
+                                                  child: Text(
+                                                    "${speed.toStringAsFixed(speed == speed.roundToDouble() ? 0 : 2)}x",
+                                                  ),
+                                                ),
+                                              )
+                                              .toList(growable: false),
+                                      icon: const Icon(
+                                        Icons.speed,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () => Navigator.of(context).pop(),
                                     ),
                                   ],
                                 ),
                               ),
-                            );
-                          },
+                              ValueListenableBuilder<VideoPlayerValue>(
+                                valueListenable: controller,
+                                builder: (context, value, child) {
+                                  final totalSeconds = value.duration.inSeconds;
+                                  final currentSeconds = value.position.inSeconds
+                                      .clamp(
+                                        0,
+                                        totalSeconds > 0 ? totalSeconds : 0,
+                                      );
+                                  return Positioned(
+                                    left: 12,
+                                    right: 12,
+                                    bottom: 12,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black45,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SliderTheme(
+                                            data: SliderTheme.of(context).copyWith(
+                                              activeTrackColor: Colors.white,
+                                              inactiveTrackColor: Colors.white30,
+                                              thumbColor: Colors.white,
+                                              trackHeight: 2,
+                                            ),
+                                            child: Slider(
+                                              value: currentSeconds.toDouble(),
+                                              max:
+                                                  (totalSeconds > 0
+                                                          ? totalSeconds
+                                                          : 1)
+                                                      .toDouble(),
+                                              onChanged:
+                                                  (_isReady && totalSeconds > 0)
+                                                      ? _seekTo
+                                                      : null,
+                                            ),
+                                          ),
+                                          _videoQuickSeekBar(
+                                            iconColor: Colors.white,
+                                          ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                _formatVideoTime(
+                                                  value.position,
+                                                  value.duration,
+                                                  value.position,
+                                                ),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              IconButton(
+                                                onPressed:
+                                                    _isInitializing
+                                                        ? null
+                                                        : _togglePlayPause,
+                                                color: Colors.white,
+                                                icon: Icon(
+                                                  value.isPlaying
+                                                      ? Icons.pause
+                                                      : Icons.play_arrow,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              Text(
+                                                _formatVideoTime(
+                                                  value.duration,
+                                                  value.duration,
+                                                  value.position,
+                                                ),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                     ],
-                  ),
-                ),
+                  );
+                },
               ),
             ),
       ),
@@ -685,6 +783,31 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel> {
     final minutes = (totalSeconds ~/ 60).toString().padLeft(2, "0");
     final seconds = (totalSeconds % 60).toString().padLeft(2, "0");
     return "$minutes:$seconds";
+  }
+
+  /// Для видео: `ч:мм:сс`, если длительность (или позиция до известной длины) ≥ 1 ч.
+  String _formatVideoTime(
+    Duration? time,
+    Duration totalReference,
+    Duration positionReference,
+  ) {
+    if (time == null) {
+      return "--:--";
+    }
+    final showHours =
+        totalReference.inSeconds >= 3600 ||
+        (totalReference.inSeconds == 0 &&
+            positionReference.inSeconds >= 3600);
+    final s = time.inSeconds;
+    if (!showHours) {
+      final m = s ~/ 60;
+      final sec = s % 60;
+      return "${m.toString().padLeft(2, "0")}:${sec.toString().padLeft(2, "0")}";
+    }
+    final h = s ~/ 3600;
+    final m = (s % 3600) ~/ 60;
+    final sec = s % 60;
+    return "$h:${m.toString().padLeft(2, "0")}:${sec.toString().padLeft(2, "0")}";
   }
 
   String _humanizePlaybackError(Object error) {
@@ -1085,10 +1208,15 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel> {
                                             : null,
                                   ),
                                 ),
+                                _videoQuickSeekBar(iconColor: Colors.white),
                                 Row(
                                   children: [
                                     Text(
-                                      _formatDuration(_position),
+                                      _formatVideoTime(
+                                        _position,
+                                        _duration ?? Duration.zero,
+                                        _position,
+                                      ),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 11,
@@ -1096,7 +1224,11 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel> {
                                     ),
                                     const Spacer(),
                                     Text(
-                                      _formatDuration(_duration),
+                                      _formatVideoTime(
+                                        _duration,
+                                        _duration ?? Duration.zero,
+                                        _position,
+                                      ),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 11,

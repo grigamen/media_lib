@@ -338,10 +338,14 @@ class LibraryRepository {
     List<String> genres = const [],
     String? moderationStatus,
     bool excludePending = false,
+    bool mine = false,
     int limit = 50,
     int offset = 0,
   }) async {
     final params = <String>["limit=$limit", "offset=$offset"];
+    if (mine) {
+      params.add("mine=true");
+    }
     final normalizedQuery = query?.trim();
     if (normalizedQuery != null && normalizedQuery.isNotEmpty) {
       params.add("q=${Uri.encodeQueryComponent(normalizedQuery)}");

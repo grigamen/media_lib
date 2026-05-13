@@ -9,12 +9,14 @@ class ProfileScreen extends StatelessWidget {
     required this.email,
     required this.displayName,
     required this.isDarkMode,
+    required this.hasOwnedWorks,
     required this.onThemeToggle,
     required this.onDeleteAllWorks,
     required this.onOpenAddWork,
     required this.onLogout,
     required this.onUpdateProfile,
     required this.onChangePassword,
+    this.onOpenMyWorks,
     this.onOpenAdminMedia,
     super.key,
   });
@@ -22,6 +24,7 @@ class ProfileScreen extends StatelessWidget {
   final String email;
   final String displayName;
   final bool isDarkMode;
+  final bool hasOwnedWorks;
   final ValueChanged<bool> onThemeToggle;
   final Future<void> Function() onDeleteAllWorks;
   final VoidCallback onOpenAddWork;
@@ -37,6 +40,7 @@ class ProfileScreen extends StatelessWidget {
     required String newPassword,
   })
   onChangePassword;
+  final VoidCallback? onOpenMyWorks;
   final VoidCallback? onOpenAdminMedia;
 
   Future<void> _openEditProfileDialog(BuildContext context) async {
@@ -393,6 +397,15 @@ class ProfileScreen extends StatelessWidget {
                   value: isDarkMode,
                   onChanged: onThemeToggle,
                 ),
+                if (hasOwnedWorks && onOpenMyWorks != null) ...[
+                  _ActionTile(
+                    icon: Icons.collections_bookmark_outlined,
+                    title: "Мои произведения",
+                    subtitle:
+                        "Все записи, добавленные с этого аккаунта (включая на модерации)",
+                    onTap: onOpenMyWorks!,
+                  ),
+                ],
                 if (onOpenAdminMedia != null) ...[
                   const SizedBox(height: 16),
                   Text(

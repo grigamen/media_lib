@@ -97,14 +97,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
                 children: [
-                  _LibraryControls(
-                    searchController: _searchController,
-                    searchQuery: widget.searchQuery,
-                    selectedTypes: widget.selectedTypes,
-                    selectedGenres: widget.selectedGenres,
-                    onSetLibraryFilters: widget.onSetLibraryFilters,
-                    onSearchFieldTap: widget.onOpenSearchTab,
-                  ),
+                  if (!widget.hideLibraryControls)
+                    _LibraryControls(
+                      searchController: _searchController,
+                      searchQuery: widget.searchQuery,
+                      selectedTypes: widget.selectedTypes,
+                      selectedGenres: widget.selectedGenres,
+                      onSetLibraryFilters: widget.onSetLibraryFilters,
+                      onSearchFieldTap: widget.onOpenSearchTab,
+                    ),
                   const SizedBox(height: 64),
                   Center(
                     child: Padding(
@@ -125,20 +126,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
                 children: [
-                  _LibraryControls(
-                    searchController: _searchController,
-                    searchQuery: widget.searchQuery,
-                    selectedTypes: widget.selectedTypes,
-                    selectedGenres: widget.selectedGenres,
-                    onSetLibraryFilters: widget.onSetLibraryFilters,
-                    onSearchFieldTap: widget.onOpenSearchTab,
-                  ),
+                  if (!widget.hideLibraryControls) ...[
+                    _LibraryControls(
+                      searchController: _searchController,
+                      searchQuery: widget.searchQuery,
+                      selectedTypes: widget.selectedTypes,
+                      selectedGenres: widget.selectedGenres,
+                      onSetLibraryFilters: widget.onSetLibraryFilters,
+                      onSearchFieldTap: widget.onOpenSearchTab,
+                    ),
+                  ],
                   const SizedBox(height: 64),
                   Center(
                     child: Text(
-                      widget.usingDemoItems
-                          ? "Тестовые произведения не найдены по текущему фильтру"
-                          : "Библиотека пока пустая",
+                      widget.emptyLibraryMessage ??
+                          (widget.usingDemoItems
+                              ? "Тестовые произведения не найдены по текущему фильтру"
+                              : "Библиотека пока пустая"),
                     ),
                   ),
                 ],
@@ -148,14 +152,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(12, 14, 12, 16),
               children: [
-                _LibraryControls(
-                  searchController: _searchController,
-                  searchQuery: widget.searchQuery,
-                  selectedTypes: widget.selectedTypes,
-                  selectedGenres: widget.selectedGenres,
-                  onSetLibraryFilters: widget.onSetLibraryFilters,
-                  onSearchFieldTap: widget.onOpenSearchTab,
-                ),
+                if (!widget.hideLibraryControls)
+                  _LibraryControls(
+                    searchController: _searchController,
+                    searchQuery: widget.searchQuery,
+                    selectedTypes: widget.selectedTypes,
+                    selectedGenres: widget.selectedGenres,
+                    onSetLibraryFilters: widget.onSetLibraryFilters,
+                    onSearchFieldTap: widget.onOpenSearchTab,
+                  ),
                 if (widget.usingDemoItems) ...[
                   const SizedBox(height: 8),
                   Container(

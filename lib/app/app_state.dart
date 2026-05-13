@@ -348,6 +348,9 @@ class AppState extends ChangeNotifier {
   /// пока текущая сессия загрузки не завершится ([_endPresignedUploadTracking]).
   bool _presignedUploadIndicatorDismissed = false;
 
+  /// Все произведения, созданные текущим пользователем ([GET /media-items?mine=true], total).
+  int _ownedWorksTotal = 0;
+
   bool get isBootstrapComplete => _bootstrapComplete;
 
   bool get isDarkMode => _isDarkMode;
@@ -392,6 +395,11 @@ class AppState extends ChangeNotifier {
   double get playbackSpeed => _playbackSpeed;
   String? get currentUserId => _currentUserId;
   bool get isAdminUser => _isAdminUser;
+
+  int get ownedWorksTotal => _ownedWorksTotal;
+
+  bool get hasOwnedWorks => _ownedWorksTotal > 0;
+
   double? get presignedUploadProgress =>
       _presignedUploadIndicatorDismissed ? null : _presignedUploadProgress;
   List<MediaListItem> get recentlyViewedItems {
@@ -710,8 +718,45 @@ class AppState extends ChangeNotifier {
       }
     } finally {
       _isLibraryLoading = false;
+      await refreshOwnedWorksCount();
       notifyListeners();
     }
+  }
+
+  /// Обновляет [hasOwnedWorks] / [ownedWorksTotal] (limit=1, сервер отдаёт total).
+  Future<void> refreshOwnedWorksCount() async {
+    final session = _session;
+    if (session == null) {
+      _ownedWorksTotal = 0;
+      return;
+    }
+    try {
+      final r = await _libraryRepository.fetchMediaItemsWithMeta(
+        accessToken: session.accessToken,
+        mine: true,
+        limit: 1,
+        offset: 0,
+      );
+      _ownedWorksTotal = r.total;
+    } catch (_) {
+      // не сбрасываем счётчик при временной ошибке сети
+    }
+  }
+
+  /// Полный список «мои произведения» для отдельного экрана (до 100 записей).
+  Future<List<MediaListItem>> fetchMyMediaItemsForPanel() async {
+    final session = _session;
+    if (session == null) {
+      return const [];
+    }
+    final r = await _libraryRepository.fetchMediaItemsWithMeta(
+      accessToken: session.accessToken,
+      mine: true,
+      limit: 100,
+      offset: 0,
+    );
+    final list = _dedupeMediaItemsById(r.items);
+    return _withFreshCoverUrls(session: session, items: list);
   }
 
   /// Первые страницы для админ-панели: «на модерации» и общий каталог (с пагинацией «ещё»).
@@ -928,6 +973,7 @@ class AppState extends ChangeNotifier {
       _libraryError = "Не удалось удалить произведения";
     } finally {
       _isLibraryLoading = false;
+      await refreshOwnedWorksCount();
       notifyListeners();
     }
   }
@@ -2138,6 +2184,7 @@ class AppState extends ChangeNotifier {
     _selectedTab = 0;
     _currentUserId = null;
     _isAdminUser = false;
+    _ownedWorksTotal = 0;
     _playbackLoadState = PlaybackLoadState.idle;
     _playbackError = null;
     _activePlaybackMediaItemId = null;

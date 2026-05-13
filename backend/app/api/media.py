@@ -299,6 +299,7 @@ def list_media_items(
     include_deleted: bool = Query(default=False),
     moderation_status: ModerationStatus | None = Query(default=None),
     exclude_pending: bool = Query(default=False),
+    mine: bool = Query(default=False),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     sort_by: SortBy = Query(default="updated_at"),
@@ -323,11 +324,19 @@ def list_media_items(
                 detail="exclude_pending is admin-only",
             )
         conditions.append(MediaItem.moderation_status != "pending")
-    if not current_user.is_admin:
+    if mine:
+        conditions.append(MediaItem.user_id == current_user.id)
+    elif not current_user.is_admin:
+        # Каталог: одобренное от всех + свои черновики (pending / без отклонения).
+        # Отклонённые (rejected) в списке не показываем — иначе «вариант» висит в группе;
+        # владелец по-прежнему может открыть карточку по ID и править (повторная подача).
         conditions.append(
             or_(
                 MediaItem.moderation_status == "approved",
-                MediaItem.user_id == current_user.id,
+                and_(
+                    MediaItem.user_id == current_user.id,
+                    MediaItem.moderation_status != "rejected",
+                ),
             )
         )
     elif moderation_status is None:
