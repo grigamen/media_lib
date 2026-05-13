@@ -344,6 +344,10 @@ class AppState extends ChangeNotifier {
   /// 0.0–1.0 во время PUT в S3 по presigned URL; иначе null.
   double? _presignedUploadProgress;
 
+  /// Пользователь нажал «Скрыть индикатор» при зависшей загрузке — оверлей скрыт,
+  /// пока текущая сессия загрузки не завершится ([_endPresignedUploadTracking]).
+  bool _presignedUploadIndicatorDismissed = false;
+
   bool get isBootstrapComplete => _bootstrapComplete;
 
   bool get isDarkMode => _isDarkMode;
@@ -388,7 +392,8 @@ class AppState extends ChangeNotifier {
   double get playbackSpeed => _playbackSpeed;
   String? get currentUserId => _currentUserId;
   bool get isAdminUser => _isAdminUser;
-  double? get presignedUploadProgress => _presignedUploadProgress;
+  double? get presignedUploadProgress =>
+      _presignedUploadIndicatorDismissed ? null : _presignedUploadProgress;
   List<MediaListItem> get recentlyViewedItems {
     final userId = _currentUserId;
     if (userId == null) {
@@ -1806,20 +1811,32 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void dismissPresignedUploadOverlay() {
+    if (_presignedUploadProgress == null) {
+      return;
+    }
+    _presignedUploadIndicatorDismissed = true;
+    notifyListeners();
+  }
+
   void _reportPresignedUploadProgress(int uploaded, int total) {
     if (total <= 0) {
       return;
     }
     _presignedUploadProgress = (uploaded / total).clamp(0.0, 1.0);
-    notifyListeners();
+    if (!_presignedUploadIndicatorDismissed) {
+      notifyListeners();
+    }
   }
 
   void _beginPresignedUploadTracking() {
+    _presignedUploadIndicatorDismissed = false;
     _presignedUploadProgress = 0.0;
     notifyListeners();
   }
 
   void _endPresignedUploadTracking() {
+    _presignedUploadIndicatorDismissed = false;
     _presignedUploadProgress = null;
     notifyListeners();
   }

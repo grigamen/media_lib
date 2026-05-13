@@ -151,57 +151,81 @@ class _MediaLibAppState extends State<MediaLibApp> {
                 children: [
                   child!,
                   if (uploadProgress != null)
-                    Positioned.fill(
-                      child: AbsorbPointer(
-                        child: ColoredBox(
-                          color: Colors.black45,
-                          child: Center(
-                            child: Card(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 32,
+                    Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Positioned.fill(
+                          child: ModalBarrier(
+                            color: Colors.black45,
+                            dismissible: false,
+                          ),
+                        ),
+                        Center(
+                          child: Card(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                20,
+                                24,
+                                16,
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  24,
-                                  20,
-                                  24,
-                                  20,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(
-                                      "Загрузка файла в хранилище…",
-                                      textAlign: TextAlign.center,
-                                      style:
-                                          Theme.of(
-                                            context,
-                                          ).textTheme.titleMedium,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    "Загрузка файла в хранилище…",
+                                    textAlign: TextAlign.center,
+                                    style:
+                                        Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      minHeight: 8,
+                                      value: uploadProgress,
                                     ),
-                                    const SizedBox(height: 16),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        minHeight: 8,
-                                        value: uploadProgress,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      "${(uploadProgress * 100).clamp(0, 100).round()}%",
-                                      textAlign: TextAlign.center,
-                                      style:
-                                          Theme.of(context).textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    "${(uploadProgress * 100).clamp(0, 100).round()}%",
+                                    textAlign: TextAlign.center,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextButton(
+                                    onPressed: () =>
+                                        _state.dismissPresignedUploadOverlay(),
+                                    child: const Text("Скрыть индикатор"),
+                                  ),
+                                  Text(
+                                    "Если загрузка зависла, можно скрыть окно и "
+                                    "повторить позже. Загрузка на сервер при этом "
+                                    "может ещё продолжаться или оборваться.",
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                 ],
               ),
