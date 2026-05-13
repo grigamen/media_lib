@@ -12,6 +12,17 @@ Future<void> _afterDialogUiSettled() async {
   await Future<void>.delayed(const Duration(milliseconds: 80));
 }
 
+/// `showDialog` completes when [Navigator.pop] runs, but the route can still
+/// rebuild [TextField]s during the pop transition; disposing the controller
+/// immediately triggers "used after being disposed".
+void _scheduleDisposeTextControllers(List<TextEditingController> controllers) {
+  Future<void>.delayed(const Duration(milliseconds: 400), () {
+    for (final c in controllers) {
+      c.dispose();
+    }
+  });
+}
+
 void _postFrameSnackBar(BuildContext context, String message) {
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) {
@@ -201,9 +212,7 @@ class ProfileScreen extends StatelessWidget {
         );
       },
     );
-    nameCtrl.dispose();
-    emailCtrl.dispose();
-    passwordCtrl.dispose();
+    _scheduleDisposeTextControllers([nameCtrl, emailCtrl, passwordCtrl]);
   }
 
   Future<void> _openChangePasswordDialog(BuildContext context) async {
@@ -344,9 +353,7 @@ class ProfileScreen extends StatelessWidget {
         );
       },
     );
-    currentCtrl.dispose();
-    newCtrl.dispose();
-    confirmCtrl.dispose();
+    _scheduleDisposeTextControllers([currentCtrl, newCtrl, confirmCtrl]);
   }
 
   Future<String?> _promptTwoFaPasswordDialog(
@@ -378,7 +385,7 @@ class ProfileScreen extends StatelessWidget {
         );
       },
     );
-    ctrl.dispose();
+    _scheduleDisposeTextControllers([ctrl]);
     final t = result?.trim() ?? "";
     if (t.length < 8) {
       return null;
@@ -415,7 +422,7 @@ class ProfileScreen extends StatelessWidget {
         );
       },
     );
-    ctrl.dispose();
+    _scheduleDisposeTextControllers([ctrl]);
     final t = result?.trim() ?? "";
     if (t.length < 4) {
       return null;
