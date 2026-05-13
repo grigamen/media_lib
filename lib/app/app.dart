@@ -3,6 +3,7 @@ import "package:flutter/services.dart";
 
 import "../features/admin/presentation/admin_media_screen.dart";
 import "../features/auth/presentation/auth_screen.dart";
+import "../features/auth/presentation/email_two_fa_screen.dart";
 import "../features/home/presentation/home_screen.dart";
 import "../features/library/data/library_repository.dart";
 import "../features/library/presentation/add_item_screen.dart";
@@ -269,6 +270,18 @@ class _AuthRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.hasPendingEmailTwoFa) {
+      return EmailTwoFaScreen(
+        email: state.pendingTwoFaEmail ?? "",
+        displayName: state.pendingTwoFaDisplayName ?? "",
+        hintMessage: state.pendingTwoFaMessage,
+        isLoading: state.isAuthLoading,
+        errorMessage: state.authError,
+        onVerify: state.submitEmailTwoFaCode,
+        onResend: state.resendEmailTwoFaCode,
+        onBackToLogin: state.cancelEmailTwoFaLogin,
+      );
+    }
     return AuthScreen(
       isLoading: state.isAuthLoading,
       errorMessage: state.authError,
@@ -430,6 +443,10 @@ class _HomeShellState extends State<_HomeShell> {
       ProfileScreen(
         email: state.userEmail,
         displayName: state.userDisplayName,
+        twofaEnabled: state.userTwofaEnabled,
+        onStartTwoFaEnable: state.startTwoFaEnableFromProfile,
+        onConfirmTwoFaEnable: state.confirmTwoFaEnableFromProfile,
+        onDisableTwoFa: state.disableTwoFaFromProfile,
         isDarkMode: state.isDarkMode,
         hasOwnedWorks: state.hasOwnedWorks,
         onThemeToggle: state.toggleTheme,

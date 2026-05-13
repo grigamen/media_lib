@@ -1,9 +1,12 @@
+from unittest.mock import patch
 from uuid import uuid4
 
-import pyotp
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.main import app
+from app.db import SessionLocal
+from app.models import User
 
 client = TestClient(app)
 
@@ -75,7 +78,7 @@ def test_refresh_returns_new_tokens() -> None:
     assert data["refresh_token"]
 
 
-def test_2fa_setup_and_verify_success() -> None:
+def test_email_2fa_login_verify_success() -> None:
     email = _email("twofa")
     client.post(
         "/auth/register",
@@ -85,27 +88,36 @@ def test_2fa_setup_and_verify_success() -> None:
             "display_name": "Tester",
         },
     )
-    setup_res = client.post(
-        "/auth/2fa/setup",
-        json={"email": email, "password": "Test123!"},
-    )
-    assert setup_res.status_code == 200
-    setup_data = setup_res.json()
-    assert setup_data["secret"]
-    assert setup_data["otp_auth_uri"]
+    db = SessionLocal()
+    try:
+        user = db.scalar(select(User).where(User.email == email))
+        assert user is not None
+        user.twofa_enabled = True
+        db.add(user)
+        db.commit()
+    finally:
+        db.close()
 
-    login_res = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+    captured: dict[str, str] = {}
+
+    def capture_send(e: str, code: str, _ex: int) -> None:
+        captured["code"] = code
+
+    with patch("app.api.auth.send_login_otp_email", side_effect=capture_send):
+        login_res = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+
     assert login_res.status_code == 200
     login_data = login_res.json()
     assert login_data["requires_2fa"] is True
     challenge_token = login_data["challenge_token"]
+    assert challenge_token
+    assert "code" in captured
 
-    otp_code = pyotp.TOTP(setup_data["secret"]).now()
     verify_res = client.post(
-        "/auth/2fa/verify",
+        "/auth/2fa/email/verify",
         json={
             "challenge_token": challenge_token,
-            "otp_code": otp_code,
+            "otp_code": captured["code"],
         },
     )
     assert verify_res.status_code == 200
@@ -131,7 +143,9 @@ def test_me_get_and_patch_display_name() -> None:
 
     me_res = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me_res.status_code == 200
-    assert me_res.json()["display_name"] == "Ann"
+    body = me_res.json()
+    assert body["display_name"] == "Ann"
+    assert body["twofa_enabled"] is False
 
     patch_res = client.patch(
         "/auth/me",
@@ -201,3 +215,49 @@ def test_change_password() -> None:
 
     new_login = client.post("/auth/login", json={"email": email, "password": "NewTest123!"})
     assert new_login.status_code == 200
+
+
+def test_email_2fa_enable_from_profile() -> None:
+    email = _email("enable2fa")
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": "Test123!",
+            "display_name": "E",
+        },
+    )
+    login_res = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    captured: dict[str, str] = {}
+
+    def capture_profile(e: str, code: str, _ex: int, **kwargs: object) -> None:
+        captured["code"] = code
+
+    with patch("app.api.auth.send_profile_otp_email", side_effect=capture_profile):
+        start = client.post(
+            "/auth/2fa/email/enable/start",
+            headers=headers,
+            json={"current_password": "Test123!"},
+        )
+    assert start.status_code == 204
+    assert "code" in captured
+
+    confirm = client.post(
+        "/auth/2fa/email/enable/confirm",
+        headers=headers,
+        json={"code": captured["code"]},
+    )
+    assert confirm.status_code == 204
+
+    me = client.get("/auth/me", headers=headers)
+    assert me.status_code == 200
+    assert me.json()["twofa_enabled"] is True
+
+    # следующий логин требует OTP
+    with patch("app.api.auth.send_login_otp_email"):
+        step1 = client.post("/auth/login", json={"email": email, "password": "Test123!"})
+    assert step1.status_code == 200
+    assert step1.json()["requires_2fa"] is True

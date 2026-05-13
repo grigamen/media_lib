@@ -30,6 +30,8 @@ class LoginResponse(BaseModel):
     requires_2fa: bool = False
     email: EmailStr | None = None
     display_name: str | None = None
+    message: str | None = None
+    twofa_enabled: bool | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -42,12 +44,14 @@ class RefreshResponse(BaseModel):
     token_type: str = "bearer"
     email: EmailStr | None = None
     display_name: str | None = None
+    twofa_enabled: bool = False
 
 
 class MeResponse(BaseModel):
     user_id: UUID
     email: EmailStr
     display_name: str
+    twofa_enabled: bool = False
 
 
 class MePatchRequest(BaseModel):
@@ -67,16 +71,24 @@ class PasswordChangeRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
-class TwoFASetupRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-
-
-class TwoFASetupResponse(BaseModel):
-    secret: str
-    otp_auth_uri: str
-
-
 class TwoFAVerifyRequest(BaseModel):
+    """Проверка кода из письма после логина ([requires_2fa])."""
+
     challenge_token: str
-    otp_code: str = Field(min_length=6, max_length=8)
+    otp_code: str = Field(min_length=4, max_length=12)
+
+
+class TwoFAResendRequest(BaseModel):
+    challenge_token: str
+
+
+class Email2FAEnableStartRequest(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)
+
+
+class Email2FAEnableConfirmRequest(BaseModel):
+    code: str = Field(min_length=4, max_length=12)
+
+
+class Email2FADisableRequest(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)

@@ -104,7 +104,11 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
     _audioPlayerStateSub = null;
     _audioPlaybackEventSub = null;
     if (_audioPlayer != null) {
-      await _audioPlayer!.dispose();
+      if (_isAudio) {
+        await audiobookBackgroundHandler?.silenceForSessionEnd();
+      } else {
+        await _audioPlayer!.dispose();
+      }
       _audioPlayer = null;
     }
     if (_videoController != null) {
@@ -145,7 +149,25 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
     final config = outcome.config!;
     try {
       if (_isAudio) {
-        final player = AudioPlayer();
+        final handler = audiobookBackgroundHandler;
+        if (handler == null) {
+          setState(() {
+            _isInitializing = false;
+            _localError =
+                "Фоновое воспроизведение недоступно (сервис не инициализирован).";
+          });
+          return;
+        }
+        await handler.loadAudiobook(
+          streamUrl: config.streamUrl,
+          mediaItemId: config.mediaItemId,
+          title: widget.item.title,
+          author: widget.item.author,
+          coverUrl: widget.item.coverUrl,
+          initialPositionSeconds: config.initialPositionSeconds,
+          speed: _currentSpeed,
+        );
+        final player = handler.player;
         _audioPlayer = player;
         _audioPositionSub = player.positionStream.listen((position) {
           final totalDuration = _duration ?? player.duration;
@@ -198,11 +220,6 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
             });
           },
         );
-        await player.setUrl(
-          config.streamUrl,
-          initialPosition: Duration(seconds: config.initialPositionSeconds),
-        );
-        await player.setSpeed(_currentSpeed);
         if (!mounted) {
           return;
         }

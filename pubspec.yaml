@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.2.2
   just_audio: ^0.10.5
+  audio_service: ^0.18.18
+  audio_session: ^0.2.3
   video_player: ^2.9.5
   file_picker: ^10.2.0
   archive: ^4.0.9

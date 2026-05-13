@@ -313,6 +313,10 @@ class AppState extends ChangeNotifier {
   String? _authError;
   String? _libraryError;
   AuthSession? _session;
+  String? _pendingTwoFaChallengeToken;
+  String? _pendingTwoFaEmail;
+  String? _pendingTwoFaDisplayName;
+  String? _pendingTwoFaMessage;
   List<MediaListItem> _items = const [];
   List<MediaListItem> _adminPendingItems = const [];
   List<MediaListItem> _adminAllItems = const [];
@@ -379,6 +383,17 @@ class AppState extends ChangeNotifier {
   bool get isLibraryLoading => _isLibraryLoading;
   String? get authError => _authError;
   String? get libraryError => _libraryError;
+
+  bool get hasPendingEmailTwoFa =>
+      _pendingTwoFaChallengeToken != null &&
+      _pendingTwoFaChallengeToken!.isNotEmpty;
+
+  String? get pendingTwoFaEmail => _pendingTwoFaEmail;
+  String? get pendingTwoFaDisplayName => _pendingTwoFaDisplayName;
+  String? get pendingTwoFaMessage => _pendingTwoFaMessage;
+
+  bool get userTwofaEnabled => _session?.twofaEnabled ?? false;
+
   String get userEmail => _session?.email ?? "";
 
   String get userDisplayName => _session?.displayName ?? "";
@@ -568,6 +583,7 @@ class AppState extends ChangeNotifier {
     required bool resetLibraryState,
   }) async {
     _session = session;
+    _clearPendingEmailTwoFa();
     _currentUserId = _extractUserIdFromAccessToken(session.accessToken);
     _isAdminUser = _extractIsAdminFromAccessToken(session.accessToken);
     if (resetLibraryState) {
@@ -587,6 +603,99 @@ class AppState extends ChangeNotifier {
     await fetchLibrary();
   }
 
+  void _clearPendingEmailTwoFa() {
+    _pendingTwoFaChallengeToken = null;
+    _pendingTwoFaEmail = null;
+    _pendingTwoFaDisplayName = null;
+    _pendingTwoFaMessage = null;
+  }
+
+  Future<void> submitEmailTwoFaCode(String code) async {
+    final token = _pendingTwoFaChallengeToken;
+    if (token == null || token.isEmpty) {
+      return;
+    }
+    _isAuthLoading = true;
+    _authError = null;
+    notifyListeners();
+    try {
+      final session = await _authRepository.verifyEmailTwoFa(
+        challengeToken: token,
+        code: code,
+      );
+      await _activateSession(session, resetLibraryState: true);
+    } on ApiException catch (e) {
+      _authError = e.message;
+    } catch (_) {
+      _authError = "Не удалось подтвердить код";
+    } finally {
+      _isAuthLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> resendEmailTwoFaCode() async {
+    final token = _pendingTwoFaChallengeToken;
+    if (token == null || token.isEmpty) {
+      return;
+    }
+    _authError = null;
+    notifyListeners();
+    try {
+      await _authRepository.resendEmailTwoFa(challengeToken: token);
+    } on ApiException catch (e) {
+      _authError = e.message;
+    } catch (_) {
+      _authError = "Не удалось отправить код повторно";
+    }
+    notifyListeners();
+  }
+
+  void cancelEmailTwoFaLogin() {
+    _clearPendingEmailTwoFa();
+    _authError = null;
+    notifyListeners();
+  }
+
+  Future<void> startTwoFaEnableFromProfile(String currentPassword) async {
+    final session = _session;
+    if (session == null) {
+      throw ApiException("Нет сессии");
+    }
+    await _authRepository.startEmailTwoFaEnable(
+      accessToken: session.accessToken,
+      currentPassword: currentPassword,
+    );
+  }
+
+  Future<void> confirmTwoFaEnableFromProfile(String code) async {
+    final session = _session;
+    if (session == null) {
+      throw ApiException("Нет сессии");
+    }
+    await _authRepository.confirmEmailTwoFaEnable(
+      accessToken: session.accessToken,
+      code: code,
+    );
+    _session = session.copyWith(twofaEnabled: true);
+    await _authTokenStore.saveSession(_session!);
+    notifyListeners();
+  }
+
+  Future<void> disableTwoFaFromProfile(String currentPassword) async {
+    final session = _session;
+    if (session == null) {
+      throw ApiException("Нет сессии");
+    }
+    await _authRepository.disableEmailTwoFa(
+      accessToken: session.accessToken,
+      currentPassword: currentPassword,
+    );
+    _session = session.copyWith(twofaEnabled: false);
+    await _authTokenStore.saveSession(_session!);
+    notifyListeners();
+  }
+
   Future<void> register({
     required String email,
     required String password,
@@ -601,8 +710,21 @@ class AppState extends ChangeNotifier {
         password: password,
         displayName: displayName,
       );
-      _session = await _authRepository.login(email: email, password: password);
-      await _activateSession(_session!, resetLibraryState: true);
+      final loginResult = await _authRepository.login(
+        email: email,
+        password: password,
+      );
+      final sess = loginResult.session;
+      if (sess != null) {
+        _clearPendingEmailTwoFa();
+        await _activateSession(sess, resetLibraryState: true);
+      } else if (loginResult.pendingTwoFa != null) {
+        final p = loginResult.pendingTwoFa!;
+        _pendingTwoFaChallengeToken = p.challengeToken;
+        _pendingTwoFaEmail = p.email;
+        _pendingTwoFaDisplayName = p.displayName;
+        _pendingTwoFaMessage = p.message;
+      }
     } on ApiException catch (e) {
       _authError = e.message;
     } catch (_) {
@@ -618,8 +740,21 @@ class AppState extends ChangeNotifier {
     _authError = null;
     notifyListeners();
     try {
-      _session = await _authRepository.login(email: email, password: password);
-      await _activateSession(_session!, resetLibraryState: true);
+      final loginResult = await _authRepository.login(
+        email: email,
+        password: password,
+      );
+      final sess = loginResult.session;
+      if (sess != null) {
+        _clearPendingEmailTwoFa();
+        await _activateSession(sess, resetLibraryState: true);
+      } else if (loginResult.pendingTwoFa != null) {
+        final p = loginResult.pendingTwoFa!;
+        _pendingTwoFaChallengeToken = p.challengeToken;
+        _pendingTwoFaEmail = p.email;
+        _pendingTwoFaDisplayName = p.displayName;
+        _pendingTwoFaMessage = p.message;
+      }
     } on ApiException catch (e) {
       _authError = e.message;
     } catch (_) {
@@ -2153,6 +2288,7 @@ class AppState extends ChangeNotifier {
     _session = session.copyWith(
       email: result.email,
       displayName: result.displayName,
+      twofaEnabled: result.twofaEnabled,
     );
     await _authTokenStore.saveSession(_session!);
     notifyListeners();
@@ -2179,6 +2315,7 @@ class AppState extends ChangeNotifier {
     _stopProgressSyncTimer();
     unawaited(_authTokenStore.clear());
     _session = null;
+    _clearPendingEmailTwoFa();
     _authError = null;
     _libraryError = null;
     _items = const [];

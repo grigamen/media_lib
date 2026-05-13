@@ -21,6 +21,21 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_MIN: int = 30
     REFRESH_TOKEN_DAYS: int = 7
     TWOFA_CHALLENGE_MIN: int = 5
+    #: Длина одноразового кода из письма (только цифры).
+    TWOFA_CODE_LENGTH: int = 6
+    #: Отдельный секрет для хеширования OTP; пусто — используется JWT_SECRET.
+    TWOFA_OTP_PEPPER: str = ""
+    TWOFA_CODE_TTL_MIN: int = 10
+    TWOFA_MAX_ATTEMPTS: int = 5
+    TWOFA_RESEND_COOLDOWN_SEC: int = 60
+    #: smtp | console | none — для разработки без почтового сервера.
+    MAIL_MODE: str = "console"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    MAIL_FROM: str = ""
     S3_BUCKET: str = "medialib-dev"
     S3_REGION: str = "us-east-1"
     S3_ENDPOINT_URL: str | None = None
