@@ -306,6 +306,7 @@ class LibraryRepository {
   final ApiClient _apiClient;
 
   static const Duration _presignedUploadTimeout = Duration(minutes: 30);
+  static const Duration _presignedReadResponseTimeout = Duration(minutes: 2);
 
   Future<List<MediaListItem>> fetchMediaItems({
     required String accessToken,
@@ -676,6 +677,10 @@ class LibraryRepository {
   }
 
   /// Потоковая загрузка без удержания всего файла в памяти (важно для больших аудио/видео).
+  ///
+  /// [StreamedRequest.sink.addStream] уважает pause/resume сокета. Вариант
+  /// `openRead().listen` + `sink.add` без backpressure раздувал буфер и мог
+  /// «замирать» на больших MKV и т.п.
   Future<void> uploadFileToPresignedUrl({
     required String uploadUrl,
     required String filePath,
@@ -686,34 +691,63 @@ class LibraryRepository {
     final targetUri = _normalizeUploadUri(uploadUrl);
     _ensurePresignedTargetConfigured(targetUri);
     final file = File(filePath);
+    if (!await file.exists()) {
+      throw ApiException("Файл для загрузки не найден: $filePath");
+    }
+    final lengthOnDisk = await file.length();
+    if (lengthOnDisk != contentLength) {
+      throw ApiException(
+        "Размер файла изменился ($lengthOnDisk байт, ожидалось $contentLength). "
+        "Выберите файл заново.",
+      );
+    }
+
     final client = http.Client();
     try {
       final request = http.StreamedRequest("PUT", targetUri);
       request.headers["Content-Type"] = contentType;
       request.contentLength = contentLength;
+
       var uploaded = 0;
       final total = contentLength;
       onProgress?.call(0, total);
-      file.openRead().listen(
-        (chunk) {
-          uploaded += chunk.length;
-          onProgress?.call(uploaded > total ? total : uploaded, total);
-          request.sink.add(chunk);
-        },
-        onError: (Object e, StackTrace st) => request.sink.addError(e, st),
-        onDone: request.sink.close,
-        cancelOnError: true,
+
+      final metered = file.openRead().transform<List<int>>(
+        StreamTransformer<List<int>, List<int>>.fromHandlers(
+          handleData: (data, sink) {
+            uploaded += data.length;
+            final clamped = uploaded > total ? total : uploaded;
+            onProgress?.call(clamped, total);
+            sink.add(data);
+          },
+          handleError: (Object error, StackTrace stackTrace, EventSink<List<int>> sink) {
+            sink.addError(error, stackTrace);
+          },
+        ),
       );
-      final streamed = await client
-          .send(request)
-          .timeout(_presignedUploadTimeout);
-      final response = await http.Response.fromStream(streamed);
+
+      final bodyDone = request.sink.addStream(metered).then((_) => request.sink.close());
+      late final http.StreamedResponse streamed;
+      try {
+        streamed = await client
+            .send(request)
+            .timeout(_presignedUploadTimeout);
+      } on TimeoutException {
+        await bodyDone.catchError((_) {});
+        throw ApiException("Таймаут при загрузке файла в хранилище");
+      }
+      await bodyDone;
+
+      final response = await http.Response.fromStream(streamed).timeout(
+        _presignedReadResponseTimeout,
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
           "Хранилище вернуло ошибку при загрузке файла: HTTP ${response.statusCode}",
           statusCode: response.statusCode,
         );
       }
+      onProgress?.call(total, total);
     } on TimeoutException {
       throw ApiException("Таймаут при загрузке файла в хранилище");
     } on ApiException {

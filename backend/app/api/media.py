@@ -160,6 +160,49 @@ def _build_s3_client_presign():
     )
 
 
+def _assert_uploaded_object_matches_record(media_file: MediaFile) -> None:
+    if media_file.file_size is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Media file record is missing expected size",
+        )
+
+    s3_client = _build_s3_client_internal()
+    try:
+        response = s3_client.head_object(Bucket=media_file.storage_bucket, Key=media_file.storage_key)
+    except ClientError as exc:
+        code = str((exc.response or {}).get("Error", {}).get("Code", ""))
+        if code in {"404", "NoSuchKey", "NotFound"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File is not present in storage; finish uploading before completing",
+            ) from exc
+        logger.exception("head_object failed while verifying upload")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Storage check failed; try again shortly",
+        ) from exc
+    except BotoCoreError:
+        logger.exception("head_object boto error while verifying upload")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Storage check failed; try again shortly",
+        )
+
+    actual = response.get("ContentLength")
+    if actual is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Storage returned no content length",
+        )
+    expected = int(media_file.file_size)
+    if int(actual) != expected:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file size mismatch (expected {expected} bytes, storage has {int(actual)})",
+        )
+
+
 def _build_s3_host_ops_client():
     endpoint = settings.S3_ENDPOINT_URL
     if endpoint and "10.0.2.2" in endpoint:
@@ -599,6 +642,9 @@ def complete_file_upload(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media file not found")
     if media_file.upload_status == "ready":
         return media_file
+
+    if settings.VERIFY_UPLOAD_OBJECT_IN_STORAGE:
+        _assert_uploaded_object_matches_record(media_file)
 
     media_file.upload_status = "ready"
     media_file.uploaded_at = datetime.now(timezone.utc)

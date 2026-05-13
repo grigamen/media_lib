@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     S3_PRESIGNED_EXPIRES_SEC: int = 900
     MAX_UPLOAD_FILE_SIZE_BYTES: int = 2147483648
     ALLOWED_UPLOAD_CONTENT_TYPES: str = DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES
+    #: If False, POST /media-files/{id}/complete skips head_object size check (tests patch
+    #: this call; disable only for local debugging when storage is unreachable).
+    VERIFY_UPLOAD_OBJECT_IN_STORAGE: bool = True
 
 
 settings = Settings()
