@@ -1,5 +1,8 @@
 part of 'library_screen.dart';
 
+// То, что рисует главный список библиотеки: склеивает элементы в «произведения», обновление списка, карточки.
+
+/// Всё состояние экрана [LibraryScreen]: поле поиска (для вида), сетка и переход в большую карточку.
 class _LibraryScreenState extends State<LibraryScreen> {
   late final TextEditingController _searchController;
 
@@ -9,6 +12,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     _searchController = TextEditingController(text: widget.searchQuery);
   }
 
+  /// Из длинного списка с сервера делает группы: одно название и автор — одна строка в сетке, внутри может быть несколько форматов.
   List<_WorkGroup> _buildWorkGroups(List<MediaListItem> items) {
     final groups = <String, List<MediaListItem>>{};
     for (final item in items) {
@@ -38,6 +42,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.dispose();
   }
 
+  /// Выезжающая снизу панель: показать «с чем на сервере связана эта запись» (для разработки и ясности).
   Future<void> _showLinksDialog(MediaListItem item) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -83,6 +88,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  /// Пока грузится — крутилка, если ошибка — текст, если пусто — подсказка, иначе сетка карточек и обновление потягиванием.
   @override
   Widget build(BuildContext context) {
     return SafeArea(

@@ -1,3 +1,5 @@
+"""Карточка произведения в каталоге: тип (книга/аудио/видео), метаданные, модерация, мягкое удаление."""
+
 from __future__ import annotations
 
 import uuid
@@ -12,6 +14,7 @@ from app.db import Base
 
 
 class MediaItem(Base):
+    """Одна запись в библиотеке (один формат произведения). Несколько записей с одним названием и автором — разные форматы."""
     __tablename__ = "media_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -33,5 +36,5 @@ class MediaItem(Base):
         nullable=False,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    #: pending | approved | rejected — new works from non-admins start as pending
+    # Статус проверки: ожидает / одобрено / отклонено; новые записи обычных авторов начинаются как «ожидает».
     moderation_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)

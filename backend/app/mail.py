@@ -1,3 +1,5 @@
+"""Отправка писем с кодами: реальная SMTP, вывод в консоль при разработке или полное отключение."""
+
 from __future__ import annotations
 
 import logging
@@ -10,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def send_login_otp_email(email: str, code: str, expires_minutes: int) -> None:
-    """Отправка кода входа (SMTP, stdout или no-op — см. MAIL_MODE)."""
+    """Письмо при входе с двухфакторной защитой: в теле код и сколько он живёт."""
     subject = "MediaLib — код для входа"
     body = (
         f"Ваш код подтверждения: {code}\n\n"
@@ -21,6 +23,7 @@ def send_login_otp_email(email: str, code: str, expires_minutes: int) -> None:
 
 
 def send_profile_otp_email(email: str, code: str, expires_minutes: int, *, purpose_label: str) -> None:
+    """Письмо при смене настроек профиля / 2FA — тема зависит от purpose_label (что именно подтверждаем)."""
     subject = f"MediaLib — код ({purpose_label})"
     body = (
         f"Ваш код: {code}\n\n"
@@ -31,6 +34,7 @@ def send_profile_otp_email(email: str, code: str, expires_minutes: int, *, purpo
 
 
 def _send_raw(*, email: str, subject: str, body: str) -> None:
+    """Внутренняя отправка: смотрит MAIL_MODE и либо пишет в лог, либо шлёт через SMTP."""
     mode = settings.MAIL_MODE.lower().strip()
     if mode == "none":
         logger.info("MAIL_MODE=none: письмо не отправлено (получатель %s)", email)

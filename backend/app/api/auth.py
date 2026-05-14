@@ -1,3 +1,8 @@
+"""Маршруты «аккаунт»: регистрация, вход, продление сессии, код из почты при 2FA, профиль и смена пароля.
+
+Приложение шлёт JSON; мы проверяем пароль, при необходимости пишем письмо и выдаём токены доступа.
+"""
+
 from __future__ import annotations
 
 import hmac
@@ -46,11 +51,13 @@ logger = logging.getLogger(__name__)
 
 
 def _token_pair(user: User) -> tuple[str, str]:
+    """Два токена за раз: короткий для запросов (внутри отмечен ли админ) и длинный только для продления сессии."""
     uid = str(user.id)
     return create_access_token(uid, is_admin=user.is_admin), create_refresh_token(uid)
 
 
 def _invalidate_pending_challenges(db: Session, user_id: UUID, purpose: str) -> None:
+    """Старые неиспользованные коды помечаем «использованы», чтобы нельзя было повторить прошлую попытку."""
     now = utcnow()
     db.execute(
         update(TwoFAEmailChallenge)
@@ -64,6 +71,7 @@ def _invalidate_pending_challenges(db: Session, user_id: UUID, purpose: str) -> 
 
 
 def _active_challenge(db: Session, user_id: UUID, purpose: str) -> TwoFAEmailChallenge | None:
+    """Ищем актуальную запись с кодом из почты: не просрочена и ещё не погашена."""
     return db.scalar(
         select(TwoFAEmailChallenge)
         .where(
@@ -83,6 +91,7 @@ def _create_otp_challenge(
     purpose: str,
     send_mail: Callable[[str, str, int], None],
 ) -> None:
+    """Генерируем код, сохраняем хэш в базе, шлём письмо; если почта не ушла — откатываем изменения."""
     _invalidate_pending_challenges(db, user.id, purpose)
     code = generate_numeric_otp()
     row = TwoFAEmailChallenge(
@@ -111,6 +120,7 @@ def _create_otp_challenge(
 
 
 def _decode_login_challenge(token: str) -> UUID:
+    """Достаёт user id из JWT challenge-токена входа (тип twofa_challenge)."""
     try:
         data = decode_token(token)
     except ValueError as exc:
@@ -128,6 +138,7 @@ def _decode_login_challenge(token: str) -> UUID:
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> RegisterResponse:
+    """Регистрация: создаёт пользователя без автологина (клиент потом вызывает login)."""
     email = payload.email.lower()
 
     existing_user = db.scalar(select(User).where(User.email == email))
@@ -148,6 +159,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Registe
 
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
+    """Вход: при включённой 2FA возвращает challenge_token и шлёт OTP; иначе сразу токены."""
     email = payload.email.lower()
     user = db.scalar(select(User).where(User.email == email))
     if user is None or not verify_password(payload.password, user.password_hash):
@@ -181,6 +193,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse
 
 @router.post("/2fa/email/verify", response_model=RefreshResponse)
 def twofa_email_verify_login(payload: TwoFAVerifyRequest, db: Session = Depends(get_db)) -> RefreshResponse:
+    """Проверка OTP при входе; выдаёт access/refresh при успехе."""
     user_id = _decode_login_challenge(payload.challenge_token)
     user = db.get(User, user_id)
     if user is None:
@@ -221,6 +234,7 @@ def twofa_email_verify_login(payload: TwoFAVerifyRequest, db: Session = Depends(
 
 @router.post("/2fa/email/resend", response_model=LoginResponse)
 def twofa_email_resend(payload: TwoFAResendRequest, db: Session = Depends(get_db)) -> LoginResponse:
+    """Повторная высылка кода входа с учётом кулдауна и лимита попыток."""
     user_id = _decode_login_challenge(payload.challenge_token)
     user = db.get(User, user_id)
     if user is None:
@@ -270,6 +284,7 @@ def twofa_email_enable_start(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
+    """Начать включение 2FA: проверка пароля и отправка кода на email."""
     if current_user.twofa_enabled:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="2FA уже включена")
     if not verify_password(payload.current_password, current_user.password_hash):
@@ -294,6 +309,7 @@ def twofa_email_enable_confirm(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
+    """Подтвердить включение 2FA кодом из письма."""
     if current_user.twofa_enabled:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="2FA уже включена")
 
@@ -325,6 +341,7 @@ def twofa_email_disable(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
+    """Выключить 2FA после проверки пароля; инвалидирует все OTP-записи по целям login/enable/disable."""
     if not current_user.twofa_enabled:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="2FA уже выключена")
     if not verify_password(payload.current_password, current_user.password_hash):
@@ -340,6 +357,7 @@ def twofa_email_disable(
 
 @router.get("/me", response_model=MeResponse)
 def read_me(current_user: User = Depends(get_current_user)) -> MeResponse:
+    """Текущий пользователь по access-токену."""
     return MeResponse(
         user_id=current_user.id,
         email=current_user.email,
@@ -354,6 +372,7 @@ def patch_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MeResponse:
+    """Обновление отображаемого имени и/или email (смена email требует пароль)."""
     if payload.display_name is not None:
         current_user.display_name = payload.display_name.strip()
 
@@ -392,6 +411,7 @@ def change_password(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
+    """Смена пароля при верном текущем."""
     if not verify_password(payload.current_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -404,6 +424,7 @@ def change_password(
 
 @router.post("/refresh", response_model=RefreshResponse)
 def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> RefreshResponse:
+    """Обмен refresh-токена на новую пару access+refresh."""
     try:
         data = decode_token(payload.refresh_token)
     except ValueError as exc:

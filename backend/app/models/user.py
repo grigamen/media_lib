@@ -1,3 +1,5 @@
+"""Таблица пользователей: почта, хэш пароля, имя, флаг администратора и настройки двухфакторной защиты."""
+
 from __future__ import annotations
 
 import uuid
@@ -11,10 +13,12 @@ from app.db import Base
 
 
 def utcnow() -> datetime:
+    """Текущий момент в часовом поясе UTC — так даты в базе не путаются при смене летнего времени."""
     return datetime.now(timezone.utc)
 
 
 class User(Base):
+    """Пользователь приложения: вход по почте, отображаемое имя, может быть админом и включить 2FA."""
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(

@@ -1,3 +1,5 @@
+"""Схемы для каталога: карточки, файлы, прогресс, связи — что приходит от клиента и что уходит в ответ."""
+
 from __future__ import annotations
 
 from datetime import datetime

@@ -2,11 +2,17 @@ import "package:file_picker/file_picker.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
-import "../data/library_repository.dart";
-import "../../../app/app_state.dart";
-import "../../../core/files/media_upload_file_pick.dart";
-import "../../../core/network/api_client.dart";
+import "../../data/library_repository.dart";
+import "../../../../app/app_state.dart";
+import "../../../../core/files/media_upload_file_pick.dart";
+import "../../../../core/network/api_client.dart";
 
+// Экран создания произведения: тип контента, метаданные, обложка и основной файл с валидацией перед API.
+
+part "add_item_fields.dart";
+part "add_item_logic.dart";
+
+/// Дедупликация жанров по строке без учёта регистра.
 List<String> _uniqueGenres(Iterable<String> genres) {
   final result = <String>[];
   final seen = <String>{};
@@ -25,6 +31,7 @@ List<String> _uniqueGenres(Iterable<String> genres) {
   return result;
 }
 
+/// Форма добавления медиа в библиотеку текущего пользователя.
 class AddItemScreen extends StatefulWidget {
   const AddItemScreen({
     required this.onAddItem,
@@ -48,267 +55,14 @@ class AddItemScreen extends StatefulWidget {
   State<AddItemScreen> createState() => _AddItemScreenState();
 }
 
-class _AddItemScreenState extends State<AddItemScreen> {
-  final _titleController = TextEditingController();
-  final _authorController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  String _selectedType = "book";
-  String? _selectedFileName;
-  String? _selectedFileMime;
-  MediaUploadPayload? _selectedFileUpload;
-  MediaUploadPayload? _selectedCoverUpload;
-  List<String> _selectedGenres = [];
-  String? _genrePickerValue;
-  bool _isSubmitting = false;
-  bool _isPickingFile = false;
-  bool _isPickingCover = false;
-  String? _error;
-
+/// [AddItemScreen] с полями формы ([_AddItemScreenFields]) и логикой отправки ([_AddItemScreenLogic]).
+class _AddItemScreenState extends State<AddItemScreen>
+    with _AddItemScreenFields, _AddItemScreenLogic {
   @override
   void dispose() {
     _titleController.dispose();
     _authorController.dispose();
     super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    setState(() {
-      _isSubmitting = true;
-      _error = null;
-    });
-    try {
-      if (_selectedFileName != null &&
-          !_isFileCompatibleWithType(
-            filename: _selectedFileName,
-            mimeType: _selectedFileMime,
-            mediaType: _selectedType,
-          )) {
-        setState(() {
-          _error = "Выбранный файл не подходит для типа $_selectedType";
-          _isSubmitting = false;
-        });
-        return;
-      }
-      final requiresUpload =
-          _selectedType == "audiobook" || _selectedType == "video";
-      if (requiresUpload &&
-          (_selectedFileName == null || _selectedFileUpload == null)) {
-        setState(() {
-          _error = "Для аудиокниги и видео нужно выбрать файл";
-          _isSubmitting = false;
-        });
-        return;
-      }
-      final created = await widget.onAddItem(
-        type: _selectedType,
-        title: _titleController.text.trim(),
-        author:
-            _authorController.text.trim().isEmpty
-                ? null
-                : _authorController.text.trim(),
-        genres: _selectedGenres.isEmpty ? null : _selectedGenres,
-        coverUploadPayload: _selectedCoverUpload,
-        uploadPayload:
-            _selectedFileName != null && _selectedFileUpload != null
-                ? _selectedFileUpload
-                : null,
-      );
-      if (!mounted) {
-        return;
-      }
-      _titleController.clear();
-      _authorController.clear();
-      _selectedFileName = null;
-      _selectedFileMime = null;
-      _selectedFileUpload = null;
-      _selectedCoverUpload = null;
-      _selectedGenres = [];
-      _genrePickerValue = null;
-      final msg =
-          created?.moderationStatus == "pending"
-              ? "Произведение отправлено на модерацию"
-              : "Произведение добавлено";
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    } on ApiException catch (e) {
-      setState(() {
-        _error = e.message;
-      });
-    } catch (_) {
-      setState(() {
-        _error = "Не удалось добавить произведение";
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _pickFile() async {
-    if (_isSubmitting || _isPickingFile) {
-      return;
-    }
-    _isPickingFile = true;
-    final allowedExtensions =
-        _selectedType == "audiobook"
-            ? const ["mp3", "m4a", "aac", "wav", "ogg"]
-            : _selectedType == "video"
-            ? const ["mp4", "mkv", "webm", "mov", "avi", "avl"]
-            : const ["txt", "md", "pdf", "epub", "docx"];
-    try {
-      final result = await pickMediaFileForUpload(
-        context: context,
-        allowedExtensions: allowedExtensions,
-      );
-      if (!mounted || result == null || result.files.isEmpty) {
-        return;
-      }
-      final file = result.files.first;
-      final inferred =
-          _inferContentTypeFromName(file.name) ??
-          _fallbackContentType(_selectedType);
-      final payload = MediaUploadPayload.tryFromPlatformFile(
-        file: file,
-        contentType: inferred,
-      );
-      if (payload == null) {
-        setState(() {
-          _error = "Не удалось прочитать выбранный файл";
-        });
-        return;
-      }
-      setState(() {
-        _selectedFileName = file.name;
-        _selectedFileMime = inferred;
-        _selectedFileUpload = payload;
-        _error = null;
-      });
-    } finally {
-      _isPickingFile = false;
-    }
-  }
-
-  Future<void> _pickCoverFile() async {
-    if (_isSubmitting || _isPickingCover) {
-      return;
-    }
-    _isPickingCover = true;
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ["jpg", "jpeg", "png", "webp"],
-        withData: kIsWeb,
-      );
-      if (!mounted || result == null || result.files.isEmpty) {
-        return;
-      }
-      final file = result.files.first;
-      final mime = _inferImageContentTypeFromName(file.name) ?? "image/jpeg";
-      final payload = MediaUploadPayload.tryFromPlatformFile(
-        file: file,
-        contentType: mime,
-      );
-      if (payload == null) {
-        setState(() {
-          _error = "Не удалось прочитать файл обложки";
-        });
-        return;
-      }
-      setState(() {
-        _selectedCoverUpload = payload;
-        _error = null;
-      });
-    } finally {
-      _isPickingCover = false;
-    }
-  }
-
-  String _fallbackContentType(String mediaType) {
-    if (mediaType == "book") {
-      return "text/plain";
-    }
-    if (mediaType == "audiobook") {
-      return "audio/mpeg";
-    }
-    if (mediaType == "video") {
-      return "video/mp4";
-    }
-    return "application/octet-stream";
-  }
-
-  bool _isFileCompatibleWithType({
-    required String? filename,
-    required String? mimeType,
-    required String mediaType,
-  }) {
-    if (filename == null) {
-      return true;
-    }
-    var normalizedMime = (mimeType ?? "").trim().toLowerCase();
-    if (normalizedMime.isEmpty ||
-        normalizedMime == "application/octet-stream" ||
-        normalizedMime == "binary/octet-stream") {
-      normalizedMime =
-          (_inferContentTypeFromName(filename) ?? "").trim().toLowerCase();
-    }
-    if (mediaType == "audiobook") {
-      return normalizedMime.startsWith("audio/");
-    }
-    if (mediaType == "video") {
-      return normalizedMime.startsWith("video/");
-    }
-    if (mediaType == "book") {
-      return normalizedMime == "text/plain" ||
-          normalizedMime == "text/markdown" ||
-          normalizedMime == "application/pdf" ||
-          normalizedMime == "application/epub+zip" ||
-          normalizedMime ==
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    }
-    return true;
-  }
-
-  String? _inferContentTypeFromName(String filename) {
-    final lower = filename.toLowerCase();
-    if (lower.endsWith(".txt")) return "text/plain";
-    if (lower.endsWith(".md")) return "text/markdown";
-    if (lower.endsWith(".pdf")) return "application/pdf";
-    if (lower.endsWith(".epub")) return "application/epub+zip";
-    if (lower.endsWith(".docx")) {
-      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    }
-    if (lower.endsWith(".mp3")) return "audio/mpeg";
-    if (lower.endsWith(".m4a")) return "audio/mp4";
-    if (lower.endsWith(".aac")) return "audio/aac";
-    if (lower.endsWith(".wav")) return "audio/wav";
-    if (lower.endsWith(".ogg")) return "audio/ogg";
-    if (lower.endsWith(".mp4")) return "video/mp4";
-    if (lower.endsWith(".webm")) return "video/webm";
-    if (lower.endsWith(".mov")) return "video/quicktime";
-    if (lower.endsWith(".mkv")) return "video/x-matroska";
-    if (lower.endsWith(".avi") || lower.endsWith(".avl")) {
-      return "video/x-msvideo";
-    }
-    return null;
-  }
-
-  String? _inferImageContentTypeFromName(String filename) {
-    final lower = filename.toLowerCase();
-    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
-      return "image/jpeg";
-    }
-    if (lower.endsWith(".png")) {
-      return "image/png";
-    }
-    if (lower.endsWith(".webp")) {
-      return "image/webp";
-    }
-    return null;
   }
 
   @override

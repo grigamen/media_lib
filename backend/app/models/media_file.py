@@ -1,3 +1,5 @@
+"""Файл в облачном хранилище, привязанный к карточке: путь в корзине, тип, размер, статус заливки."""
+
 from __future__ import annotations
 
 import uuid
@@ -12,6 +14,7 @@ from app.models.user import utcnow
 
 
 class MediaFile(Base):
+    """Бинарный контент (книга, аудио, видео, обложка): где лежит в S3 и в каком состоянии загрузка."""
     __tablename__ = "media_files"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

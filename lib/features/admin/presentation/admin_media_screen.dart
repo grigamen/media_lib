@@ -4,7 +4,7 @@ import "package:flutter/material.dart";
 
 import "../../library/data/library_repository.dart";
 
-
+// Экран администратора: модерация новых записей и каталог для удаления, с пагинацией.
 
 const Duration _kAdminSnackShort = Duration(seconds: 2);
 
@@ -39,6 +39,7 @@ enum _AdminListKind {
 
 
 
+/// Две вкладки: очередь модерации и полный список; подтверждения через SnackBar без наложения.
 class AdminMediaScreen extends StatelessWidget {
 
   const AdminMediaScreen({

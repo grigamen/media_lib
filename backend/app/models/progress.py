@@ -1,3 +1,5 @@
+"""На какой секунде пользователь остановился при просмотре или прослушивании конкретного произведения."""
+
 from __future__ import annotations
 
 import uuid
@@ -12,6 +14,7 @@ from app.models.user import utcnow
 
 
 class Progress(Base):
+    """Одна строка на пару «пользователь + произведение»: позиция, длительность, процент, отмечено ли «досмотрено»."""
     __tablename__ = "progress"
     __table_args__ = (
         UniqueConstraint("user_id", "media_item_id", name="uq_progress_user_media"),

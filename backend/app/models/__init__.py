@@ -1,3 +1,5 @@
+"""Реэкспорт моделей SQLAlchemy для удобного импорта (одна точка: from app.models import User)."""
+
 from app.models.user import User
 from app.models.media_item import MediaItem
 from app.models.media_link import MediaLink

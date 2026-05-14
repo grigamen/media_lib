@@ -1,3 +1,8 @@
+"""Каталог и файлы: списки и карточки, модерация, загрузка в облако по временной ссылке, прогресс и связи.
+
+Телефон сначала получает разрешение залить файл в хранилище, затем сообщает серверу «файл на месте».
+"""
+
 from __future__ import annotations
 
 import logging
@@ -55,6 +60,7 @@ DEFAULT_GENRES: tuple[str, ...] = (
 
 
 def _normalize_optional_text(value: str | None) -> str | None:
+    """Пустые строки после обрезки пробелов считаем отсутствием значения (удобно для полей «автор по желанию»)."""
     if value is None:
         return None
     normalized = value.strip()
@@ -62,6 +68,7 @@ def _normalize_optional_text(value: str | None) -> str | None:
 
 
 def _normalize_genres(value: list[str] | None) -> list[str] | None:
+    """Список жанров чистим от пустых и дублей без учёта регистра, порядок первого вхождения сохраняем."""
     if value is None:
         return None
     normalized: list[str] = []
@@ -79,6 +86,7 @@ def _normalize_genres(value: list[str] | None) -> list[str] | None:
 
 
 def _get_owned_media_item(db: Session, media_item_id: UUID, current_user: User) -> MediaItem:
+    """Карточка должна принадлежать этому пользователю — иначе отвечаем «не найдено» (без лишних подсказок)."""
     item = db.get(MediaItem, media_item_id)
     if item is None or item.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
@@ -90,6 +98,7 @@ def _get_media_item_for_soft_delete(
     media_item_id: UUID,
     current_user: User,
 ) -> MediaItem:
+    """Удаление: админ может убрать любую живую запись, обычный пользователь — только свою."""
     item = db.get(MediaItem, media_item_id)
     if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
@@ -101,6 +110,7 @@ def _get_media_item_for_soft_delete(
 
 
 def _user_can_read_media_item(item: MediaItem, user: User) -> bool:
+    """Смотреть могут владелец, админ, либо все залогиненные, если модерация уже одобрила запись."""
     if user.is_admin:
         return True
     if item.user_id == user.id:
@@ -109,6 +119,7 @@ def _user_can_read_media_item(item: MediaItem, user: User) -> bool:
 
 
 def _get_visible_media_item(db: Session, media_item_id: UUID, current_user: User) -> MediaItem:
+    """Загружаем карточку, если она не скрыта мягким удалением и читателю по правилам её можно показать."""
     item = db.get(MediaItem, media_item_id)
     if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
@@ -118,6 +129,7 @@ def _get_visible_media_item(db: Session, media_item_id: UUID, current_user: User
 
 
 def _calculate_progress_percent(position_seconds: int, duration_seconds: int | None) -> float:
+    """Процент просмотра/прослушивания для ответа API (0–100)."""
     if duration_seconds is None or duration_seconds <= 0:
         return 0.0
     percent = (position_seconds / duration_seconds) * 100
@@ -126,6 +138,7 @@ def _calculate_progress_percent(position_seconds: int, duration_seconds: int | N
 
 
 def _normalize_filename(filename: str) -> str:
+    """Имя файла без опасных символов для ключа в объектном хранилище."""
     cleaned = filename.strip()
     if not cleaned:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Filename cannot be blank")
@@ -133,11 +146,13 @@ def _normalize_filename(filename: str) -> str:
 
 
 def _build_storage_key(current_user: User, media_item_id: UUID, filename: str) -> str:
+    """Уникальный ключ объекта в бакете: user_id/media_item_id/uuid_filename."""
     safe_filename = _normalize_filename(filename)
     return f"{current_user.id}/{media_item_id}/{uuid4().hex}_{safe_filename}"
 
 
 def _build_s3_client_internal():
+    """S3-клиент для внутренних операций (head_object, проверка размера) по внутреннему endpoint."""
     return boto3.client(
         "s3",
         region_name=settings.S3_REGION,
@@ -149,6 +164,7 @@ def _build_s3_client_internal():
 
 
 def _build_s3_client_presign():
+    """Клиент для подписи URL — публичный endpoint, если задан (доступ клиента/эмулятора)."""
     endpoint = settings.S3_PUBLIC_ENDPOINT_URL or settings.S3_ENDPOINT_URL
     return boto3.client(
         "s3",
@@ -161,6 +177,7 @@ def _build_s3_client_presign():
 
 
 def _assert_uploaded_object_matches_record(media_file: MediaFile) -> None:
+    """Проверяет head_object: объект есть в S3 и размер совпадает с записью в БД."""
     if media_file.file_size is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -204,6 +221,7 @@ def _assert_uploaded_object_matches_record(media_file: MediaFile) -> None:
 
 
 def _build_s3_host_ops_client():
+    """Клиент для create_bucket с подменой Android loopback 10.0.2.2 → 127.0.0.1 на хосте."""
     endpoint = settings.S3_ENDPOINT_URL
     if endpoint and "10.0.2.2" in endpoint:
         endpoint = endpoint.replace("10.0.2.2", "127.0.0.1")
@@ -218,10 +236,12 @@ def _build_s3_host_ops_client():
 
 
 def _csv_to_content_type_allowset(csv: str) -> set[str]:
+    """Разбор списка MIME из конфигурации в нижний регистр."""
     return {item.strip().lower() for item in csv.split(",") if item.strip()}
 
 
 def _normalize_upload_content_type(content_type: str) -> str:
+    """Приводит MIME к каноническому виду (например mkv → matroska)."""
     t = content_type.strip().lower()
     if t == "video/mkv":
         return "video/x-matroska"
@@ -229,6 +249,7 @@ def _normalize_upload_content_type(content_type: str) -> str:
 
 
 def _allowed_upload_content_types() -> set[str]:
+    """Объединение разрешённых типов из env и встроенного списка по умолчанию."""
     # Union: env может добавлять типы, но не должен «вырезать» форматы из приложения.
     return _csv_to_content_type_allowset(
         settings.ALLOWED_UPLOAD_CONTENT_TYPES
@@ -236,6 +257,7 @@ def _allowed_upload_content_types() -> set[str]:
 
 
 def _ensure_bucket_exists(s3_client) -> None:
+    """Создаёт бакет при отсутствоии (dev); сетевые сбои не роняют presigned — загрузка покажет ошибку."""
     bucket = settings.S3_BUCKET
     client_for_ops = s3_client
     if settings.S3_ENDPOINT_URL and "10.0.2.2" in settings.S3_ENDPOINT_URL:
@@ -269,6 +291,7 @@ def create_media_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItem:
+    """Создаёт черновик/заявку произведения (модерация pending)."""
     title = payload.title.strip()
     if not title:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Title cannot be blank")
@@ -307,6 +330,7 @@ def list_media_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItemsListResponse:
+    """Каталог и «мои» записи: поиск, типы, жанры, сортировка, фильтр модерации (админ)."""
     conditions = []
     if not include_deleted:
         conditions.append(MediaItem.deleted_at.is_(None))
@@ -402,6 +426,7 @@ def list_media_genres(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> GenreListResponse:
+    """Справочник жанров из одобренных карточек плюс дефолтный список."""
     query = text(
         """
         SELECT DISTINCT trim(genre_value) AS genre
@@ -432,6 +457,7 @@ def get_media_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItem:
+    """Одна карточка по id при соблюдении правил чтения (модерация / владелец)."""
     return _get_visible_media_item(db, media_item_id, current_user)
 
 
@@ -442,6 +468,7 @@ def update_media_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItem:
+    """Частичное обновление полей; доступно владельцу записи."""
     item = _get_owned_media_item(db, media_item_id, current_user)
 
     updates = payload.model_dump(exclude_unset=True)
@@ -476,6 +503,7 @@ def delete_media_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
+    """Мягкое удаление произведения (soft delete по timestamp)."""
     item = _get_media_item_for_soft_delete(db, media_item_id, current_user)
 
     item.deleted_at = datetime.now(timezone.utc)
@@ -488,6 +516,7 @@ def get_media_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Progress:
+    """Текущий прогресс пользователя по произведению; при отсутствии создаётся нулевая строка."""
     _get_visible_media_item(db, media_item_id, current_user)
 
     stmt = select(Progress).where(
@@ -516,18 +545,8 @@ def upsert_media_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Progress:
+    """Сохраняет позицию/длительность/завершённость и пересчитывает процент."""
     _get_visible_media_item(db, media_item_id, current_user)
-
-    stmt = select(Progress).where(
-        and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
-    )
-    progress = db.scalar(stmt)
-    if progress is None:
-        progress = Progress(
-            user_id=current_user.id,
-            media_item_id=media_item_id,
-        )
-        db.add(progress)
 
     position_seconds = payload.position_seconds
     duration_seconds = payload.duration_seconds
@@ -560,6 +579,7 @@ def initiate_file_upload(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaFileUploadInitResponse:
+    """Начинает загрузку: создаёт [MediaFile] и отдаёт presigned PUT URL для клиента."""
     media_item = _get_owned_media_item(db, media_item_id, current_user)
     if media_item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot upload for deleted media item")
@@ -631,6 +651,7 @@ def list_media_item_files(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MediaFile]:
+    """Все файлы, привязанные к произведению (история загрузок)."""
     _get_visible_media_item(db, media_item_id, current_user)
     stmt = (
         select(MediaFile)
@@ -646,6 +667,7 @@ def complete_file_upload(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaFile:
+    """Помечает загрузку завершённой; опционально проверяет объект в S3."""
     media_file = db.get(MediaFile, file_id)
     if media_file is None or media_file.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media file not found")
@@ -668,6 +690,7 @@ def get_stream_url(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaFileStreamResponse:
+    """Временный presigned GET на бинарный контент готового файла."""
     media_file = db.get(MediaFile, file_id)
     if media_file is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media file not found")
@@ -705,6 +728,7 @@ def create_media_link(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaLink:
+    """Связывает два произведения одного владельца (например форматы одной работы)."""
     if payload.source_media_id == payload.target_media_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source and target must differ")
 
@@ -745,6 +769,7 @@ def list_media_links(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[MediaLink]:
+    """Все рёбра графа связей, инцидентные данному [media_item_id]."""
     _get_visible_media_item(db, media_item_id, current_user)
 
     stmt = select(MediaLink).where(
@@ -762,6 +787,7 @@ def delete_media_link(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
+    """Удаляет связь, если она принадлежит текущему пользователю."""
     link = db.get(MediaLink, link_id)
     if link is None or link.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media link not found")
@@ -779,6 +805,7 @@ def admin_approve_media_item(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> MediaItem:
+    """Админ: одобрить карточку (модерация approved)."""
     item = db.get(MediaItem, media_item_id)
     if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
@@ -797,6 +824,7 @@ def admin_reject_media_item(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> MediaItem:
+    """Админ: отклонить карточку (модерация rejected)."""
     item = db.get(MediaItem, media_item_id)
     if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")

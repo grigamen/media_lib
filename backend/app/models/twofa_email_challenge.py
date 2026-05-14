@@ -1,3 +1,5 @@
+"""Модель проверочных кодов из email при двухфакторной защите (сама таблица в базе)."""
+
 from __future__ import annotations
 
 import uuid
@@ -12,7 +14,7 @@ from app.models.user import utcnow
 
 
 class TwoFAEmailChallenge(Base):
-    """Одноразовый email-код для входа или включения 2FA (хранится только хеш)."""
+    """Запись в базе для входа или смены 2FA по коду из почты: хранится только хэш кода и срок действия."""
 
     __tablename__ = "twofa_email_challenges"
 
@@ -25,7 +27,7 @@ class TwoFAEmailChallenge(Base):
         index=True,
     )
 
-    #: "login" | "enable" | "disable"
+    #: Назначение: вход (login), включение или выключение 2FA (enable / disable) — одна строка на попытку.
     purpose: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
 
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False)

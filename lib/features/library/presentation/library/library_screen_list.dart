@@ -1,5 +1,8 @@
 part of 'library_screen.dart';
 
+// Заголовок «Библиотека», строка поиска (она только открывает отдельный экран) и чипы активных фильтров.
+
+/// Внутренний код типа контента (как приходит с сервера) превращаем в короткую подпись для цветных чипов.
 String _libraryMediaTypeLabel(String key) {
   switch (key) {
     case "book":
@@ -13,6 +16,7 @@ String _libraryMediaTypeLabel(String key) {
   }
 }
 
+/// Длинный поисковый запрос обрезаем с «…», чтобы чип на экране не раздувался на несколько строк.
 String _truncateForChip(String value, int maxLen) {
   final t = value.trim();
   if (t.length <= maxLen) {
@@ -43,6 +47,7 @@ class _LibraryControls extends StatelessWidget {
   onSetLibraryFilters;
   final VoidCallback onSearchFieldTap;
 
+  /// Верх экрана: название раздела, поле «Поиск» (по нажатию уходит на другой экран) и сброс фильтров по чипам.
   @override
   Widget build(BuildContext context) {
     final q = searchQuery.trim();
@@ -130,6 +135,7 @@ class _LibraryItemCard extends StatelessWidget {
   final VoidCallback onOpenLinks;
   final String? currentUserId;
 
+  /// Одна ячейка сетки: обложка, при необходимости плашка модерации, иконки «есть книга/аудио/видео», открытие карточки.
   @override
   Widget build(BuildContext context) {
     final modLabel = group.ownerModerationLabel(currentUserId);
@@ -253,6 +259,7 @@ class _LibraryItemCard extends StatelessWidget {
     );
   }
 
+  /// Какую маленькую картинку показать в углу: книга, наушники или камера.
   IconData _iconForType(String type) {
     if (type == "audiobook") {
       return Icons.headphones;

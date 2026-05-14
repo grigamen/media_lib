@@ -3,6 +3,7 @@ import "dart:convert";
 
 import "package:http/http.dart" as http;
 
+/// Ошибка API с человекочитаемым [message] и опциональным HTTP-кодом.
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode});
 
@@ -14,6 +15,7 @@ class ApiException implements Exception {
       "ApiException(statusCode: $statusCode, message: $message)";
 }
 
+/// HTTP-клиент к backend: JSON-запросы, Bearer, единый таймаут и разбор [ApiException].
 class ApiClient {
   ApiClient({required this.baseUrl});
 
@@ -22,6 +24,7 @@ class ApiClient {
 
   Uri _uri(String path) => Uri.parse("$baseUrl$path");
 
+  /// POST с телом JSON; опционально Authorization.
   Future<Map<String, dynamic>> postJson(
     String path,
     Map<String, dynamic> body, {
@@ -51,6 +54,7 @@ class ApiClient {
     return _parseObject(response);
   }
 
+  /// PUT JSON (например прогресс воспроизведения).
   Future<Map<String, dynamic>> putJson(
     String path,
     Map<String, dynamic> body, {
@@ -80,6 +84,7 @@ class ApiClient {
     return _parseObject(response);
   }
 
+  /// PATCH JSON (частичное обновление сущностей).
   Future<Map<String, dynamic>> patchJson(
     String path,
     Map<String, dynamic> body, {
@@ -109,6 +114,7 @@ class ApiClient {
     return _parseObject(response);
   }
 
+  /// GET с ответом-объектом JSON.
   Future<Map<String, dynamic>> getJson(
     String path, {
     String? accessToken,
@@ -135,6 +141,7 @@ class ApiClient {
     return _parseObject(response);
   }
 
+  /// GET, тело — JSON-массив.
   Future<List<dynamic>> getJsonList(String path, {String? accessToken}) async {
     http.Response response;
     try {
@@ -158,6 +165,7 @@ class ApiClient {
     return _parseList(response);
   }
 
+  /// DELETE; для 204 может вернуться пустой объект после разбора.
   Future<Map<String, dynamic>> deleteJson(
     String path, {
     String? accessToken,
@@ -184,6 +192,7 @@ class ApiClient {
     return _parseObject(response);
   }
 
+  /// Успех: Map; иначе [ApiException] с `detail` из тела при ошибке.
   Map<String, dynamic> _parseObject(http.Response response) {
     final Object? body;
     try {
@@ -213,6 +222,7 @@ class ApiClient {
     );
   }
 
+  /// Аналог [_parseObject] для корневого JSON-массива.
   List<dynamic> _parseList(http.Response response) {
     final Object? body;
     try {
@@ -242,6 +252,7 @@ class ApiClient {
     );
   }
 
+  /// Достаёт FastAPI `detail` из тела ошибки.
   String _extractErrorMessage(Object? body) {
     if (body is Map<String, dynamic>) {
       final detail = body["detail"];

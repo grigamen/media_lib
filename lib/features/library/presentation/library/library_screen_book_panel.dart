@@ -1,5 +1,8 @@
 part of 'library_screen.dart';
 
+// Текст и кнопка «Читать»: по нажатию открывается отдельный экран читалки с сохранением места в тексте.
+
+/// Небольшой блок под книгой: объясняем и ведём на экран чтения.
 class _BookReadLaunchPanel extends StatelessWidget {
   const _BookReadLaunchPanel({
     required this.item,

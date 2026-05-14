@@ -1,5 +1,9 @@
 part of 'library_screen.dart';
 
+// Вспомогательные штуки для библиотеки: как показать тип контента словами, как открыть карточку произведения,
+// как собрать одну «работу» из нескольких форматов (книга + аудио), маленькие функции про картинки и жанры.
+
+/// Как показать пользователю тип контента обычным словом («Книга», а не внутренний код).
 String _labelForType(String type) {
   switch (type) {
     case "book":
@@ -13,6 +17,7 @@ String _labelForType(String type) {
   }
 }
 
+/// Убираем повторы жанра в разном написании — оставляем один раз, без учёта заглавных букв.
 List<String> _uniqueGenres(Iterable<String> genres) {
   final result = <String>[];
   final seen = <String>{};
@@ -31,6 +36,7 @@ List<String> _uniqueGenres(Iterable<String> genres) {
   return result;
 }
 
+/// По имени файла картинки угадываем формат (jpeg, png и т.д.) — нужно при загрузке обложки.
 String? _inferImageMimeFromFilename(String filename) {
   final lower = filename.toLowerCase();
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
@@ -45,6 +51,7 @@ String? _inferImageMimeFromFilename(String filename) {
   return null;
 }
 
+/// Открывает большой экран одного произведения и передаёт туда все нужные «что сделать по нажатию» из родителя.
 Future<void> openMediaItemDetailsPage({
   required BuildContext context,
   required String? currentUserId,
@@ -144,6 +151,7 @@ Future<void> openMediaItemDetailsPage({
   );
 }
 
+/// То же открытие карточки, но проще вызвать из приложения: внутри подставляются готовые действия из общего состояния.
 Future<void> openMediaItemDetailsForAppState({
   required BuildContext context,
   required AppState state,
@@ -219,6 +227,7 @@ Future<void> openMediaItemDetailsForAppState({
   );
 }
 
+/// Одно произведение для сетки: под одним названием и автором может быть книга, аудио и видео — здесь они собраны вместе.
 class _WorkGroup {
   _WorkGroup({required this.groupItems});
 
@@ -231,6 +240,7 @@ class _WorkGroup {
       groupItems.map((item) => item.type).toSet().toList(growable: false)
         ..sort();
 
+  /// Плашка на обложке: «на проверке» или «отклонено», если среди ваших вариантов есть такие статусы.
   String? ownerModerationLabel(String? currentUserId) {
     if (currentUserId == null) {
       return null;

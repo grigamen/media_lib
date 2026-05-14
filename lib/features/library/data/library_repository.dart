@@ -7,307 +7,20 @@ import "package:http/http.dart" as http;
 import "../../../core/config/app_config.dart";
 import "../../../core/network/api_client.dart";
 
-class MediaListItem {
-  const MediaListItem({
-    required this.id,
-    this.userId,
-    required this.title,
-    required this.type,
-    this.author,
-    this.coverUrl,
-    this.genres,
-    this.description,
-    this.metadataJson,
-    this.moderationStatus = 'approved',
-  });
+import "library_models.dart";
 
-  final String id;
-  final String? userId;
-  final String title;
-  final String type;
-  final String? author;
-  final String? coverUrl;
-  final List<String>? genres;
-  final String? description;
-  final Map<String, dynamic>? metadataJson;
+export "library_models.dart";
 
-  /// Server: pending | approved | rejected
-  final String moderationStatus;
+part "library_repository_presigned.dart";
 
-  MediaListItem copyWith({
-    String? userId,
-    String? title,
-    String? type,
-    String? author,
-    String? coverUrl,
-    List<String>? genres,
-    String? description,
-    Map<String, dynamic>? metadataJson,
-    String? moderationStatus,
-  }) {
-    return MediaListItem(
-      id: id,
-      userId: userId ?? this.userId,
-      title: title ?? this.title,
-      type: type ?? this.type,
-      author: author ?? this.author,
-      coverUrl: coverUrl ?? this.coverUrl,
-      genres: genres ?? this.genres,
-      description: description ?? this.description,
-      metadataJson: metadataJson ?? this.metadataJson,
-      moderationStatus: moderationStatus ?? this.moderationStatus,
-    );
-  }
-
-  String? get mediaFileId {
-    final metadata = metadataJson;
-    if (metadata == null) {
-      return null;
-    }
-    final direct = metadata["media_file_id"];
-    if (direct is String && direct.trim().isNotEmpty) {
-      return direct.trim();
-    }
-    final fallback = metadata["file_id"];
-    if (fallback is String && fallback.trim().isNotEmpty) {
-      return fallback.trim();
-    }
-    return null;
-  }
-
-  String? get coverFileId {
-    final metadata = metadataJson;
-    if (metadata == null) {
-      return null;
-    }
-    final direct = metadata["cover_file_id"];
-    if (direct is String && direct.trim().isNotEmpty) {
-      return direct.trim();
-    }
-    return null;
-  }
-
-  factory MediaListItem.fromJson(Map<String, dynamic> json) {
-    final rawMetadata = json["metadata_json"];
-    final metadata =
-        rawMetadata is Map<String, dynamic>
-            ? rawMetadata
-            : (rawMetadata is Map ? rawMetadata.cast<String, dynamic>() : null);
-    return MediaListItem(
-      id: json["id"] as String? ?? "",
-      userId: json["user_id"] as String?,
-      title: json["title"] as String? ?? "Untitled",
-      type: json["type"] as String? ?? "unknown",
-      author: json["author"] as String?,
-      coverUrl: json["cover_url"] as String?,
-      genres: (json["genres"] as List<dynamic>?)
-          ?.whereType<String>()
-          .map((genre) => genre.trim())
-          .where((genre) => genre.isNotEmpty)
-          .toList(growable: false),
-      description: json["description"] as String?,
-      metadataJson: metadata,
-      moderationStatus: json["moderation_status"] as String? ?? "approved",
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      "id": id,
-      "user_id": userId,
-      "title": title,
-      "type": type,
-      "author": author,
-      "cover_url": coverUrl,
-      "genres": genres,
-      "description": description,
-      "metadata_json": metadataJson,
-      "moderation_status": moderationStatus,
-    };
-  }
-}
-
-class MediaLinkItem {
-  MediaLinkItem({
-    required this.id,
-    required this.sourceMediaId,
-    required this.targetMediaId,
-    required this.relationType,
-  });
-
-  final String id;
-  final String sourceMediaId;
-  final String targetMediaId;
-  final String relationType;
-
-  factory MediaLinkItem.fromJson(Map<String, dynamic> json) {
-    return MediaLinkItem(
-      id: json["id"] as String? ?? "",
-      sourceMediaId: json["source_media_id"] as String? ?? "",
-      targetMediaId: json["target_media_id"] as String? ?? "",
-      relationType: json["relation_type"] as String? ?? "related",
-    );
-  }
-}
-
-class MediaProgress {
-  const MediaProgress({
-    required this.mediaItemId,
-    required this.positionSeconds,
-    required this.durationSeconds,
-    required this.progressPercent,
-    required this.isCompleted,
-    this.updatedAtUtcMs,
-  });
-
-  final String mediaItemId;
-  final int positionSeconds;
-  final int? durationSeconds;
-  final double progressPercent;
-  final bool isCompleted;
-
-  /// Из ответа `GET/PUT …/progress` (`updated_at` в RFC3339).
-  final int? updatedAtUtcMs;
-
-  static double computeProgressPercent(
-    int positionSeconds,
-    int? durationSeconds,
-  ) {
-    if (durationSeconds == null || durationSeconds <= 0) {
-      return 0.0;
-    }
-    var percent = (positionSeconds / durationSeconds) * 100;
-    percent = percent < 0 ? 0 : (percent > 100 ? 100 : percent);
-    return (percent * 100).roundToDouble() / 100;
-  }
-
-  factory MediaProgress.fromJson(Map<String, dynamic> json) {
-    final pos = json["position_seconds"] as int? ?? 0;
-    final dur = json["duration_seconds"] as int?;
-    final pct = (json["progress_percent"] as num?)?.toDouble();
-    final completed = json["is_completed"] as bool? ?? false;
-    return MediaProgress(
-      mediaItemId: json["media_item_id"] as String? ?? "",
-      positionSeconds: pos,
-      durationSeconds: dur,
-      progressPercent: pct ?? computeProgressPercent(pos, dur),
-      isCompleted: completed,
-      updatedAtUtcMs: decodeUpdatedAtUtcMs(json["updated_at"]),
-    );
-  }
-
-  factory MediaProgress.synthesized({
-    required String mediaItemId,
-    required int positionSeconds,
-    required int? durationSeconds,
-    required bool isCompleted,
-  }) {
-    return MediaProgress(
-      mediaItemId: mediaItemId,
-      positionSeconds: positionSeconds,
-      durationSeconds: durationSeconds,
-      progressPercent: computeProgressPercent(positionSeconds, durationSeconds),
-      isCompleted: isCompleted,
-      updatedAtUtcMs: null,
-    );
-  }
-
-  static int? decodeUpdatedAtUtcMs(dynamic raw) {
-    if (raw is! String || raw.trim().isEmpty) {
-      return null;
-    }
-    final parsed = DateTime.tryParse(raw);
-    return parsed?.toUtc().millisecondsSinceEpoch;
-  }
-}
-
-class MediaStreamInfo {
-  const MediaStreamInfo({
-    required this.fileId,
-    required this.mediaItemId,
-    required this.streamUrl,
-    required this.expiresInSec,
-  });
-
-  final String fileId;
-  final String mediaItemId;
-  final String streamUrl;
-  final int expiresInSec;
-
-  factory MediaStreamInfo.fromJson(Map<String, dynamic> json) {
-    return MediaStreamInfo(
-      fileId: json["file_id"] as String? ?? "",
-      mediaItemId: json["media_item_id"] as String? ?? "",
-      streamUrl: json["stream_url"] as String? ?? "",
-      expiresInSec: json["expires_in_sec"] as int? ?? 0,
-    );
-  }
-}
-
-class MediaUploadInitInfo {
-  const MediaUploadInitInfo({
-    required this.fileId,
-    required this.mediaItemId,
-    required this.uploadUrl,
-  });
-
-  final String fileId;
-  final String mediaItemId;
-  final String uploadUrl;
-
-  factory MediaUploadInitInfo.fromJson(Map<String, dynamic> json) {
-    return MediaUploadInitInfo(
-      fileId: json["file_id"] as String? ?? "",
-      mediaItemId: json["media_item_id"] as String? ?? "",
-      uploadUrl: json["upload_url"] as String? ?? "",
-    );
-  }
-}
-
-class MediaFileSummary {
-  const MediaFileSummary({
-    required this.id,
-    required this.contentType,
-    required this.uploadStatus,
-    this.fileSize,
-    this.uploadedAt,
-    required this.createdAt,
-  });
-
-  final String id;
-  final String contentType;
-  final String uploadStatus;
-  final int? fileSize;
-  final String? uploadedAt;
-  final String createdAt;
-
-  factory MediaFileSummary.fromJson(Map<String, dynamic> json) {
-    return MediaFileSummary(
-      id: json["id"] as String? ?? "",
-      contentType: json["content_type"] as String? ?? "",
-      uploadStatus: json["upload_status"] as String? ?? "",
-      fileSize: json["file_size"] as int?,
-      uploadedAt: json["uploaded_at"] as String?,
-      createdAt: json["created_at"] as String? ?? "",
-    );
-  }
-}
-
-class MediaItemsFetchResult {
-  const MediaItemsFetchResult({required this.items, required this.total});
-
-  final List<MediaListItem> items;
-  final int total;
-}
-
+/// Обращения к REST API каталога: списки, CRUD, прогресс, стримы и метаданные.
+/// Загрузка файлов по presigned URL — в [library_repository_presigned.dart].
 class LibraryRepository {
   LibraryRepository(this._apiClient);
 
   final ApiClient _apiClient;
 
-  static const Duration _presignedUploadTimeout = Duration(minutes: 30);
-  static const Duration _presignedReadResponseTimeout = Duration(minutes: 2);
-
+  /// Список произведений (обёртка над [fetchMediaItemsWithMeta] без total).
   Future<List<MediaListItem>> fetchMediaItems({
     required String accessToken,
     String? query,
@@ -330,6 +43,7 @@ class LibraryRepository {
     return r.items;
   }
 
+  /// Пагинированная выборка с query-параметрами и полем [total] от сервера.
   Future<MediaItemsFetchResult> fetchMediaItemsWithMeta({
     required String accessToken,
     String? query,
@@ -381,6 +95,7 @@ class LibraryRepository {
     return MediaItemsFetchResult(items: list, total: total);
   }
 
+  /// Справочник жанров с backend (`GET /media-genres`).
   Future<List<String>> fetchAvailableGenres({
     required String accessToken,
   }) async {
@@ -399,6 +114,7 @@ class LibraryRepository {
         .toList(growable: false);
   }
 
+  /// Создание произведения (черновик с модерацией).
   Future<MediaListItem> createMediaItem({
     required String accessToken,
     required String type,
@@ -433,6 +149,7 @@ class LibraryRepository {
     return MediaListItem.fromJson(response);
   }
 
+  /// Частичное обновление полей карточки (PATCH).
   Future<MediaListItem> updateMediaItem({
     required String accessToken,
     required String mediaItemId,
@@ -474,6 +191,7 @@ class LibraryRepository {
     return MediaListItem.fromJson(response);
   }
 
+  /// Soft-delete произведения для текущего владельца (или админа по правилам API).
   Future<void> deleteMediaItem({
     required String accessToken,
     required String mediaItemId,
@@ -484,6 +202,7 @@ class LibraryRepository {
     );
   }
 
+  /// Админ: одобрить модерацию.
   Future<MediaListItem> approveMediaModeration({
     required String accessToken,
     required String mediaItemId,
@@ -496,6 +215,7 @@ class LibraryRepository {
     return MediaListItem.fromJson(response);
   }
 
+  /// Админ: отклонить модерацию.
   Future<MediaListItem> rejectMediaModeration({
     required String accessToken,
     required String mediaItemId,
@@ -508,6 +228,7 @@ class LibraryRepository {
     return MediaListItem.fromJson(response);
   }
 
+  /// Связи между произведениями (форматы одной работы и т.д.).
   Future<List<MediaLinkItem>> fetchMediaLinks({
     required String accessToken,
     required String mediaItemId,
@@ -522,6 +243,7 @@ class LibraryRepository {
         .toList(growable: false);
   }
 
+  /// Создать связь source → target с типом отношения.
   Future<MediaLinkItem> createMediaLink({
     required String accessToken,
     required String sourceMediaId,
@@ -537,6 +259,7 @@ class LibraryRepository {
     return MediaLinkItem.fromJson(response);
   }
 
+  /// Одна карточка по id (при отсутствии прав API вернёт 404).
   Future<MediaListItem> fetchMediaItemById({
     required String accessToken,
     required String mediaItemId,
@@ -548,6 +271,7 @@ class LibraryRepository {
     return MediaListItem.fromJson(response);
   }
 
+  /// Текущий прогресс слушателя/читателя по произведению.
   Future<MediaProgress> fetchMediaProgress({
     required String accessToken,
     required String mediaItemId,
@@ -559,6 +283,7 @@ class LibraryRepository {
     return MediaProgress.fromJson(response);
   }
 
+  /// Сохранить позицию и длительность воспроизведения (UPSERT на сервере).
   Future<MediaProgress> upsertMediaProgress({
     required String accessToken,
     required String mediaItemId,
@@ -575,6 +300,7 @@ class LibraryRepository {
     return MediaProgress.fromJson(response);
   }
 
+  /// Presigned GET для воспроизведения; при dev — подмена хоста для Android-эмулятора.
   Future<MediaStreamInfo> fetchMediaStreamUrl({
     required String accessToken,
     required String fileId,
@@ -601,25 +327,7 @@ class LibraryRepository {
     );
   }
 
-  Future<MediaUploadInitInfo> initiateFileUpload({
-    required String accessToken,
-    required String mediaItemId,
-    required String filename,
-    required String contentType,
-    required int fileSize,
-  }) async {
-    final response = await _apiClient.postJson(
-      "/media-items/$mediaItemId/files/upload",
-      <String, dynamic>{
-        "filename": filename,
-        "content_type": contentType,
-        "file_size": fileSize,
-      },
-      accessToken: accessToken,
-    );
-    return MediaUploadInitInfo.fromJson(response);
-  }
-
+  /// Список медиафайлов, привязанных к произведению.
   Future<List<MediaFileSummary>> fetchMediaFilesForItem({
     required String accessToken,
     required String mediaItemId,
@@ -634,150 +342,7 @@ class LibraryRepository {
         .toList(growable: false);
   }
 
-  void _ensurePresignedTargetConfigured(Uri targetUri) {
-    final credential = targetUri.queryParameters["X-Amz-Credential"];
-    if (credential != null && credential.startsWith("test-access-key/")) {
-      throw ApiException(
-        "S3 в backend не настроен: используется тестовый AWS ключ. "
-        "Заполните S3_ENDPOINT_URL/AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/S3_BUCKET в backend/.env.",
-      );
-    }
-  }
-
-  Future<void> uploadBytesToPresignedUrl({
-    required String uploadUrl,
-    required Uint8List bytes,
-    required String contentType,
-    void Function(int uploaded, int total)? onProgress,
-  }) async {
-    final targetUri = _normalizeUploadUri(uploadUrl);
-    _ensurePresignedTargetConfigured(targetUri);
-    http.Response response;
-    onProgress?.call(0, bytes.length);
-    try {
-      response = await http
-          .put(
-            targetUri,
-            headers: <String, String>{"Content-Type": contentType},
-            body: bytes,
-          )
-          .timeout(_presignedUploadTimeout);
-    } on TimeoutException {
-      throw ApiException("Таймаут при загрузке файла в хранилище");
-    } on Exception {
-      throw ApiException(
-        "Не удалось загрузить файл в хранилище. "
-        "Endpoint: ${targetUri.host}. "
-        "Проверьте доступность S3 endpoint (для Android эмулятора используйте 10.0.2.2 вместо localhost).",
-      );
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-        "Хранилище вернуло ошибку при загрузке файла: HTTP ${response.statusCode}",
-        statusCode: response.statusCode,
-      );
-    }
-    onProgress?.call(bytes.length, bytes.length);
-  }
-
-  /// Потоковая загрузка без удержания всего файла в памяти (важно для больших аудио/видео).
-  ///
-  /// [StreamedRequest.sink.addStream] уважает pause/resume сокета. Вариант
-  /// `openRead().listen` + `sink.add` без backpressure раздувал буфер и мог
-  /// «замирать» на больших MKV и т.п.
-  Future<void> uploadFileToPresignedUrl({
-    required String uploadUrl,
-    required String filePath,
-    required int contentLength,
-    required String contentType,
-    void Function(int uploaded, int total)? onProgress,
-  }) async {
-    final targetUri = _normalizeUploadUri(uploadUrl);
-    _ensurePresignedTargetConfigured(targetUri);
-    final file = File(filePath);
-    if (!await file.exists()) {
-      throw ApiException("Файл для загрузки не найден: $filePath");
-    }
-    final lengthOnDisk = await file.length();
-    if (lengthOnDisk != contentLength) {
-      throw ApiException(
-        "Размер файла изменился ($lengthOnDisk байт, ожидалось $contentLength). "
-        "Выберите файл заново.",
-      );
-    }
-
-    final client = http.Client();
-    try {
-      final request = http.StreamedRequest("PUT", targetUri);
-      request.headers["Content-Type"] = contentType;
-      request.contentLength = contentLength;
-
-      var uploaded = 0;
-      final total = contentLength;
-      onProgress?.call(0, total);
-
-      final metered = file.openRead().transform<List<int>>(
-        StreamTransformer<List<int>, List<int>>.fromHandlers(
-          handleData: (data, sink) {
-            uploaded += data.length;
-            final clamped = uploaded > total ? total : uploaded;
-            onProgress?.call(clamped, total);
-            sink.add(data);
-          },
-          handleError: (Object error, StackTrace stackTrace, EventSink<List<int>> sink) {
-            sink.addError(error, stackTrace);
-          },
-        ),
-      );
-
-      final bodyDone = request.sink.addStream(metered).then((_) => request.sink.close());
-      late final http.StreamedResponse streamed;
-      try {
-        streamed = await client
-            .send(request)
-            .timeout(_presignedUploadTimeout);
-      } on TimeoutException {
-        await bodyDone.catchError((_) {});
-        throw ApiException("Таймаут при загрузке файла в хранилище");
-      }
-      await bodyDone;
-
-      final response = await http.Response.fromStream(streamed).timeout(
-        _presignedReadResponseTimeout,
-      );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(
-          "Хранилище вернуло ошибку при загрузке файла: HTTP ${response.statusCode}",
-          statusCode: response.statusCode,
-        );
-      }
-      onProgress?.call(total, total);
-    } on TimeoutException {
-      throw ApiException("Таймаут при загрузке файла в хранилище");
-    } on ApiException {
-      rethrow;
-    } on Exception {
-      throw ApiException(
-        "Не удалось загрузить файл в хранилище. "
-        "Endpoint: ${targetUri.host}. "
-        "Проверьте доступность S3 endpoint (для Android эмулятора используйте 10.0.2.2 вместо localhost).",
-      );
-    } finally {
-      client.close();
-    }
-  }
-
-  Future<void> completeFileUpload({
-    required String accessToken,
-    required String fileId,
-  }) async {
-    await _apiClient.postJson(
-      "/media-files/$fileId/complete",
-      const <String, dynamic>{},
-      accessToken: accessToken,
-    );
-  }
-
+  /// Обновить только `metadata_json` (например `media_file_id` после загрузки).
   Future<MediaListItem> updateMediaMetadata({
     required String accessToken,
     required String mediaItemId,
@@ -809,6 +374,7 @@ class LibraryRepository {
         base.contains("localhost");
   }
 
+  /// Хост presigned URL недоступен с мобильного без публичного endpoint (localhost и т.п.).
   bool _streamHostIsUnreachableFromMobileClients(String host) {
     final h = host.toLowerCase();
     if (h == "localhost" ||
@@ -824,6 +390,7 @@ class LibraryRepository {
     return false;
   }
 
+  /// Подстраивает presigned PUT под эмулятор (localhost → 10.0.2.2).
   Uri _normalizeUploadUri(String uploadUrl) {
     final uri = Uri.parse(uploadUrl);
     if (!_shouldRewriteLocalS3HostsForAndroidEmulator) {
@@ -852,6 +419,7 @@ class LibraryRepository {
     return uri;
   }
 
+  /// Подстраивает presigned GET стрима под эмулятор.
   Uri _normalizeStreamUri(String streamUrl) {
     final uri = Uri.parse(streamUrl);
     if (!_shouldRewriteLocalS3HostsForAndroidEmulator) {
@@ -881,6 +449,7 @@ class LibraryRepository {
   }
 }
 
+/// Нормализация `types` и совместимость со старым одиночным `type` в query.
 List<String> _normalizeQueryTypes(List<String> types, String? legacyType) {
   const allowed = {'book', 'audiobook', 'video'};
   final out = <String>[];
@@ -902,6 +471,7 @@ List<String> _normalizeQueryTypes(List<String> types, String? legacyType) {
   return out;
 }
 
+/// Жанры для query: уникальность без учёта регистра, лимит 24.
 List<String> _normalizeGenresForQuery(List<String> genres) {
   final out = <String>[];
   final seen = <String>{};

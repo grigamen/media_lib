@@ -1,5 +1,8 @@
 part of 'library_screen.dart';
 
+// Карточка «основной файл» в интерфейсе: сам виджет, а список и загрузка обрабатываются в связанном файле состояния.
+
+/// Блок для автора: показать файлы и дать сменить основной или загрузить новый.
 class _OwnerMainMediaFileCard extends StatefulWidget {
   const _OwnerMainMediaFileCard({
     required this.item,

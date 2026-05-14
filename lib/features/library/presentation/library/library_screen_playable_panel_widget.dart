@@ -1,5 +1,8 @@
 part of 'library_screen.dart';
 
+// Коробка с настройками: какие действия вызывать при старте просмотра, паузе и смене скорости.
+
+/// Панель «слушать / смотреть» внутри карточки; вся живая логика вынесена в класс состояния ниже.
 class _PlayableMediaPanel extends StatefulWidget {
   const _PlayableMediaPanel({
     required this.item,

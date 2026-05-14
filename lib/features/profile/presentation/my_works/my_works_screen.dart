@@ -2,9 +2,9 @@ import "dart:async";
 
 import "package:flutter/material.dart";
 
-import "../../../app/app_state.dart";
-import "../../library/data/library_repository.dart";
-import "../../library/presentation/library_screen.dart";
+import "../../../../app/app_state.dart";
+import "../../../library/data/library_repository.dart";
+import "../../../library/presentation/library/library_screen.dart";
 
 class MyWorksScreen extends StatefulWidget {
   const MyWorksScreen({required this.state, super.key});

@@ -1,5 +1,6 @@
 import "../../../core/network/api_client.dart";
 
+/// Сессия после успешного входа или refresh ([accessToken] для API, [refreshToken] в хранилище).
 class AuthSession {
   AuthSession({
     required this.accessToken,
@@ -52,11 +53,13 @@ class LoginResult {
   final PendingEmailTwoFa? pendingTwoFa;
 }
 
+/// Репозиторий `/auth/*`: регистрация, вход, 2FA, профиль, смена пароля и refresh.
 class AuthRepository {
   AuthRepository(this._apiClient);
 
   final ApiClient _apiClient;
 
+  /// Регистрация учётной записи (без выдачи токенов в этом запросе).
   Future<void> register({
     required String email,
     required String password,
@@ -69,6 +72,7 @@ class AuthRepository {
     });
   }
 
+  /// Вход: либо [AuthSession], либо [PendingEmailTwoFa] при включённой почтовой 2FA.
   Future<LoginResult> login({
     required String email,
     required String password,
@@ -116,6 +120,7 @@ class AuthRepository {
     );
   }
 
+  /// Завершение входа по OTP из письма ([challengeToken] от сервера).
   Future<AuthSession> verifyEmailTwoFa({
     required String challengeToken,
     required String code,
@@ -148,6 +153,7 @@ class AuthRepository {
     });
   }
 
+  /// Шаг 1 включения 2FA в профиле (отправка кода).
   Future<void> startEmailTwoFaEnable({
     required String accessToken,
     required String currentPassword,
@@ -159,6 +165,7 @@ class AuthRepository {
     );
   }
 
+  /// Шаг 2 включения 2FA — проверка кода.
   Future<void> confirmEmailTwoFaEnable({
     required String accessToken,
     required String code,
@@ -170,6 +177,7 @@ class AuthRepository {
     );
   }
 
+  /// Отключение 2FA при верном пароле.
   Future<void> disableEmailTwoFa({
     required String accessToken,
     required String currentPassword,
@@ -227,6 +235,7 @@ class AuthRepository {
     return (email: outEmail, displayName: outName, twofaEnabled: twofa);
   }
 
+  /// Смена пароля при активной сессии.
   Future<void> changePassword({
     required String accessToken,
     required String currentPassword,
@@ -243,6 +252,7 @@ class AuthRepository {
   }
 }
 
+/// Отображаемое имя из API или часть email до `@`.
 String _normalizeDisplayName(String? raw, {required String fallbackEmail}) {
   final t = raw?.trim() ?? "";
   if (t.isNotEmpty) {

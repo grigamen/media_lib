@@ -1,3 +1,5 @@
+"""Связь между двумя карточками: например одна запись — книга, другая — аудиоверсия того же произведения."""
+
 from __future__ import annotations
 
 import uuid
@@ -12,6 +14,7 @@ from app.db import Base
 
 
 class MediaLink(Base):
+    """Пара id записей в каталоге плюс тип связи; одна и та же пара с одним типом не дублируется."""
     __tablename__ = "media_links"
     __table_args__ = (
         UniqueConstraint(

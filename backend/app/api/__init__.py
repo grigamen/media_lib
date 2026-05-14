@@ -1,3 +1,5 @@
+"""Собираем маршруты из подпакетов: вход, регистрация, медиатека — чтобы main.py подключал один раз."""
+
 from app.api.auth import router as auth_router
 from app.api.media import router as media_router
 

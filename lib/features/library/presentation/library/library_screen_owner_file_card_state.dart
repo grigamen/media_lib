@@ -1,5 +1,8 @@
 part of 'library_screen.dart';
 
+// То, что видит автор у своей записи: список прикреплённых файлов с сервера и кнопка залить новый.
+
+/// Внутреннее состояние карточки «основной файл»: ждём список с сервера, блокируем кнопки на время загрузки.
 class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
   bool _busy = false;
   late Future<List<MediaFileSummary>> _filesFuture;
@@ -18,6 +21,7 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
     }
   }
 
+  /// Запрашиваем список файлов заново — например после того как один файл привязали или залили.
   void _reloadFilesList() {
     if (!mounted) {
       return;
@@ -27,6 +31,7 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
     });
   }
 
+  /// Смотрит на служебный тип файла и решает: это похоже на книгу, на звук или на видео для данного варианта.
   bool _isCompatibleContentType(String rawContentType) {
     final ct = rawContentType.toLowerCase().trim();
     if (widget.item.type == "audiobook") {
@@ -46,6 +51,7 @@ class _OwnerMainMediaFileCardState extends State<_OwnerMainMediaFileCard> {
     return false;
   }
 
+  /// Пользователь выбирает файл на устройстве, мы проверяем тип и отправляем на сервер с привязкой к произведению.
   Future<void> _pickAndUpload(BuildContext context) async {
     if (_busy) {
       return;
