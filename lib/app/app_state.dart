@@ -101,6 +101,12 @@ class AppState extends ChangeNotifier
   bool _usingDemoItems = false;
   bool _allowDemoFallback = true;
 
+  /// Личные оценки демо-произведений (ключ — id карточки demo-*).
+  final Map<String, int> _demoUserRatingsByMediaId = {};
+
+  /// Кэш последних оценок с сервера (ключ — media_item_id).
+  final Map<String, int?> _userRatingCacheByMediaId = {};
+
   /// После первого непустого ответа API пустой список больше не заменяется демо-данными.
   bool _sawNonEmptyServerLibrary = false;
   String _searchQuery = "";

@@ -115,6 +115,22 @@ Future<void> openMediaItemDetailsPage({
     required MediaUploadPayload uploadPayload,
   })
   onUploadAndBindMainMediaFile,
+  required Future<MediaProgress> Function(String mediaItemId) onFetchMediaProgress,
+  required Future<MediaProgress> Function({
+    required String mediaItemId,
+    required int stars,
+  })
+  onSetMediaItemUserRating,
+  required Future<MediaProgress> Function(String mediaItemId)
+  onClearMediaItemUserRating,
+  required Future<int?> Function(List<String> mediaItemIds) onFetchWorkUserRating,
+  required Future<int?> Function({
+    required List<String> mediaItemIds,
+    required int stars,
+  })
+  onSetWorkUserRating,
+  required Future<void> Function(List<String> mediaItemIds)
+  onClearWorkUserRating,
 }) {
   if (groupItems.isNotEmpty) {
     onMarkItemViewed(groupItems.first.id);
@@ -146,6 +162,12 @@ Future<void> openMediaItemDetailsPage({
             onFetchMediaFiles: onFetchMediaFiles,
             onBindMainMediaFile: onBindMainMediaFile,
             onUploadAndBindMainMediaFile: onUploadAndBindMainMediaFile,
+            onFetchMediaProgress: onFetchMediaProgress,
+            onSetMediaItemUserRating: onSetMediaItemUserRating,
+            onClearMediaItemUserRating: onClearMediaItemUserRating,
+            onFetchWorkUserRating: onFetchWorkUserRating,
+            onSetWorkUserRating: onSetWorkUserRating,
+            onClearWorkUserRating: onClearWorkUserRating,
           ),
     ),
   );
@@ -224,6 +246,24 @@ Future<void> openMediaItemDetailsForAppState({
     onFetchMediaFiles: state.fetchMediaFilesForItem,
     onBindMainMediaFile: state.bindMainMediaFileToItem,
     onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
+    onFetchMediaProgress: state.fetchMediaProgressForItem,
+    onSetMediaItemUserRating: ({
+      required String mediaItemId,
+      required int stars,
+    }) => state.setMediaItemUserRating(
+      mediaItemId: mediaItemId,
+      stars: stars,
+    ),
+    onClearMediaItemUserRating: state.clearMediaItemUserRating,
+    onFetchWorkUserRating: state.fetchWorkUserRatingStars,
+    onSetWorkUserRating: ({
+      required List<String> mediaItemIds,
+      required int stars,
+    }) => state.setWorkUserRatingStars(
+      mediaItemIds: mediaItemIds,
+      stars: stars,
+    ),
+    onClearWorkUserRating: state.clearWorkUserRatingStars,
   );
 }
 

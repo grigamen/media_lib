@@ -88,78 +88,106 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                         children: [
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(
-                                    height: 160,
-                                    width: 110,
-                                    child:
-                                        activeItem.coverUrl?.isNotEmpty == true
-                                            ? Image.network(
-                                              activeItem.coverUrl!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (_, __, ___) => Container(
-                                                    color: Colors.black12,
-                                                    child: const Center(
-                                                      child: Icon(
-                                                        Icons
-                                                            .broken_image_outlined,
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: SizedBox(
+                                        height: 160,
+                                        width: 110,
+                                        child:
+                                            activeItem.coverUrl?.isNotEmpty ==
+                                                    true
+                                                ? Image.network(
+                                                  activeItem.coverUrl!,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (_, __, ___) => Container(
+                                                        color: Colors.black12,
+                                                        child: const Center(
+                                                          child: Icon(
+                                                            Icons
+                                                                .broken_image_outlined,
+                                                          ),
+                                                        ),
                                                       ),
+                                                )
+                                                : Container(
+                                                  color: Colors.black12,
+                                                  child: const Center(
+                                                    child: Icon(
+                                                      Icons
+                                                          .image_not_supported_outlined,
                                                     ),
                                                   ),
-                                            )
-                                            : Container(
-                                              color: Colors.black12,
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons
-                                                      .image_not_supported_outlined,
                                                 ),
-                                              ),
-                                            ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        activeItem.title,
-                                        style:
-                                            Theme.of(
-                                              context,
-                                            ).textTheme.headlineSmall,
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(activeAuthor),
-                                      if (activeGenres.isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: activeGenres
-                                              .map(
-                                                (genre) =>
-                                                    Chip(label: Text(genre)),
-                                              )
-                                              .toList(growable: false),
-                                        ),
-                                      ],
-                                      if (_isLoadingLinked) ...[
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          "Загружаем связанные формы произведения...",
-                                        ),
-                                      ],
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            activeItem.title,
+                                            style:
+                                                Theme.of(
+                                                  context,
+                                                ).textTheme.headlineSmall,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(activeAuthor),
+                                          if (activeGenres.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 8,
+                                              children: activeGenres
+                                                  .map(
+                                                    (genre) => Chip(
+                                                      label: Text(genre),
+                                                    ),
+                                                  )
+                                                  .toList(growable: false),
+                                            ),
+                                          ],
+                                          if (_isLoadingLinked) ...[
+                                            const SizedBox(height: 6),
+                                            const Text(
+                                              "Загружаем связанные формы произведения...",
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                if (widget.currentUserId != null) ...[
+                                  const SizedBox(height: 8),
+                                  _WorkUserRatingBar(
+                                    key: ValueKey(
+                                      _rateableVariantIds.join("|"),
+                                    ),
+                                    onLoadStars:
+                                        () => widget.onFetchWorkUserRating(
+                                          _rateableVariantIds,
+                                        ),
+                                    onSetStars:
+                                        (stars) => widget.onSetWorkUserRating(
+                                          mediaItemIds: _rateableVariantIds,
+                                          stars: stars,
+                                        ),
+                                    onClearStars:
+                                        () => widget.onClearWorkUserRating(
+                                          _rateableVariantIds,
+                                        ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -351,6 +379,168 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
           ),
         ],
       ),
+    );
+  }
+
+  List<String> get _rateableVariantIds => _variants
+      .map((item) => item.id)
+      .where((id) => id.isNotEmpty)
+      .toList(growable: false);
+}
+
+/// Звёздная оценка произведения (1–5) для всех форматов работы.
+class _WorkUserRatingBar extends StatefulWidget {
+  const _WorkUserRatingBar({
+    super.key,
+    required this.onLoadStars,
+    required this.onSetStars,
+    required this.onClearStars,
+  });
+
+  final Future<int?> Function() onLoadStars;
+  final Future<int?> Function(int stars) onSetStars;
+  final Future<void> Function() onClearStars;
+
+  @override
+  State<_WorkUserRatingBar> createState() => _WorkUserRatingBarState();
+}
+
+class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
+  int? _stars;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_reload());
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkUserRatingBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.key != widget.key) {
+      unawaited(_reload());
+    }
+  }
+
+  Future<void> _reload() async {
+    setState(() => _busy = true);
+    try {
+      final stars = await widget.onLoadStars();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _stars = stars;
+        _busy = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _pick(int n) async {
+    if (_stars == n) {
+      await _clear();
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final stars = await widget.onSetStars(n);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _stars = stars;
+        _busy = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _busy = false);
+      final msg =
+          e is ApiException ? e.message : "Не удалось сохранить оценку";
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  Future<void> _clear() async {
+    setState(() => _busy = true);
+    try {
+      await widget.onClearStars();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _stars = null;
+        _busy = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _busy = false);
+      final msg = e is ApiException ? e.message : "Не удалось сбросить оценку";
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Моя оценка", style: theme.textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            if (_busy)
+              const Padding(
+                padding: EdgeInsets.only(right: 8),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            for (var i = 1; i <= 5; i++)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
+                onPressed: _busy ? null : () => _pick(i),
+                tooltip: "$i из 5",
+                icon: Icon(
+                  (_stars ?? 0) >= i ? Icons.star : Icons.star_border,
+                  size: 32,
+                  color:
+                      (_stars ?? 0) >= i
+                          ? Colors.amber.shade700
+                          : theme.colorScheme.outline,
+                ),
+              ),
+            if (_stars != null) ...[
+              const SizedBox(width: 4),
+              TextButton(
+                onPressed: _busy ? null : _clear,
+                child: const Text("Сбросить"),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }

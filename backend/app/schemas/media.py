@@ -85,6 +85,12 @@ class ProgressUpdateRequest(BaseModel):
     is_completed: bool = False
 
 
+class UserRatingSetRequest(BaseModel):
+    """Оценка произведения текущим пользователем (1–5 звёзд)."""
+
+    stars: int = Field(ge=1, le=5)
+
+
 class ProgressResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -95,6 +101,7 @@ class ProgressResponse(BaseModel):
     duration_seconds: int | None = None
     progress_percent: float
     is_completed: bool
+    rating_stars: int | None = None
     created_at: datetime
     updated_at: datetime
 

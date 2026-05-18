@@ -133,6 +133,24 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
             onFetchMediaFiles: state.fetchMediaFilesForItem,
             onBindMainMediaFile: state.bindMainMediaFileToItem,
             onUploadAndBindMainMediaFile: state.uploadAndBindMainMediaFile,
+            onFetchMediaProgress: state.fetchMediaProgressForItem,
+            onSetMediaItemUserRating: ({
+              required String mediaItemId,
+              required int stars,
+            }) => state.setMediaItemUserRating(
+              mediaItemId: mediaItemId,
+              stars: stars,
+            ),
+            onClearMediaItemUserRating: state.clearMediaItemUserRating,
+            onFetchWorkUserRating: state.fetchWorkUserRatingStars,
+            onSetWorkUserRating: ({
+              required List<String> mediaItemIds,
+              required int stars,
+            }) => state.setWorkUserRatingStars(
+              mediaItemIds: mediaItemIds,
+              stars: stars,
+            ),
+            onClearWorkUserRating: state.clearWorkUserRatingStars,
             onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
             hideLibraryControls: true,
             emptyLibraryMessage:

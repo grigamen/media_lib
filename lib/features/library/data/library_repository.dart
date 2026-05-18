@@ -300,6 +300,32 @@ class LibraryRepository {
     return MediaProgress.fromJson(response);
   }
 
+  /// Личная оценка 1–5 звёзд (хранится в строке прогресса на сервере).
+  Future<MediaProgress> setMediaItemRating({
+    required String accessToken,
+    required String mediaItemId,
+    required int stars,
+  }) async {
+    final response = await _apiClient.putJson(
+      "/media-items/$mediaItemId/rating",
+      <String, dynamic>{"stars": stars},
+      accessToken: accessToken,
+    );
+    return MediaProgress.fromJson(response);
+  }
+
+  /// Снять личную оценку (звёзды), позицию просмотра не меняет.
+  Future<MediaProgress> clearMediaItemRating({
+    required String accessToken,
+    required String mediaItemId,
+  }) async {
+    final response = await _apiClient.deleteJson(
+      "/media-items/$mediaItemId/rating",
+      accessToken: accessToken,
+    );
+    return MediaProgress.fromJson(response);
+  }
+
   /// Presigned GET для воспроизведения; при dev — подмена хоста для Android-эмулятора.
   Future<MediaStreamInfo> fetchMediaStreamUrl({
     required String accessToken,

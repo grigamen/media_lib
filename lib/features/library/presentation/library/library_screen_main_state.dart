@@ -196,6 +196,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     return _LibraryItemCard(
                       group: group,
                       currentUserId: widget.currentUserId,
+                      onFetchWorkUserRating:
+                          widget.currentUserId != null
+                              ? widget.onFetchWorkUserRating
+                              : null,
                       onTap: () {
                         openMediaItemDetailsPage(
                           context: context,
@@ -226,6 +230,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           onBindMainMediaFile: widget.onBindMainMediaFile,
                           onUploadAndBindMainMediaFile:
                               widget.onUploadAndBindMainMediaFile,
+                          onFetchMediaProgress: widget.onFetchMediaProgress,
+                          onSetMediaItemUserRating:
+                              widget.onSetMediaItemUserRating,
+                          onClearMediaItemUserRating:
+                              widget.onClearMediaItemUserRating,
+                          onFetchWorkUserRating: widget.onFetchWorkUserRating,
+                          onSetWorkUserRating: ({
+                            required List<String> mediaItemIds,
+                            required int stars,
+                          }) => widget.onSetWorkUserRating(
+                            mediaItemIds: mediaItemIds,
+                            stars: stars,
+                          ),
+                          onClearWorkUserRating: widget.onClearWorkUserRating,
                         );
                       },
                       onOpenLinks: () => _showLinksDialog(group.primaryItem),

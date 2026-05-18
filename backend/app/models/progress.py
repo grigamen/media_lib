@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, SmallInteger, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +30,8 @@ class Progress(Base):
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     progress_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
     is_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Личная оценка пользователя 1–5 (одна строка progress = одна оценка на пару user + произведение).
+    rating_stars: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

@@ -149,6 +149,7 @@ class MediaProgress {
     required this.durationSeconds,
     required this.progressPercent,
     required this.isCompleted,
+    this.ratingStars,
     this.updatedAtUtcMs,
   });
 
@@ -157,6 +158,9 @@ class MediaProgress {
   final int? durationSeconds;
   final double progressPercent;
   final bool isCompleted;
+
+  /// Личная оценка 1–5 с сервера (`GET …/progress`, `PUT …/rating`).
+  final int? ratingStars;
 
   /// Из ответа `GET/PUT …/progress` (`updated_at` в RFC3339).
   final int? updatedAtUtcMs;
@@ -184,6 +188,7 @@ class MediaProgress {
       durationSeconds: dur,
       progressPercent: pct ?? computeProgressPercent(pos, dur),
       isCompleted: completed,
+      ratingStars: _parseRatingStars(json["rating_stars"]),
       updatedAtUtcMs: decodeUpdatedAtUtcMs(json["updated_at"]),
     );
   }
@@ -193,6 +198,7 @@ class MediaProgress {
     required int positionSeconds,
     required int? durationSeconds,
     required bool isCompleted,
+    int? ratingStars,
   }) {
     return MediaProgress(
       mediaItemId: mediaItemId,
@@ -200,8 +206,25 @@ class MediaProgress {
       durationSeconds: durationSeconds,
       progressPercent: computeProgressPercent(positionSeconds, durationSeconds),
       isCompleted: isCompleted,
+      ratingStars: ratingStars,
       updatedAtUtcMs: null,
     );
+  }
+
+  static int? _parseRatingStars(dynamic raw) {
+    if (raw is int) {
+      if (raw >= 1 && raw <= 5) {
+        return raw;
+      }
+      return null;
+    }
+    if (raw is num) {
+      final v = raw.round();
+      if (v >= 1 && v <= 5) {
+        return v;
+      }
+    }
+    return null;
   }
 
   static int? decodeUpdatedAtUtcMs(dynamic raw) {

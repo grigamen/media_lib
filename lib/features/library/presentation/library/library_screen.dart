@@ -70,6 +70,12 @@ class LibraryScreen extends StatefulWidget {
     required this.onFetchMediaFiles,
     required this.onBindMainMediaFile,
     required this.onUploadAndBindMainMediaFile,
+    required this.onFetchMediaProgress,
+    required this.onSetMediaItemUserRating,
+    required this.onClearMediaItemUserRating,
+    required this.onFetchWorkUserRating,
+    required this.onSetWorkUserRating,
+    required this.onClearWorkUserRating,
     this.hideLibraryControls = false,
     this.emptyLibraryMessage,
     super.key,
@@ -150,6 +156,22 @@ class LibraryScreen extends StatefulWidget {
     required MediaUploadPayload uploadPayload,
   })
   onUploadAndBindMainMediaFile; // загрузить новый файл с телефона и сразу сделать его основным
+
+  final Future<MediaProgress> Function(String mediaItemId) onFetchMediaProgress;
+  final Future<MediaProgress> Function({
+    required String mediaItemId,
+    required int stars,
+  })
+  onSetMediaItemUserRating;
+  final Future<MediaProgress> Function(String mediaItemId)
+  onClearMediaItemUserRating;
+  final Future<int?> Function(List<String> mediaItemIds) onFetchWorkUserRating;
+  final Future<int?> Function({
+    required List<String> mediaItemIds,
+    required int stars,
+  })
+  onSetWorkUserRating;
+  final Future<void> Function(List<String> mediaItemIds) onClearWorkUserRating;
 
   final bool hideLibraryControls; // если true — не показываем поиск и фильтры (например экран «только мои работы»)
   final String? emptyLibraryMessage; // свой текст, когда список пуст (вместо стандартной фразы)

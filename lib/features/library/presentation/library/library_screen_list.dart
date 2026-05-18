@@ -122,18 +122,89 @@ class _LibraryControls extends StatelessWidget {
   }
 }
 
+/// Компактный ряд звёзд (1–5) для превью в сетке библиотеки.
+Widget _compactUserRatingStars(int stars) {
+  final clamped = stars.clamp(1, 5);
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 1; i <= clamped; i++)
+        Icon(Icons.star, size: 14, color: Colors.amber.shade700),
+    ],
+  );
+}
+
+class _WorkGroupRatingPreview extends StatefulWidget {
+  const _WorkGroupRatingPreview({
+    required this.group,
+    required this.onFetchWorkUserRating,
+  });
+
+  final _WorkGroup group;
+  final Future<int?> Function(List<String> mediaItemIds) onFetchWorkUserRating;
+
+  @override
+  State<_WorkGroupRatingPreview> createState() =>
+      _WorkGroupRatingPreviewState();
+}
+
+class _WorkGroupRatingPreviewState extends State<_WorkGroupRatingPreview> {
+  late Future<int?> _starsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _starsFuture = _loadStars();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkGroupRatingPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldKey = oldWidget.group.groupItems.map((e) => e.id).join("|");
+    final newKey = widget.group.groupItems.map((e) => e.id).join("|");
+    if (oldKey != newKey) {
+      _starsFuture = _loadStars();
+    }
+  }
+
+  Future<int?> _loadStars() {
+    final ids =
+        widget.group.groupItems.map((item) => item.id).toList(growable: false);
+    return widget.onFetchWorkUserRating(ids);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<int?>(
+      future: _starsFuture,
+      builder: (context, snapshot) {
+        final stars = snapshot.data;
+        if (stars == null) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: _compactUserRatingStars(stars),
+        );
+      },
+    );
+  }
+}
+
 class _LibraryItemCard extends StatelessWidget {
   const _LibraryItemCard({
     required this.group,
     required this.onTap,
     required this.onOpenLinks,
     this.currentUserId,
+    this.onFetchWorkUserRating,
   });
 
   final _WorkGroup group;
   final VoidCallback onTap;
   final VoidCallback onOpenLinks;
   final String? currentUserId;
+  final Future<int?> Function(List<String> mediaItemIds)? onFetchWorkUserRating;
 
   /// Одна ячейка сетки: обложка, при необходимости плашка модерации, иконки «есть книга/аудио/видео», открытие карточки.
   @override
@@ -254,6 +325,11 @@ class _LibraryItemCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (currentUserId != null && onFetchWorkUserRating != null)
+            _WorkGroupRatingPreview(
+              group: group,
+              onFetchWorkUserRating: onFetchWorkUserRating!,
+            ),
         ],
       ),
     );

@@ -624,4 +624,145 @@ mixin _AppStateLibrary on _AppStateRefs {
       return null;
     }
   }
+
+  /// Прогресс и оценка по произведению (`GET …/progress` создаёт строку при отсутствии).
+  Future<MediaProgress> fetchMediaProgressForItem(String mediaItemId) async {
+    if (mediaItemId.startsWith("demo-")) {
+      return MediaProgress.synthesized(
+        mediaItemId: mediaItemId,
+        positionSeconds: 0,
+        durationSeconds: null,
+        isCompleted: false,
+        ratingStars: _s._demoUserRatingsByMediaId[mediaItemId],
+      );
+    }
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт, чтобы оценивать произведения.");
+    }
+    final progress = await _s._libraryRepository.fetchMediaProgress(
+      accessToken: session.accessToken,
+      mediaItemId: mediaItemId,
+    );
+    _s._userRatingCacheByMediaId[mediaItemId] = progress.ratingStars;
+    return progress;
+  }
+
+  /// Сохранить оценку 1–5 для текущего пользователя.
+  Future<MediaProgress> setMediaItemUserRating({
+    required String mediaItemId,
+    required int stars,
+  }) async {
+    if (mediaItemId.startsWith("demo-")) {
+      final clamped = stars.clamp(1, 5);
+      _s._demoUserRatingsByMediaId[mediaItemId] = clamped;
+      _s._userRatingCacheByMediaId[mediaItemId] = clamped;
+      return MediaProgress.synthesized(
+        mediaItemId: mediaItemId,
+        positionSeconds: 0,
+        durationSeconds: null,
+        isCompleted: false,
+        ratingStars: clamped,
+      );
+    }
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт, чтобы оценивать произведения.");
+    }
+    final progress = await _s._libraryRepository.setMediaItemRating(
+      accessToken: session.accessToken,
+      mediaItemId: mediaItemId,
+      stars: stars.clamp(1, 5),
+    );
+    _s._userRatingCacheByMediaId[mediaItemId] = progress.ratingStars;
+    return progress;
+  }
+
+  /// Убрать личную оценку (звёзды).
+  Future<MediaProgress> clearMediaItemUserRating(String mediaItemId) async {
+    if (mediaItemId.startsWith("demo-")) {
+      _s._demoUserRatingsByMediaId.remove(mediaItemId);
+      _s._userRatingCacheByMediaId[mediaItemId] = null;
+      return MediaProgress.synthesized(
+        mediaItemId: mediaItemId,
+        positionSeconds: 0,
+        durationSeconds: null,
+        isCompleted: false,
+      );
+    }
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт, чтобы оценивать произведения.");
+    }
+    final progress = await _s._libraryRepository.clearMediaItemRating(
+      accessToken: session.accessToken,
+      mediaItemId: mediaItemId,
+    );
+    _s._userRatingCacheByMediaId[mediaItemId] = null;
+    return progress;
+  }
+
+  /// Оценка всей «работы»: читаем первую найденную среди форматов, при сохранении пишем во все.
+  Future<int?> fetchWorkUserRatingStars(List<String> mediaItemIds) async {
+    int? found;
+    for (final id in mediaItemIds) {
+      if (id.trim().isEmpty) {
+        continue;
+      }
+      if (_s._userRatingCacheByMediaId.containsKey(id)) {
+        final cached = _s._userRatingCacheByMediaId[id];
+        if (cached != null) {
+          return cached;
+        }
+        found ??= cached;
+        continue;
+      }
+      try {
+        final progress = await fetchMediaProgressForItem(id);
+        if (progress.ratingStars != null) {
+          return progress.ratingStars;
+        }
+        found ??= progress.ratingStars;
+      } catch (_) {
+        // Пропускаем недоступный вариант, остальные форматы всё равно проверим.
+      }
+    }
+    return found;
+  }
+
+  Future<int?> setWorkUserRatingStars({
+    required List<String> mediaItemIds,
+    required int stars,
+  }) async {
+    final clamped = stars.clamp(1, 5);
+    int? result;
+    for (final id in mediaItemIds) {
+      if (id.trim().isEmpty) {
+        continue;
+      }
+      if (id.startsWith("demo-")) {
+        _s._demoUserRatingsByMediaId[id] = clamped;
+        _s._userRatingCacheByMediaId[id] = clamped;
+        result = clamped;
+        continue;
+      }
+      final progress = await setMediaItemUserRating(
+        mediaItemId: id,
+        stars: clamped,
+      );
+      result = progress.ratingStars;
+    }
+    notifyListeners();
+    return result;
+  }
+
+  Future<void> clearWorkUserRatingStars(List<String> mediaItemIds) async {
+    for (final id in mediaItemIds) {
+      if (id.trim().isEmpty) {
+        continue;
+      }
+      await clearMediaItemUserRating(id);
+    }
+    notifyListeners();
+  }
 }

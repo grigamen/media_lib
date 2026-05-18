@@ -27,6 +27,12 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.onFetchMediaFiles,
     required this.onBindMainMediaFile,
     required this.onUploadAndBindMainMediaFile,
+    required this.onFetchMediaProgress,
+    required this.onSetMediaItemUserRating,
+    required this.onClearMediaItemUserRating,
+    required this.onFetchWorkUserRating,
+    required this.onSetWorkUserRating,
+    required this.onClearWorkUserRating,
   });
 
   final String? currentUserId;
@@ -89,6 +95,22 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required MediaUploadPayload uploadPayload,
   })
   onUploadAndBindMainMediaFile;
+
+  final Future<MediaProgress> Function(String mediaItemId) onFetchMediaProgress;
+  final Future<MediaProgress> Function({
+    required String mediaItemId,
+    required int stars,
+  })
+  onSetMediaItemUserRating;
+  final Future<MediaProgress> Function(String mediaItemId)
+  onClearMediaItemUserRating;
+  final Future<int?> Function(List<String> mediaItemIds) onFetchWorkUserRating;
+  final Future<int?> Function({
+    required List<String> mediaItemIds,
+    required int stars,
+  })
+  onSetWorkUserRating;
+  final Future<void> Function(List<String> mediaItemIds) onClearWorkUserRating;
 
   @override
   State<_MediaItemDetailsPage> createState() => _MediaItemDetailsPageState();

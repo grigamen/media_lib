@@ -38,6 +38,7 @@ from app.schemas.media import (
     MediaType,
     ProgressResponse,
     ProgressUpdateRequest,
+    UserRatingSetRequest,
     ModerationStatus,
 )
 
@@ -126,6 +127,27 @@ def _get_visible_media_item(db: Session, media_item_id: UUID, current_user: User
     if not _user_can_read_media_item(item, current_user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media item not found")
     return item
+
+
+def _get_or_create_progress(db: Session, media_item_id: UUID, current_user: User) -> Progress:
+    """Строка прогресса user+media; при отсутствии создаётся с нулевой позицией."""
+    stmt = select(Progress).where(
+        and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
+    )
+    progress = db.scalar(stmt)
+    if progress is None:
+        progress = Progress(
+            user_id=current_user.id,
+            media_item_id=media_item_id,
+            position_seconds=0,
+            duration_seconds=None,
+            progress_percent=0,
+            is_completed=False,
+        )
+        db.add(progress)
+        db.commit()
+        db.refresh(progress)
+    return progress
 
 
 def _calculate_progress_percent(position_seconds: int, duration_seconds: int | None) -> float:
@@ -518,24 +540,7 @@ def get_media_progress(
 ) -> Progress:
     """Текущий прогресс пользователя по произведению; при отсутствии создаётся нулевая строка."""
     _get_visible_media_item(db, media_item_id, current_user)
-
-    stmt = select(Progress).where(
-        and_(Progress.user_id == current_user.id, Progress.media_item_id == media_item_id)
-    )
-    progress = db.scalar(stmt)
-    if progress is None:
-        progress = Progress(
-            user_id=current_user.id,
-            media_item_id=media_item_id,
-            position_seconds=0,
-            duration_seconds=None,
-            progress_percent=0,
-            is_completed=False,
-        )
-        db.add(progress)
-        db.commit()
-        db.refresh(progress)
-    return progress
+    return _get_or_create_progress(db, media_item_id, current_user)
 
 
 @router.put("/media-items/{media_item_id}/progress", response_model=ProgressResponse)
@@ -547,6 +552,8 @@ def upsert_media_progress(
 ) -> Progress:
     """Сохраняет позицию/длительность/завершённость и пересчитывает процент."""
     _get_visible_media_item(db, media_item_id, current_user)
+
+    progress = _get_or_create_progress(db, media_item_id, current_user)
 
     position_seconds = payload.position_seconds
     duration_seconds = payload.duration_seconds
@@ -563,6 +570,37 @@ def upsert_media_progress(
     )
     progress.progress_percent = _calculate_progress_percent(position_seconds, duration_seconds)
 
+    db.commit()
+    db.refresh(progress)
+    return progress
+
+
+@router.put("/media-items/{media_item_id}/rating", response_model=ProgressResponse)
+def set_media_user_rating(
+    media_item_id: UUID,
+    payload: UserRatingSetRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Progress:
+    """Выставляет личную оценку произведению (1–5); хранится вместе с прогрессом."""
+    _get_visible_media_item(db, media_item_id, current_user)
+    progress = _get_or_create_progress(db, media_item_id, current_user)
+    progress.rating_stars = payload.stars
+    db.commit()
+    db.refresh(progress)
+    return progress
+
+
+@router.delete("/media-items/{media_item_id}/rating", response_model=ProgressResponse)
+def clear_media_user_rating(
+    media_item_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Progress:
+    """Сбрасывает личную оценку (звёзды), прогресс просмотра не трогаем."""
+    _get_visible_media_item(db, media_item_id, current_user)
+    progress = _get_or_create_progress(db, media_item_id, current_user)
+    progress.rating_stars = None
     db.commit()
     db.refresh(progress)
     return progress
