@@ -140,9 +140,34 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                                   context,
                                                 ).textTheme.headlineSmall,
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(activeAuthor),
-                                          if (activeGenres.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(activeAuthor),
+                                      if (_averageRatingForWorkGroup(
+                                            _variants,
+                                          )
+                                          case final summary?) ...[
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.star,
+                                              size: 18,
+                                              color: Colors.amber.shade700,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              "Средняя оценка: "
+                                              "${summary.average.toStringAsFixed(1)} "
+                                              "(${summary.count})",
+                                              style:
+                                                  Theme.of(
+                                                    context,
+                                                  ).textTheme.bodyMedium,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                      if (activeGenres.isNotEmpty) ...[
                                             const SizedBox(height: 8),
                                             Wrap(
                                               spacing: 8,

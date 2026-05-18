@@ -11,6 +11,8 @@ class MediaListItem {
     this.description,
     this.metadataJson,
     this.moderationStatus = 'approved',
+    this.averageRating,
+    this.ratingsCount = 0,
   });
 
   final String id;
@@ -26,6 +28,12 @@ class MediaListItem {
   /// Сервер: pending | approved | rejected — состояние модерации карточки.
   final String moderationStatus;
 
+  /// Средняя оценка всех пользователей (1–5), если есть оценки.
+  final double? averageRating;
+
+  /// Сколько пользователей поставили оценку.
+  final int ratingsCount;
+
   MediaListItem copyWith({
     String? userId,
     String? title,
@@ -36,6 +44,8 @@ class MediaListItem {
     String? description,
     Map<String, dynamic>? metadataJson,
     String? moderationStatus,
+    double? averageRating,
+    int? ratingsCount,
   }) {
     return MediaListItem(
       id: id,
@@ -48,6 +58,8 @@ class MediaListItem {
       description: description ?? this.description,
       metadataJson: metadataJson ?? this.metadataJson,
       moderationStatus: moderationStatus ?? this.moderationStatus,
+      averageRating: averageRating ?? this.averageRating,
+      ratingsCount: ratingsCount ?? this.ratingsCount,
     );
   }
 
@@ -100,6 +112,8 @@ class MediaListItem {
       description: json["description"] as String?,
       metadataJson: metadata,
       moderationStatus: json["moderation_status"] as String? ?? "approved",
+      averageRating: (json["average_rating"] as num?)?.toDouble(),
+      ratingsCount: json["ratings_count"] as int? ?? 0,
     );
   }
 
@@ -115,6 +129,8 @@ class MediaListItem {
       "description": description,
       "metadata_json": metadataJson,
       "moderation_status": moderationStatus,
+      "average_rating": averageRating,
+      "ratings_count": ratingsCount,
     };
   }
 }

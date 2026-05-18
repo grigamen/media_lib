@@ -122,73 +122,42 @@ class _LibraryControls extends StatelessWidget {
   }
 }
 
-/// Компактный ряд звёзд (1–5) для превью в сетке библиотеки.
-Widget _compactUserRatingStars(int stars) {
-  final clamped = stars.clamp(1, 5);
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      for (var i = 1; i <= clamped; i++)
-        Icon(Icons.star, size: 14, color: Colors.amber.shade700),
-    ],
+/// Бейдж средней оценки на обложке в сетке библиотеки.
+Widget _libraryCoverAverageRatingBadge(
+  BuildContext context,
+  double average,
+  int ratingsCount,
+) {
+  final theme = Theme.of(context);
+  final filled = average.round().clamp(0, 5);
+  final label = average.toStringAsFixed(1);
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 1; i <= 5; i++)
+          Icon(
+            i <= filled ? Icons.star : Icons.star_border,
+            size: 16,
+            color:
+                i <= filled ? Colors.amber.shade400 : theme.colorScheme.outline,
+          ),
+        const SizedBox(width: 4),
+        Text(
+          "$label · $ratingsCount",
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
   );
-}
-
-class _WorkGroupRatingPreview extends StatefulWidget {
-  const _WorkGroupRatingPreview({
-    required this.group,
-    required this.onFetchWorkUserRating,
-  });
-
-  final _WorkGroup group;
-  final Future<int?> Function(List<String> mediaItemIds) onFetchWorkUserRating;
-
-  @override
-  State<_WorkGroupRatingPreview> createState() =>
-      _WorkGroupRatingPreviewState();
-}
-
-class _WorkGroupRatingPreviewState extends State<_WorkGroupRatingPreview> {
-  late Future<int?> _starsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _starsFuture = _loadStars();
-  }
-
-  @override
-  void didUpdateWidget(covariant _WorkGroupRatingPreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final oldKey = oldWidget.group.groupItems.map((e) => e.id).join("|");
-    final newKey = widget.group.groupItems.map((e) => e.id).join("|");
-    if (oldKey != newKey) {
-      _starsFuture = _loadStars();
-    }
-  }
-
-  Future<int?> _loadStars() {
-    final ids =
-        widget.group.groupItems.map((item) => item.id).toList(growable: false);
-    return widget.onFetchWorkUserRating(ids);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<int?>(
-      future: _starsFuture,
-      builder: (context, snapshot) {
-        final stars = snapshot.data;
-        if (stars == null) {
-          return const SizedBox.shrink();
-        }
-        return Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: _compactUserRatingStars(stars),
-        );
-      },
-    );
-  }
 }
 
 class _LibraryItemCard extends StatelessWidget {
@@ -197,14 +166,14 @@ class _LibraryItemCard extends StatelessWidget {
     required this.onTap,
     required this.onOpenLinks,
     this.currentUserId,
-    this.onFetchWorkUserRating,
+    this.averageRating,
   });
 
   final _WorkGroup group;
   final VoidCallback onTap;
   final VoidCallback onOpenLinks;
   final String? currentUserId;
-  final Future<int?> Function(List<String> mediaItemIds)? onFetchWorkUserRating;
+  final _WorkAverageRating? averageRating;
 
   /// Одна ячейка сетки: обложка, при необходимости плашка модерации, иконки «есть книга/аудио/видео», открытие карточки.
   @override
@@ -294,6 +263,16 @@ class _LibraryItemCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (averageRating != null)
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: _libraryCoverAverageRatingBadge(
+                        context,
+                        averageRating!.average,
+                        averageRating!.count,
+                      ),
+                    ),
                   Positioned(
                     left: 0,
                     right: 0,
@@ -325,11 +304,20 @@ class _LibraryItemCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          if (currentUserId != null && onFetchWorkUserRating != null)
-            _WorkGroupRatingPreview(
-              group: group,
-              onFetchWorkUserRating: onFetchWorkUserRating!,
+          if (averageRating != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.star, size: 16, color: Colors.amber.shade700),
+                const SizedBox(width: 4),
+                Text(
+                  "Средняя: ${averageRating!.average.toStringAsFixed(1)} "
+                  "(${averageRating!.count})",
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ],
             ),
+          ],
         ],
       ),
     );

@@ -118,6 +118,46 @@ mixin _AppStateLibrary on _AppStateRefs {
       _s._isLibraryLoading = false;
       await refreshOwnedWorksCount();
       notifyListeners();
+      unawaited(_prefetchLibraryUserRatings());
+    }
+  }
+
+  /// Подгружает оценки для карточек сетки библиотеки (параллельно, небольшими пачками).
+  Future<void> _prefetchLibraryUserRatings() async {
+    if (_s._session == null) {
+      return;
+    }
+    final ids =
+        _s._items
+            .map((item) => item.id)
+            .where((id) => id.isNotEmpty && !id.startsWith("demo-"))
+            .toSet()
+            .toList(growable: false);
+    if (ids.isEmpty) {
+      return;
+    }
+    const batchSize = 8;
+    var changed = false;
+    for (var offset = 0; offset < ids.length; offset += batchSize) {
+      final batch = ids.skip(offset).take(batchSize);
+      await Future.wait(
+        batch.map((id) async {
+          if (_s._userRatingCacheByMediaId.containsKey(id)) {
+            return;
+          }
+          try {
+            await fetchMediaProgressForItem(id);
+            changed = true;
+          } catch (_) {
+            _s._userRatingCacheByMediaId[id] = null;
+            changed = true;
+          }
+        }),
+      );
+      if (changed) {
+        notifyListeners();
+        changed = false;
+      }
     }
   }
 
@@ -753,6 +793,7 @@ mixin _AppStateLibrary on _AppStateRefs {
       result = progress.ratingStars;
     }
     notifyListeners();
+    unawaited(fetchLibrary());
     return result;
   }
 
@@ -764,5 +805,6 @@ mixin _AppStateLibrary on _AppStateRefs {
       await clearMediaItemUserRating(id);
     }
     notifyListeners();
+    unawaited(fetchLibrary());
   }
 }

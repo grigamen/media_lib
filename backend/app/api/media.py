@@ -129,6 +129,60 @@ def _get_visible_media_item(db: Session, media_item_id: UUID, current_user: User
     return item
 
 
+def _average_ratings_for_items(
+    db: Session,
+    media_item_ids: list[UUID],
+) -> dict[UUID, tuple[float, int]]:
+    """Средняя оценка и число оценок по каждому media_item_id (только rating_stars 1–5)."""
+    if not media_item_ids:
+        return {}
+    stmt = (
+        select(
+            Progress.media_item_id,
+            func.avg(Progress.rating_stars),
+            func.count(Progress.rating_stars),
+        )
+        .where(
+            Progress.media_item_id.in_(media_item_ids),
+            Progress.rating_stars.isnot(None),
+        )
+        .group_by(Progress.media_item_id)
+    )
+    result: dict[UUID, tuple[float, int]] = {}
+    for media_item_id, avg, cnt in db.execute(stmt).all():
+        result[media_item_id] = (round(float(avg), 1), int(cnt))
+    return result
+
+
+def _media_item_to_response(
+    item: MediaItem,
+    ratings: dict[UUID, tuple[float, int]] | None = None,
+) -> MediaItemResponse:
+    average_rating: float | None = None
+    ratings_count = 0
+    if ratings is not None:
+        summary = ratings.get(item.id)
+        if summary is not None:
+            average_rating, ratings_count = summary
+    return MediaItemResponse(
+        id=item.id,
+        user_id=item.user_id,
+        type=item.type,
+        title=item.title,
+        author=item.author,
+        cover_url=item.cover_url,
+        genres=item.genres,
+        description=item.description,
+        metadata_json=item.metadata_json,
+        moderation_status=item.moderation_status,
+        average_rating=average_rating,
+        ratings_count=ratings_count,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+        deleted_at=item.deleted_at,
+    )
+
+
 def _get_or_create_progress(db: Session, media_item_id: UUID, current_user: User) -> Progress:
     """Строка прогресса user+media; при отсутствии создаётся с нулевой позицией."""
     stmt = select(Progress).where(
@@ -312,7 +366,7 @@ def create_media_item(
     payload: MediaItemCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> MediaItem:
+) -> MediaItemResponse:
     """Создаёт черновик/заявку произведения (модерация pending)."""
     title = payload.title.strip()
     if not title:
@@ -332,7 +386,7 @@ def create_media_item(
     db.add(item)
     db.commit()
     db.refresh(item)
-    return item
+    return _media_item_to_response(item)
 
 
 @router.get("/media-items", response_model=MediaItemsListResponse)
@@ -440,7 +494,13 @@ def list_media_items(
 
     stmt = select(MediaItem).where(where_clause).order_by(sort_expr).offset(offset).limit(limit)
     items = list(db.scalars(stmt).all())
-    return MediaItemsListResponse(items=items, total=total, limit=limit, offset=offset)
+    ratings = _average_ratings_for_items(db, [item.id for item in items])
+    return MediaItemsListResponse(
+        items=[_media_item_to_response(item, ratings) for item in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/media-genres", response_model=GenreListResponse)
@@ -478,9 +538,11 @@ def get_media_item(
     media_item_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> MediaItem:
+) -> MediaItemResponse:
     """Одна карточка по id при соблюдении правил чтения (модерация / владелец)."""
-    return _get_visible_media_item(db, media_item_id, current_user)
+    item = _get_visible_media_item(db, media_item_id, current_user)
+    ratings = _average_ratings_for_items(db, [item.id])
+    return _media_item_to_response(item, ratings)
 
 
 @router.patch("/media-items/{media_item_id}", response_model=MediaItemResponse)
@@ -489,7 +551,7 @@ def update_media_item(
     payload: MediaItemUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> MediaItem:
+) -> MediaItemResponse:
     """Частичное обновление полей; доступно владельцу записи."""
     item = _get_owned_media_item(db, media_item_id, current_user)
 
@@ -516,7 +578,8 @@ def update_media_item(
 
     db.commit()
     db.refresh(item)
-    return item
+    ratings = _average_ratings_for_items(db, [item.id])
+    return _media_item_to_response(item, ratings)
 
 
 @router.delete("/media-items/{media_item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -842,7 +905,7 @@ def admin_approve_media_item(
     media_item_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-) -> MediaItem:
+) -> MediaItemResponse:
     """Админ: одобрить карточку (модерация approved)."""
     item = db.get(MediaItem, media_item_id)
     if item is None or item.deleted_at is not None:
@@ -850,7 +913,8 @@ def admin_approve_media_item(
     item.moderation_status = "approved"
     db.commit()
     db.refresh(item)
-    return item
+    ratings = _average_ratings_for_items(db, [item.id])
+    return _media_item_to_response(item, ratings)
 
 
 @router.post(
@@ -861,7 +925,7 @@ def admin_reject_media_item(
     media_item_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
-) -> MediaItem:
+) -> MediaItemResponse:
     """Админ: отклонить карточку (модерация rejected)."""
     item = db.get(MediaItem, media_item_id)
     if item is None or item.deleted_at is not None:
@@ -869,4 +933,5 @@ def admin_reject_media_item(
     item.moderation_status = "rejected"
     db.commit()
     db.refresh(item)
-    return item
+    ratings = _average_ratings_for_items(db, [item.id])
+    return _media_item_to_response(item, ratings)

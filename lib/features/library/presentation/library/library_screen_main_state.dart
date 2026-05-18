@@ -196,10 +196,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     return _LibraryItemCard(
                       group: group,
                       currentUserId: widget.currentUserId,
-                      onFetchWorkUserRating:
-                          widget.currentUserId != null
-                              ? widget.onFetchWorkUserRating
-                              : null,
+                      averageRating: _averageRatingForWorkGroup(
+                        group.groupItems,
+                      ),
                       onTap: () {
                         openMediaItemDetailsPage(
                           context: context,

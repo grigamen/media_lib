@@ -3,6 +3,35 @@ part of 'library_screen.dart';
 // Вспомогательные штуки для библиотеки: как показать тип контента словами, как открыть карточку произведения,
 // как собрать одну «работу» из нескольких форматов (книга + аудио), маленькие функции про картинки и жанры.
 
+/// Сводка средней оценки по группе форматов одного произведения.
+class _WorkAverageRating {
+  const _WorkAverageRating({required this.average, required this.count});
+
+  final double average;
+  final int count;
+}
+
+/// Взвешенное среднее по всем форматам (книга + аудио + видео) и суммарное число оценок.
+_WorkAverageRating? _averageRatingForWorkGroup(List<MediaListItem> items) {
+  var weightedSum = 0.0;
+  var totalCount = 0;
+  for (final item in items) {
+    final avg = item.averageRating;
+    final count = item.ratingsCount;
+    if (avg != null && count > 0) {
+      weightedSum += avg * count;
+      totalCount += count;
+    }
+  }
+  if (totalCount == 0) {
+    return null;
+  }
+  return _WorkAverageRating(
+    average: weightedSum / totalCount,
+    count: totalCount,
+  );
+}
+
 /// Как показать пользователю тип контента обычным словом («Книга», а не внутренний код).
 String _labelForType(String type) {
   switch (type) {

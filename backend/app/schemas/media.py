@@ -46,6 +46,8 @@ class MediaItemResponse(BaseModel):
     description: str | None = None
     metadata_json: dict | None = None
     moderation_status: ModerationStatus
+    average_rating: float | None = None
+    ratings_count: int = 0
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None
