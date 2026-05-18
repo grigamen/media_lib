@@ -11,6 +11,31 @@ class _WorkAverageRating {
   final int count;
 }
 
+/// Сумма просмотров по всем форматам одного произведения.
+int _totalViewsForWorkGroup(List<MediaListItem> items) {
+  var total = 0;
+  for (final item in items) {
+    total += item.viewsCount;
+  }
+  return total;
+}
+
+String _formatViewsCount(int count) {
+  final n = count.abs();
+  final mod10 = n % 10;
+  final mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) {
+    return "$n просмотров";
+  }
+  if (mod10 == 1) {
+    return "$n просмотр";
+  }
+  if (mod10 >= 2 && mod10 <= 4) {
+    return "$n просмотра";
+  }
+  return "$n просмотров";
+}
+
 /// Взвешенное среднее по всем форматам (книга + аудио + видео) и суммарное число оценок.
 _WorkAverageRating? _averageRatingForWorkGroup(List<MediaListItem> items) {
   var weightedSum = 0.0;
@@ -30,6 +55,53 @@ _WorkAverageRating? _averageRatingForWorkGroup(List<MediaListItem> items) {
     average: weightedSum / totalCount,
     count: totalCount,
   );
+}
+
+int _compareWorkGroupTitle(_WorkGroup a, _WorkGroup b) {
+  final byTitle = a.displayTitle.toLowerCase().compareTo(
+    b.displayTitle.toLowerCase(),
+  );
+  if (byTitle != 0) {
+    return byTitle;
+  }
+  return a.displayAuthor.toLowerCase().compareTo(b.displayAuthor.toLowerCase());
+}
+
+double _workGroupRatingSortKey(_WorkGroup group) {
+  return _averageRatingForWorkGroup(group.groupItems)?.average ?? -1;
+}
+
+void _sortWorkGroups(
+  List<_WorkGroup> groups, {
+  required LibrarySortField field,
+  required bool descending,
+}) {
+  int primaryCompare(_WorkGroup a, _WorkGroup b) {
+    switch (field) {
+      case LibrarySortField.title:
+        return _compareWorkGroupTitle(a, b);
+      case LibrarySortField.rating:
+        return _workGroupRatingSortKey(
+          a,
+        ).compareTo(_workGroupRatingSortKey(b));
+      case LibrarySortField.views:
+        return _totalViewsForWorkGroup(
+          a.groupItems,
+        ).compareTo(_totalViewsForWorkGroup(b.groupItems));
+    }
+  }
+
+  groups.sort((a, b) {
+    var result = primaryCompare(a, b);
+    if (result != 0) {
+      if (descending) {
+        result = -result;
+      }
+    } else {
+      result = _compareWorkGroupTitle(a, b);
+    }
+    return result;
+  });
 }
 
 /// Как показать пользователю тип контента обычным словом («Книга», а не внутренний код).

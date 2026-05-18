@@ -13,6 +13,7 @@ class MediaListItem {
     this.moderationStatus = 'approved',
     this.averageRating,
     this.ratingsCount = 0,
+    this.viewsCount = 0,
   });
 
   final String id;
@@ -34,6 +35,9 @@ class MediaListItem {
   /// Сколько пользователей поставили оценку.
   final int ratingsCount;
 
+  /// Сколько раз открывали карточку произведения.
+  final int viewsCount;
+
   MediaListItem copyWith({
     String? userId,
     String? title,
@@ -46,6 +50,7 @@ class MediaListItem {
     String? moderationStatus,
     double? averageRating,
     int? ratingsCount,
+    int? viewsCount,
   }) {
     return MediaListItem(
       id: id,
@@ -60,6 +65,7 @@ class MediaListItem {
       moderationStatus: moderationStatus ?? this.moderationStatus,
       averageRating: averageRating ?? this.averageRating,
       ratingsCount: ratingsCount ?? this.ratingsCount,
+      viewsCount: viewsCount ?? this.viewsCount,
     );
   }
 
@@ -114,6 +120,7 @@ class MediaListItem {
       moderationStatus: json["moderation_status"] as String? ?? "approved",
       averageRating: (json["average_rating"] as num?)?.toDouble(),
       ratingsCount: json["ratings_count"] as int? ?? 0,
+      viewsCount: json["views_count"] as int? ?? 0,
     );
   }
 
@@ -131,6 +138,7 @@ class MediaListItem {
       "moderation_status": moderationStatus,
       "average_rating": averageRating,
       "ratings_count": ratingsCount,
+      "views_count": viewsCount,
     };
   }
 }

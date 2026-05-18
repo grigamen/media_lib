@@ -177,6 +177,7 @@ def _media_item_to_response(
         moderation_status=item.moderation_status,
         average_rating=average_rating,
         ratings_count=ratings_count,
+        views_count=item.views_count,
         created_at=item.created_at,
         updated_at=item.updated_at,
         deleted_at=item.deleted_at,
@@ -541,6 +542,21 @@ def get_media_item(
 ) -> MediaItemResponse:
     """Одна карточка по id при соблюдении правил чтения (модерация / владелец)."""
     item = _get_visible_media_item(db, media_item_id, current_user)
+    ratings = _average_ratings_for_items(db, [item.id])
+    return _media_item_to_response(item, ratings)
+
+
+@router.post("/media-items/{media_item_id}/view", response_model=MediaItemResponse)
+def record_media_item_view(
+    media_item_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MediaItemResponse:
+    """Увеличивает счётчик просмотров карточки (открытие произведения)."""
+    item = _get_visible_media_item(db, media_item_id, current_user)
+    item.views_count = int(item.views_count or 0) + 1
+    db.commit()
+    db.refresh(item)
     ratings = _average_ratings_for_items(db, [item.id])
     return _media_item_to_response(item, ratings)
 

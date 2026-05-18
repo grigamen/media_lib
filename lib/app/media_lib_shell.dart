@@ -121,6 +121,10 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
         searchQuery: state.searchQuery,
         selectedTypes: state.selectedTypes,
         selectedGenres: state.selectedGenres,
+        librarySortField: state.librarySortField,
+        librarySortDescending: state.librarySortDescending,
+        onSetLibrarySortField: state.setLibrarySort,
+        onToggleLibrarySortDirection: state.toggleLibrarySortDirection,
         onSetLibraryFilters:
             (query, types, genres) => state.applyLibraryFilters(
               searchQuery: query,

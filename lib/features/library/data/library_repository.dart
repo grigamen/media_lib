@@ -314,6 +314,19 @@ class LibraryRepository {
     return MediaProgress.fromJson(response);
   }
 
+  /// Зафиксировать просмотр карточки (+1 к views_count на сервере).
+  Future<MediaListItem> recordMediaItemView({
+    required String accessToken,
+    required String mediaItemId,
+  }) async {
+    final response = await _apiClient.postJson(
+      "/media-items/$mediaItemId/view",
+      const <String, dynamic>{},
+      accessToken: accessToken,
+    );
+    return MediaListItem.fromJson(response);
+  }
+
   /// Снять личную оценку (звёзды), позицию просмотра не меняет.
   Future<MediaProgress> clearMediaItemRating({
     required String accessToken,

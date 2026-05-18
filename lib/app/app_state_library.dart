@@ -246,6 +246,23 @@ mixin _AppStateLibrary on _AppStateRefs {
     await fetchLibrary();
   }
 
+  /// Сортировка сетки библиотеки (клиентская, без перезапроса каталога).
+  void setLibrarySort(LibrarySortField field, {bool? descending}) {
+    final direction = descending ?? field.defaultDescending;
+    if (_s._librarySortField == field &&
+        _s._librarySortDescending == direction) {
+      return;
+    }
+    _s._librarySortField = field;
+    _s._librarySortDescending = direction;
+    notifyListeners();
+  }
+
+  void toggleLibrarySortDirection() {
+    _s._librarySortDescending = !_s._librarySortDescending;
+    notifyListeners();
+  }
+
   /// Последовательно удаляет все собственные произведения пользователя (для «сброса аккаунта»).
   Future<void> deleteAllMediaItems() async {
     final session = _s._session;
@@ -646,7 +663,13 @@ mixin _AppStateLibrary on _AppStateRefs {
   /// Одно произведение по id с освежением URL обложки; для демо — из локальных данных.
   Future<MediaListItem?> fetchMediaItemById(String mediaItemId) async {
     if (mediaItemId.startsWith("demo-")) {
-      return DemoLibraryData.findItemById(mediaItemId);
+      final item = DemoLibraryData.findItemById(mediaItemId);
+      if (item == null) {
+        return null;
+      }
+      return item.copyWith(
+        viewsCount: _s._demoViewsCountByMediaId[mediaItemId] ?? 0,
+      );
     }
     final session = _s._session;
     if (session == null) {
@@ -795,6 +818,46 @@ mixin _AppStateLibrary on _AppStateRefs {
     notifyListeners();
     unawaited(fetchLibrary());
     return result;
+  }
+
+  /// Увеличивает счётчик просмотров на сервере и обновляет каталог в памяти.
+  Future<void> recordMediaItemView(String mediaItemId) async {
+    final normalizedId = mediaItemId.trim();
+    if (normalizedId.isEmpty) {
+      return;
+    }
+    if (normalizedId.startsWith("demo-")) {
+      final next = (_s._demoViewsCountByMediaId[normalizedId] ?? 0) + 1;
+      _s._demoViewsCountByMediaId[normalizedId] = next;
+      _s._patchItemViewsCountInCatalog(normalizedId, next);
+      notifyListeners();
+      return;
+    }
+    final session = _s._session;
+    if (session == null) {
+      return;
+    }
+    try {
+      final updated = await _s._libraryRepository.recordMediaItemView(
+        accessToken: session.accessToken,
+        mediaItemId: normalizedId,
+      );
+      _s._patchItemViewsCountInCatalog(normalizedId, updated.viewsCount);
+      notifyListeners();
+    } catch (_) {
+      // Просмотр в «Недавних» уже сохранён локально; сбой счётчика не блокирует экран.
+    }
+  }
+
+  void _patchItemViewsCountInCatalog(String mediaItemId, int viewsCount) {
+    _s._items = _s._items
+        .map(
+          (item) =>
+              item.id == mediaItemId
+                  ? item.copyWith(viewsCount: viewsCount)
+                  : item,
+        )
+        .toList(growable: false);
   }
 
   Future<void> clearWorkUserRatingStars(List<String> mediaItemIds) async {

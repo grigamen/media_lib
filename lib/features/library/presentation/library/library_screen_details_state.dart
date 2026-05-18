@@ -142,6 +142,31 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                           ),
                                       const SizedBox(height: 4),
                                       Text(activeAuthor),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.visibility_outlined,
+                                            size: 18,
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _formatViewsCount(
+                                              _totalViewsForWorkGroup(
+                                                _variants,
+                                              ),
+                                            ),
+                                            style:
+                                                Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
+                                          ),
+                                        ],
+                                      ),
                                       if (_averageRatingForWorkGroup(
                                             _variants,
                                           )

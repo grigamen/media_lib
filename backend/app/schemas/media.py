@@ -48,6 +48,7 @@ class MediaItemResponse(BaseModel):
     moderation_status: ModerationStatus
     average_rating: float | None = None
     ratings_count: int = 0
+    views_count: int = 0
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None = None

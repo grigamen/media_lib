@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,3 +38,4 @@ class MediaItem(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Статус проверки: ожидает / одобрено / отклонено; новые записи обычных авторов начинаются как «ожидает».
     moderation_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    views_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

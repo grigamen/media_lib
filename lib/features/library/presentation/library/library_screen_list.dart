@@ -31,6 +31,10 @@ class _LibraryControls extends StatelessWidget {
     required this.searchQuery,
     required this.selectedTypes,
     required this.selectedGenres,
+    required this.librarySortField,
+    required this.librarySortDescending,
+    required this.onSetLibrarySortField,
+    required this.onToggleLibrarySortDirection,
     required this.onSetLibraryFilters,
     required this.onSearchFieldTap,
   });
@@ -39,6 +43,10 @@ class _LibraryControls extends StatelessWidget {
   final String searchQuery;
   final List<String> selectedTypes;
   final List<String> selectedGenres;
+  final LibrarySortField librarySortField;
+  final bool librarySortDescending;
+  final void Function(LibrarySortField field) onSetLibrarySortField;
+  final VoidCallback onToggleLibrarySortDirection;
   final Future<void> Function(
     String searchQuery,
     List<String> selectedTypes,
@@ -70,6 +78,50 @@ class _LibraryControls extends StatelessWidget {
             hintText: "Поиск и фильтры…",
             prefixIcon: Icon(Icons.search),
           ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: "Сортировка",
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<LibrarySortField>(
+                    isExpanded: true,
+                    value: librarySortField,
+                    items: [
+                      for (final field in LibrarySortField.values)
+                        DropdownMenuItem(
+                          value: field,
+                          child: Text(field.label),
+                        ),
+                    ],
+                    onChanged: (field) {
+                      if (field != null) {
+                        onSetLibrarySortField(field);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip:
+                  librarySortDescending
+                      ? "По убыванию"
+                      : "По возрастанию",
+              onPressed: onToggleLibrarySortDirection,
+              icon: Icon(
+                librarySortDescending
+                    ? Icons.arrow_downward
+                    : Icons.arrow_upward,
+              ),
+            ),
+          ],
         ),
         if (hasActiveFilters) ...[
           const SizedBox(height: 12),

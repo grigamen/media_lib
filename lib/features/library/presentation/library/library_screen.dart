@@ -11,6 +11,7 @@ import "../../../../core/audio/audiobook_audio_handler.dart";
 import "../../../../core/files/media_upload_file_pick.dart";
 import "../../../../core/network/api_client.dart";
 import "../../data/library_repository.dart";
+import "../../data/library_sort.dart";
 import "../book_reader/book_reader_screen.dart";
 
 // Здесь собран весь экран «Библиотека»: сетка обложек, открытие карточки, чтение, прослушивание, загрузка файлов.
@@ -47,6 +48,10 @@ class LibraryScreen extends StatefulWidget {
     required this.searchQuery,
     required this.selectedTypes,
     required this.selectedGenres,
+    required this.librarySortField,
+    required this.librarySortDescending,
+    required this.onSetLibrarySortField,
+    required this.onToggleLibrarySortDirection,
     required this.onSetLibraryFilters,
     required this.availableGenres,
     required this.onLoadLinks,
@@ -96,6 +101,10 @@ class LibraryScreen extends StatefulWidget {
     List<String> selectedGenres,
   )
   onSetLibraryFilters; // пользователь поменял поиск или фильтры — сохранить и перезагрузить список
+  final LibrarySortField librarySortField;
+  final bool librarySortDescending;
+  final void Function(LibrarySortField field) onSetLibrarySortField;
+  final VoidCallback onToggleLibrarySortDirection;
   final List<String> availableGenres; // список жанров, который можно выбрать (из приложения)
   final Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks; // узнать, с чем на сервере связана эта запись
   final Future<MediaListItem?> Function(String mediaItemId) onLoadItemById; // забрать одну свежую карточку по её номеру на сервере

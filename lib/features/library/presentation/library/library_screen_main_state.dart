@@ -22,8 +22,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
     final result = groups.values
         .map((groupItems) => _WorkGroup(groupItems: groupItems))
-        .toList(growable: false);
-    result.sort((a, b) => a.displayTitle.compareTo(b.displayTitle));
+        .toList(growable: true);
+    _sortWorkGroups(
+      result,
+      field: widget.librarySortField,
+      descending: widget.librarySortDescending,
+    );
     return result;
   }
 
@@ -109,6 +113,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       searchQuery: widget.searchQuery,
                       selectedTypes: widget.selectedTypes,
                       selectedGenres: widget.selectedGenres,
+                      librarySortField: widget.librarySortField,
+                      librarySortDescending: widget.librarySortDescending,
+                      onSetLibrarySortField: widget.onSetLibrarySortField,
+                      onToggleLibrarySortDirection:
+                          widget.onToggleLibrarySortDirection,
                       onSetLibraryFilters: widget.onSetLibraryFilters,
                       onSearchFieldTap: widget.onOpenSearchTab,
                     ),
@@ -138,6 +147,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       searchQuery: widget.searchQuery,
                       selectedTypes: widget.selectedTypes,
                       selectedGenres: widget.selectedGenres,
+                      librarySortField: widget.librarySortField,
+                      librarySortDescending: widget.librarySortDescending,
+                      onSetLibrarySortField: widget.onSetLibrarySortField,
+                      onToggleLibrarySortDirection:
+                          widget.onToggleLibrarySortDirection,
                       onSetLibraryFilters: widget.onSetLibraryFilters,
                       onSearchFieldTap: widget.onOpenSearchTab,
                     ),
@@ -164,6 +178,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     searchQuery: widget.searchQuery,
                     selectedTypes: widget.selectedTypes,
                     selectedGenres: widget.selectedGenres,
+                    librarySortField: widget.librarySortField,
+                    librarySortDescending: widget.librarySortDescending,
+                    onSetLibrarySortField: widget.onSetLibrarySortField,
+                    onToggleLibrarySortDirection:
+                        widget.onToggleLibrarySortDirection,
                     onSetLibraryFilters: widget.onSetLibraryFilters,
                     onSearchFieldTap: widget.onOpenSearchTab,
                   ),

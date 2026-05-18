@@ -19,6 +19,7 @@ import "../core/local/recently_viewed_local_store.dart";
 import "../core/network/api_client.dart";
 import "../features/auth/data/auth_repository.dart";
 import "../features/library/data/library_repository.dart";
+import "../features/library/data/library_sort.dart";
 
 import "media_upload_payload.dart";
 import "playback_session.dart";
@@ -107,11 +108,16 @@ class AppState extends ChangeNotifier
   /// Кэш последних оценок с сервера (ключ — media_item_id).
   final Map<String, int?> _userRatingCacheByMediaId = {};
 
+  /// Счётчик просмотров для demo-карточек (ключ — media_item_id).
+  final Map<String, int> _demoViewsCountByMediaId = {};
+
   /// После первого непустого ответа API пустой список больше не заменяется демо-данными.
   bool _sawNonEmptyServerLibrary = false;
   String _searchQuery = "";
   List<String> _selectedTypes = const [];
   List<String> _selectedGenres = const [];
+  LibrarySortField _librarySortField = LibrarySortField.title;
+  bool _librarySortDescending = false;
   int _selectedTab = 0;
   PlaybackLoadState _playbackLoadState = PlaybackLoadState.idle;
   String? _playbackError;
@@ -175,6 +181,10 @@ class AppState extends ChangeNotifier
   List<String> get selectedTypes => List.unmodifiable(_selectedTypes);
 
   List<String> get selectedGenres => List.unmodifiable(_selectedGenres);
+
+  LibrarySortField get librarySortField => _librarySortField;
+
+  bool get librarySortDescending => _librarySortDescending;
 
   /// Одна выбранная категория для чипов на экране библиотеки, иначе «Все».
   String? get libraryTypeFilterChip =>
