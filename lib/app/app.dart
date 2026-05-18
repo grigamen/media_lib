@@ -32,6 +32,7 @@ class _MediaLibAppState extends State<MediaLibApp> {
     // shell is not rebuilt on every notifyListeners (e.g. profile PATCH while
     // a dialog route is closing — that pattern hit _dependents.isEmpty).
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: "MediaLib",
       theme: buildMediaLibTheme(Brightness.light),
       darkTheme: buildMediaLibTheme(Brightness.dark),
