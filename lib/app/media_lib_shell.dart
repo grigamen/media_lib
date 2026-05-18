@@ -189,6 +189,7 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
         pendingPlaybackSync: state.pendingPlaybackSync,
         playbackError: state.playbackError,
         onLoadBookContent: state.loadBookContent,
+        onRecordMediaItemView: state.recordMediaItemView,
         onMarkItemViewed: state.markItemViewed,
         onOpenSearchTab: () => state.setSelectedTab(3),
         onFetchMediaFiles: state.fetchMediaFilesForItem,

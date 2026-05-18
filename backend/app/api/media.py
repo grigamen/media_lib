@@ -552,7 +552,7 @@ def record_media_item_view(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> MediaItemResponse:
-    """Увеличивает счётчик просмотров карточки (открытие произведения)."""
+    """Увеличивает счётчик просмотров одной записи media_item (плеер или чтение)."""
     item = _get_visible_media_item(db, media_item_id, current_user)
     item.views_count = int(item.views_count or 0) + 1
     db.commit()

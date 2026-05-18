@@ -243,6 +243,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               widget.onFetchPlaybackStreamUrl,
                           playbackError: widget.playbackError,
                           onLoadBookContent: widget.onLoadBookContent,
+                          onRecordMediaItemView: widget.onRecordMediaItemView,
                           onMarkItemViewed: widget.onMarkItemViewed,
                           onFetchMediaFiles: widget.onFetchMediaFiles,
                           onBindMainMediaFile: widget.onBindMainMediaFile,

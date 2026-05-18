@@ -820,7 +820,7 @@ mixin _AppStateLibrary on _AppStateRefs {
     return result;
   }
 
-  /// Увеличивает счётчик просмотров на сервере и обновляет каталог в памяти.
+  /// Увеличивает счётчик просмотров формата (плеер или «Читать») и обновляет каталог в памяти.
   Future<void> recordMediaItemView(String mediaItemId) async {
     final normalizedId = mediaItemId.trim();
     if (normalizedId.isEmpty) {

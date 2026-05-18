@@ -24,6 +24,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.onFetchPlaybackStreamUrl,
     required this.playbackError,
     required this.onLoadBookContent,
+    required this.onRecordMediaItemView,
     required this.onFetchMediaFiles,
     required this.onBindMainMediaFile,
     required this.onUploadAndBindMainMediaFile,
@@ -83,6 +84,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
   final Future<String?> Function(String fileId) onFetchPlaybackStreamUrl;
   final String? playbackError;
   final Future<String> Function(MediaListItem item) onLoadBookContent;
+  final Future<void> Function(String mediaItemId) onRecordMediaItemView;
   final Future<List<MediaFileSummary>> Function(String mediaItemId)
   onFetchMediaFiles;
   final Future<void> Function({

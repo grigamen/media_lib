@@ -252,7 +252,6 @@ mixin _AppStateAuth on _AppStateRefs {
     if (store != null) {
       unawaited(store.saveItemIds(userId, persisted));
     }
-    unawaited(_s.recordMediaItemView(normalizedId));
   }
 
   /// PATCH профиля: имя, смена email с подтверждением паролем.

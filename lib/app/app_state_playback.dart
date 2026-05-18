@@ -41,6 +41,7 @@ mixin _AppStatePlayback on _AppStateRefs {
         }
         _s._playbackLoadState = PlaybackLoadState.ready;
         notifyListeners();
+        await _s.recordMediaItemView(item.id);
         return PlaybackSessionOutcome.success(
           PlaybackSessionConfig(
             mediaItemId: item.id,
@@ -181,6 +182,7 @@ mixin _AppStatePlayback on _AppStateRefs {
       _s._playbackIsCompleted = progress.isCompleted;
       _s._playbackLoadState = PlaybackLoadState.ready;
       notifyListeners();
+      await _s.recordMediaItemView(item.id);
       return PlaybackSessionOutcome.success(
         PlaybackSessionConfig(
           mediaItemId: item.id,

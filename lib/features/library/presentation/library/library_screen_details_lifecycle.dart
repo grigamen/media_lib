@@ -130,6 +130,36 @@ mixin _MediaItemDetailsLifecycleMixin on _MediaItemDetailsStateFields {
     }
   }
 
+  Future<PlaybackSessionOutcome> _beginPlaybackSessionForVariant(
+    MediaListItem item,
+  ) async {
+    final outcome = await widget.onBeginPlaybackSession(item);
+    if (mounted && outcome.config != null) {
+      await _refreshVariant(item.id);
+    }
+    return outcome;
+  }
+
+  Future<void> _openBookReader(MediaListItem item) async {
+    await widget.onRecordMediaItemView(item.id);
+    if (!mounted) {
+      return;
+    }
+    await _refreshVariant(item.id);
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder:
+            (_) => BookReaderScreen(
+              item: item,
+              onLoadBookContent: widget.onLoadBookContent,
+            ),
+      ),
+    );
+  }
+
   /// После сохранения или смены файла подставляем свежую карточку вместо старой в списке вкладок.
   Future<void> _refreshVariant(String mediaItemId) async {
     final fresh = await widget.onLoadItemById(mediaItemId);

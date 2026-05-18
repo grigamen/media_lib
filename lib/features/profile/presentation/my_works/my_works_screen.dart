@@ -132,6 +132,7 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
             pendingPlaybackSync: state.pendingPlaybackSync,
             playbackError: state.playbackError,
             onLoadBookContent: state.loadBookContent,
+            onRecordMediaItemView: state.recordMediaItemView,
             onMarkItemViewed: state.markItemViewed,
             onOpenSearchTab: () {},
             onFetchMediaFiles: state.fetchMediaFilesForItem,

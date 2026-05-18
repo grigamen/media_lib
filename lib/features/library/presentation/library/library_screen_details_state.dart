@@ -144,6 +144,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                       Text(activeAuthor),
                                       const SizedBox(height: 6),
                                       Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Icon(
                                             Icons.visibility_outlined,
@@ -154,16 +156,43 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                                 ).colorScheme.onSurfaceVariant,
                                           ),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            _formatViewsCount(
-                                              _totalViewsForWorkGroup(
-                                                _variants,
-                                              ),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  _formatViewsForMediaItem(
+                                                    activeItem,
+                                                  ),
+                                                  style:
+                                                      Theme.of(
+                                                        context,
+                                                      ).textTheme.bodyMedium,
+                                                ),
+                                                if (_variants.length > 1) ...[
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    "Всего по произведению: "
+                                                    "${_formatViewsCount(_totalViewsForWorkGroup(_variants))}",
+                                                    style:
+                                                        Theme.of(
+                                                              context,
+                                                            )
+                                                            .textTheme
+                                                            .bodySmall
+                                                            ?.copyWith(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .onSurfaceVariant,
+                                                            ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
-                                            style:
-                                                Theme.of(
-                                                  context,
-                                                ).textTheme.bodyMedium,
                                           ),
                                         ],
                                       ),
@@ -352,8 +381,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                           const SizedBox(height: 16),
                                           _BookReadLaunchPanel(
                                             item: item,
-                                            onLoadBookContent:
-                                                widget.onLoadBookContent,
+                                            onOpenReader:
+                                                () => _openBookReader(item),
                                           ),
                                         ],
                                         const SizedBox(height: 12),
@@ -392,7 +421,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                           _PlayableMediaPanel(
                                             item: item,
                                             onBeginPlaybackSession:
-                                                widget.onBeginPlaybackSession,
+                                                _beginPlaybackSessionForVariant,
                                             onPlaybackProgressChanged:
                                                 widget
                                                     .onPlaybackProgressChanged,
@@ -492,11 +521,7 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
     }
   }
 
-  Future<void> _pick(int n) async {
-    if (_stars == n) {
-      await _clear();
-      return;
-    }
+  Future<void> _saveStars(int n) async {
     setState(() => _busy = true);
     try {
       final stars = await widget.onSetStars(n);
@@ -518,6 +543,93 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
         context,
       ).showSnackBar(SnackBar(content: Text(msg)));
     }
+  }
+
+  Future<void> _openRatingForm() async {
+    if (_busy) {
+      return;
+    }
+    var draft = _stars ?? 0;
+    final result = await showModalBottomSheet<int?>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      "Ваша оценка",
+                      style: theme.textTheme.titleLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Выберите от 1 до 5 звёзд",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 1; i <= 5; i++)
+                          IconButton(
+                            tooltip: "$i из 5",
+                            onPressed:
+                                () => setModalState(() {
+                                  draft = i;
+                                }),
+                            icon: Icon(
+                              draft >= i ? Icons.star : Icons.star_border,
+                              size: 40,
+                              color:
+                                  draft >= i
+                                      ? Colors.amber.shade700
+                                      : theme.colorScheme.outline,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed:
+                          draft >= 1 && draft <= 5
+                              ? () => Navigator.of(sheetContext).pop(draft)
+                              : null,
+                      child: const Text("Сохранить"),
+                    ),
+                    if (_stars != null) ...[
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(0),
+                        child: const Text("Удалить оценку"),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    if (result == 0) {
+      await _clear();
+      return;
+    }
+    await _saveStars(result);
   }
 
   Future<void> _clear() async {
@@ -546,49 +658,44 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final stars = _stars;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Моя оценка", style: theme.textTheme.titleSmall),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            if (_busy)
-              const Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            for (var i = 1; i <= 5; i++)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
-                onPressed: _busy ? null : () => _pick(i),
-                tooltip: "$i из 5",
-                icon: Icon(
-                  (_stars ?? 0) >= i ? Icons.star : Icons.star_border,
-                  size: 32,
+        const SizedBox(height: 6),
+        if (stars != null) ...[
+          Row(
+            children: [
+              for (var i = 1; i <= 5; i++)
+                Icon(
+                  stars >= i ? Icons.star : Icons.star_border,
+                  size: 22,
                   color:
-                      (_stars ?? 0) >= i
+                      stars >= i
                           ? Colors.amber.shade700
                           : theme.colorScheme.outline,
                 ),
-              ),
-            if (_stars != null) ...[
-              const SizedBox(width: 4),
-              TextButton(
-                onPressed: _busy ? null : _clear,
-                child: const Text("Сбросить"),
+              const SizedBox(width: 6),
+              Text(
+                "$stars из 5",
+                style: theme.textTheme.bodyMedium,
               ),
             ],
-          ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _openRatingForm,
+          icon:
+              _busy
+                  ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : Icon(stars == null ? Icons.star_outline : Icons.edit_outlined),
+          label: Text(stars == null ? "Поставить оценку" : "Изменить оценку"),
         ),
       ],
     );

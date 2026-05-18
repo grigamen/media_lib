@@ -70,6 +70,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onFetchPlaybackStreamUrl,
     required this.playbackError,
     required this.onLoadBookContent,
+    required this.onRecordMediaItemView,
     required this.onMarkItemViewed,
     required this.onOpenSearchTab,
     required this.onFetchMediaFiles,
@@ -151,6 +152,7 @@ class LibraryScreen extends StatefulWidget {
   final Future<String?> Function(String fileId) onFetchPlaybackStreamUrl; // получить временную ссылку на файл для потокового воспроизведения
   final String? playbackError; // текст последней ошибки плеера, если что-то сломалось
   final Future<String> Function(MediaListItem item) onLoadBookContent; // скачать или собрать текст книги для экрана чтения
+  final Future<void> Function(String mediaItemId) onRecordMediaItemView;
   final void Function(String mediaItemId) onMarkItemViewed; // пользователь открыл произведение — можно учесть «просмотрено»
   final VoidCallback onOpenSearchTab; // нажали поле поиска — открыть отдельный экран поиска и фильтров
   final Future<List<MediaFileSummary>> Function(String mediaItemId)

@@ -314,7 +314,7 @@ class LibraryRepository {
     return MediaProgress.fromJson(response);
   }
 
-  /// Зафиксировать просмотр карточки (+1 к views_count на сервере).
+  /// Зафиксировать просмотр (+1 к views_count на сервере при запуске плеера).
   Future<MediaListItem> recordMediaItemView({
     required String accessToken,
     required String mediaItemId,

@@ -36,6 +36,11 @@ String _formatViewsCount(int count) {
   return "$n просмотров";
 }
 
+/// Подпись просмотров для одного формата (книга / аудио / видео).
+String _formatViewsForMediaItem(MediaListItem item) {
+  return "${_labelForType(item.type)}: ${_formatViewsCount(item.viewsCount)}";
+}
+
 /// Взвешенное среднее по всем форматам (книга + аудио + видео) и суммарное число оценок.
 _WorkAverageRating? _averageRatingForWorkGroup(List<MediaListItem> items) {
   var weightedSum = 0.0;
@@ -203,6 +208,7 @@ Future<void> openMediaItemDetailsPage({
   required Future<String?> Function(String fileId) onFetchPlaybackStreamUrl,
   required String? playbackError,
   required Future<String> Function(MediaListItem item) onLoadBookContent,
+  required Future<void> Function(String mediaItemId) onRecordMediaItemView,
   required void Function(String mediaItemId) onMarkItemViewed,
   required Future<List<MediaFileSummary>> Function(String mediaItemId)
   onFetchMediaFiles,
@@ -260,6 +266,7 @@ Future<void> openMediaItemDetailsPage({
             onFetchPlaybackStreamUrl: onFetchPlaybackStreamUrl,
             playbackError: playbackError,
             onLoadBookContent: onLoadBookContent,
+            onRecordMediaItemView: onRecordMediaItemView,
             onFetchMediaFiles: onFetchMediaFiles,
             onBindMainMediaFile: onBindMainMediaFile,
             onUploadAndBindMainMediaFile: onUploadAndBindMainMediaFile,
@@ -343,6 +350,7 @@ Future<void> openMediaItemDetailsForAppState({
     onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
     playbackError: state.playbackError,
     onLoadBookContent: state.loadBookContent,
+    onRecordMediaItemView: state.recordMediaItemView,
     onMarkItemViewed: state.markItemViewed,
     onFetchMediaFiles: state.fetchMediaFilesForItem,
     onBindMainMediaFile: state.bindMainMediaFileToItem,

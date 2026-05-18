@@ -6,11 +6,11 @@ part of 'library_screen.dart';
 class _BookReadLaunchPanel extends StatelessWidget {
   const _BookReadLaunchPanel({
     required this.item,
-    required this.onLoadBookContent,
+    required this.onOpenReader,
   });
 
   final MediaListItem item;
-  final Future<String> Function(MediaListItem item) onLoadBookContent;
+  final VoidCallback onOpenReader;
 
   @override
   Widget build(BuildContext context) {
@@ -33,16 +33,7 @@ class _BookReadLaunchPanel extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () {
-            Navigator.of(context).push<void>(
-              MaterialPageRoute<void>(
-                builder: (_) => BookReaderScreen(
-                  item: item,
-                  onLoadBookContent: onLoadBookContent,
-                ),
-              ),
-            );
-          },
+          onPressed: onOpenReader,
           icon: const Icon(Icons.menu_book_outlined),
           label: const Text("Читать"),
         ),
