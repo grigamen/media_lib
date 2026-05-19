@@ -219,6 +219,15 @@ mixin _PlayableMediaPanelPlayerCore
     }
   }
 
+  /// Один раз за сессию панели: засчитать просмотр при реальном старте воспроизведения.
+  Future<void> _recordViewOnPlaybackStart() async {
+    if (_viewRecordedForSession) {
+      return;
+    }
+    _viewRecordedForSession = true;
+    await widget.onRecordMediaItemView(widget.item.id);
+  }
+
   /// Пауза или продолжить: для звука и видео по-разному, плюс при паузе сохраняем место на сервере.
   Future<void> _togglePlayPause() async {
     await _prepareIfNeeded();
@@ -231,6 +240,7 @@ mixin _PlayableMediaPanelPlayerCore
           await _audioPlayer!.pause();
           await widget.onPausePlaybackSession();
         } else {
+          await _recordViewOnPlaybackStart();
           await _audioPlayer!.play();
         }
       } catch (error) {
@@ -253,6 +263,7 @@ mixin _PlayableMediaPanelPlayerCore
         await _videoController!.pause();
         await widget.onPausePlaybackSession();
       } else {
+        await _recordViewOnPlaybackStart();
         await _videoController!.play();
       }
       if (mounted) {

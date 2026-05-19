@@ -215,11 +215,7 @@ class _ShelfDetailScreenState extends State<ShelfDetailScreen> {
               "${_typeLabel(item.type)}",
             ),
             onTap: () {
-              openWorkGroupItemDetails(
-                context,
-                widget.state,
-                mediaItemsInWorkGroup(widget.state, item),
-              );
+              openWorkGroupItemDetails(context, widget.state, item);
             },
             trailing: IconButton(
               tooltip: "Убрать с полки",

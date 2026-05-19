@@ -7,7 +7,7 @@ class MediaLibDatabase {
 
   static Database? _db;
   static const _fileName = "media_lib.sqlite";
-  static const _version = 2;
+  static const _version = 3;
 
   static Future<Database> open() async {
     if (_db != null) {
@@ -43,6 +43,16 @@ CREATE TABLE recently_viewed_local (
   item_ids_json TEXT NOT NULL,
   updated_at_ms INTEGER NOT NULL
 )""");
+        await db.execute("""
+CREATE TABLE author_book_local_file (
+  user_id TEXT NOT NULL,
+  media_item_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  PRIMARY KEY (user_id, media_item_id)
+)""");
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -51,6 +61,18 @@ CREATE TABLE IF NOT EXISTS recently_viewed_local (
   user_id TEXT PRIMARY KEY,
   item_ids_json TEXT NOT NULL,
   updated_at_ms INTEGER NOT NULL
+)""");
+        }
+        if (oldVersion < 3) {
+          await db.execute("""
+CREATE TABLE IF NOT EXISTS author_book_local_file (
+  user_id TEXT NOT NULL,
+  media_item_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  PRIMARY KEY (user_id, media_item_id)
 )""");
         }
       },

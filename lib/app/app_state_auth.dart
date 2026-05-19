@@ -226,7 +226,7 @@ mixin _AppStateAuth on _AppStateRefs {
     }
   }
 
-  /// Добавляет просмотр в «Недавние» (память + SQLite, не более 20 id).
+  /// Добавляет просмотр в «Недавние» (память + SQLite, не более 20 работ).
   void markItemViewed(String mediaItemId) {
     final userId = _s._currentUserId;
     if (userId == null) {
@@ -236,12 +236,31 @@ mixin _AppStateAuth on _AppStateRefs {
     if (normalizedId.isEmpty) {
       return;
     }
+    MediaListItem? markedItem;
+    for (final item in _s._items) {
+      if (item.id == normalizedId) {
+        markedItem = item;
+        break;
+      }
+    }
+    final markedWorkKey =
+        markedItem != null ? mediaWorkGroupKey(markedItem) : null;
     final current = _s._recentlyViewedItemIdsByUser[userId] ?? const <String>[];
+    final byId = <String, MediaListItem>{
+      for (final item in _s._items) item.id: item,
+    };
     final next = <String>[normalizedId];
     for (final id in current) {
-      if (id != normalizedId) {
-        next.add(id);
+      if (id == normalizedId) {
+        continue;
       }
+      if (markedWorkKey != null) {
+        final other = byId[id];
+        if (other != null && mediaWorkGroupKey(other) == markedWorkKey) {
+          continue;
+        }
+      }
+      next.add(id);
     }
     final persisted = next.take(20).toList(growable: false);
     _s._recentlyViewedItemIdsByUser = <String, List<String>>{
@@ -359,7 +378,8 @@ mixin _AppStateAuth on _AppStateRefs {
   Future<void> _ensureLocalPersistence() async {
     if (_s._catalogCache != null &&
         _s._progressStore != null &&
-        _s._recentlyViewedStore != null) {
+        _s._recentlyViewedStore != null &&
+        _s._authorBookLocalStore != null) {
       return;
     }
     try {
@@ -367,10 +387,12 @@ mixin _AppStateAuth on _AppStateRefs {
       _s._catalogCache = CatalogCacheStore(db);
       _s._progressStore = ProgressLocalStore(db);
       _s._recentlyViewedStore = RecentlyViewedLocalStore(db);
+      _s._authorBookLocalStore = AuthorBookLocalFileStore(db);
     } catch (_) {
       _s._catalogCache = null;
       _s._progressStore = null;
       _s._recentlyViewedStore = null;
+      _s._authorBookLocalStore = null;
     }
   }
 
@@ -443,6 +465,7 @@ mixin _AppStateAuth on _AppStateRefs {
       await _s._catalogCache?.clearForUser(userId);
       await _s._progressStore?.clearForUser(userId);
       await _s._recentlyViewedStore?.clearForUser(userId);
+      await _s._authorBookLocalStore?.clearForUser(userId);
     } catch (_) {}
   }
 

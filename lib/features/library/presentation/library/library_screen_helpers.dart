@@ -152,11 +152,46 @@ String? _inferImageMimeFromFilename(String filename) {
   return null;
 }
 
+/// Какую вкладку формата открыть: явный id, единственный фильтр по типу или единственный вариант в группе.
+String? resolveInitialMediaItemIdForGroup({
+  required List<MediaListItem> groupItems,
+  List<String> selectedTypes = const [],
+  String? preferredMediaItemId,
+}) {
+  if (groupItems.isEmpty) {
+    return null;
+  }
+  if (preferredMediaItemId != null &&
+      groupItems.any((item) => item.id == preferredMediaItemId)) {
+    return preferredMediaItemId;
+  }
+  final typeFilter = selectedTypes.toSet();
+  if (typeFilter.length == 1) {
+    for (final item in groupItems) {
+      if (item.type == typeFilter.first) {
+        return item.id;
+      }
+    }
+  }
+  if (typeFilter.isNotEmpty) {
+    for (final item in groupItems) {
+      if (typeFilter.contains(item.type)) {
+        return item.id;
+      }
+    }
+  }
+  if (groupItems.length == 1) {
+    return groupItems.first.id;
+  }
+  return groupItems.first.id;
+}
+
 /// Открывает большой экран одного произведения и передаёт туда все нужные «что сделать по нажатию» из родителя.
 Future<void> openMediaItemDetailsPage({
   required BuildContext context,
   required String? currentUserId,
   required List<MediaListItem> groupItems,
+  String? initialMediaItemId,
   required List<String> availableGenres,
   required Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks,
   required Future<MediaListItem?> Function(String mediaItemId) onLoadItemById,
@@ -234,9 +269,22 @@ Future<void> openMediaItemDetailsPage({
   required Future<void> Function(List<String> mediaItemIds)
   onClearWorkUserRating,
   required Future<bool> Function(String mediaItemId) onAddToShelf,
+  Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy,
+  Future<bool> Function(MediaListItem item)? onDownloadBookForOffline,
+  Future<void> Function({
+    required String mediaItemId,
+    required String filePath,
+    required String filename,
+    required String contentType,
+  })?
+  onSaveAuthorBookLocalFile,
 }) {
-  if (groupItems.isNotEmpty) {
-    onMarkItemViewed(groupItems.first.id);
+  final resolvedInitialId = resolveInitialMediaItemIdForGroup(
+    groupItems: groupItems,
+    preferredMediaItemId: initialMediaItemId,
+  );
+  if (resolvedInitialId != null) {
+    onMarkItemViewed(resolvedInitialId);
   }
   final group = _WorkGroup(groupItems: groupItems);
   return Navigator.of(context).push(
@@ -245,6 +293,7 @@ Future<void> openMediaItemDetailsPage({
           (_) => _MediaItemDetailsPage(
             currentUserId: currentUserId,
             group: group,
+            initialMediaItemId: resolvedInitialId,
             availableGenres: availableGenres,
             onLoadLinks: onLoadLinks,
             onLoadItemById: onLoadItemById,
@@ -273,6 +322,9 @@ Future<void> openMediaItemDetailsPage({
             onSetWorkUserRating: onSetWorkUserRating,
             onClearWorkUserRating: onClearWorkUserRating,
             onAddToShelf: onAddToShelf,
+            onHasBookOfflineCopy: onHasBookOfflineCopy,
+            onDownloadBookForOffline: onDownloadBookForOffline,
+            onSaveAuthorBookLocalFile: onSaveAuthorBookLocalFile,
           ),
     ),
   );
@@ -283,11 +335,13 @@ Future<void> openMediaItemDetailsForAppState({
   required BuildContext context,
   required AppState state,
   required List<MediaListItem> groupItems,
+  String? initialMediaItemId,
 }) {
   return openMediaItemDetailsPage(
     context: context,
     currentUserId: state.currentUserId,
     groupItems: groupItems,
+    initialMediaItemId: initialMediaItemId,
     availableGenres: state.availableGenres,
     onLoadLinks: state.fetchLinksForItem,
     onLoadItemById: state.fetchMediaItemById,
@@ -375,6 +429,20 @@ Future<void> openMediaItemDetailsForAppState({
           context: context,
           state: state,
           mediaItemId: mediaItemId,
+        ),
+    onHasBookOfflineCopy: state.hasBookOfflineCopy,
+    onDownloadBookForOffline: state.downloadBookForOffline,
+    onSaveAuthorBookLocalFile:
+        ({
+          required String mediaItemId,
+          required String filePath,
+          required String filename,
+          required String contentType,
+        }) => state.saveAuthorBookLocalFile(
+          mediaItemId: mediaItemId,
+          filePath: filePath,
+          filename: filename,
+          contentType: contentType,
         ),
   );
 }

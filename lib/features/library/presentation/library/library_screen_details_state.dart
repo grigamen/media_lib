@@ -4,7 +4,9 @@ part of 'library_screen.dart';
 
 /// Рисует вкладки, описание и панели действий, опираясь на набор общих фрагментов кода (миксины).
 class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
-    with _MediaItemDetailsStateFields,
+    with
+        SingleTickerProviderStateMixin,
+        _MediaItemDetailsStateFields,
         _MediaItemDetailsLifecycleMixin,
         _MediaItemDetailsEditDialogsMixin,
         _MediaItemDetailsAddFormatDialogsMixin {
@@ -15,7 +17,24 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
         List<MediaListItem>.from(
           widget.group.groupItems,
         ).where(_shouldShowVariantInWorkGroup).toList();
+    _focusedMediaItemId = widget.initialMediaItemId;
+    if (_focusedMediaItemId == null && _variants.isNotEmpty) {
+      _focusedMediaItemId = _variants.first.id;
+    }
+    _tabController = TabController(
+      length: _variants.isEmpty ? 1 : _variants.length,
+      vsync: this,
+      initialIndex: _variantIndexForFocused(),
+    );
+    _tabController.addListener(_onTabIndexChanged);
     _loadLinkedVariants();
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabIndexChanged);
+    _tabController.dispose();
+    super.dispose();
   }
 
   /// Полоска сверху: стрелка «назад» и название произведения.
@@ -62,19 +81,14 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
         children: [
           _workDetailsHeader(context, title),
           Expanded(
-            child: DefaultTabController(
-              length: _variants.length,
-              child: Builder(
-                builder: (context) {
-                  final tabController = DefaultTabController.of(context);
-                  return AnimatedBuilder(
-                    animation: tabController,
-                    builder: (context, child) {
-                      final selectedIndex = tabController.index.clamp(
-                        0,
-                        _variants.length - 1,
-                      );
-                      final activeItem = _variants[selectedIndex];
+            child: AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, child) {
+                final selectedIndex = _tabController.index.clamp(
+                  0,
+                  _variants.length - 1,
+                );
+                final activeItem = _variants[selectedIndex];
                       final activeAuthor =
                           activeItem.author?.trim().isNotEmpty == true
                               ? activeItem.author!.trim()
@@ -273,6 +287,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                             ),
                           ),
                           TabBar(
+                            controller: _tabController,
                             isScrollable: true,
                             tabs: _variants
                                 .map(
@@ -282,6 +297,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                           ),
                           Expanded(
                             child: TabBarView(
+                              controller: _tabController,
                               children: _variants
                                   .map(
                                     (item) => ListView(
@@ -406,8 +422,41 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                           const SizedBox(height: 16),
                                           _BookReadLaunchPanel(
                                             item: item,
+                                            isOwner:
+                                                widget.currentUserId != null &&
+                                                item.userId ==
+                                                    widget.currentUserId,
+                                            canUseOffline:
+                                                widget.currentUserId != null &&
+                                                !item.id.startsWith("demo-"),
                                             onOpenReader:
                                                 () => _openBookReader(item),
+                                            onDownloadForOffline:
+                                                widget.onDownloadBookForOffline ==
+                                                        null
+                                                    ? null
+                                                    : () => widget
+                                                        .onDownloadBookForOffline!(
+                                                      item,
+                                                    ),
+                                            onPickLocalFile:
+                                                widget.currentUserId != null &&
+                                                        item.userId ==
+                                                            widget
+                                                                .currentUserId
+                                                    ? () =>
+                                                        _pickAuthorBookLocalFile(
+                                                          item,
+                                                        )
+                                                    : null,
+                                            checkHasOfflineCopy:
+                                                widget.onHasBookOfflineCopy ==
+                                                        null
+                                                    ? null
+                                                    : () => widget
+                                                        .onHasBookOfflineCopy!(
+                                                      item.id,
+                                                    ),
                                           ),
                                         ],
                                         const SizedBox(height: 12),
@@ -447,6 +496,12 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                             item: item,
                                             onBeginPlaybackSession:
                                                 _beginPlaybackSessionForVariant,
+                                            onRecordMediaItemView: (mediaItemId) async {
+                                              await widget.onRecordMediaItemView(
+                                                mediaItemId,
+                                              );
+                                              await _refreshVariant(mediaItemId);
+                                            },
                                             onPlaybackProgressChanged:
                                                 widget
                                                     .onPlaybackProgressChanged,
@@ -475,10 +530,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                           ),
                         ],
                       );
-                    },
-                  );
-                },
-              ),
+              },
             ),
           ),
         ],

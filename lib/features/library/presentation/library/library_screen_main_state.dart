@@ -223,6 +223,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           context: context,
                           currentUserId: widget.currentUserId,
                           groupItems: group.groupItems,
+                          initialMediaItemId: resolveInitialMediaItemIdForGroup(
+                            groupItems: group.groupItems,
+                            selectedTypes: widget.selectedTypes,
+                          ),
                           availableGenres: widget.availableGenres,
                           onLoadLinks: widget.onLoadLinks,
                           onLoadItemById: widget.onLoadItemById,

@@ -137,6 +137,11 @@ class ProfileScreen extends StatelessWidget {
                   value: isDarkMode,
                   onChanged: onThemeToggle,
                 ),
+                _ActionTile(
+                  icon: Icons.add_box_outlined,
+                  title: "Добавить произведение",
+                  onTap: onOpenAddWork,
+                ),
                 if (onOpenShelves != null) ...[
                   _ActionTile(
                     icon: Icons.bookmarks_outlined,
@@ -195,11 +200,6 @@ class ProfileScreen extends StatelessWidget {
                   icon: Icons.password,
                   title: "Изменить пароль",
                   onTap: () => _openChangePasswordDialog(context),
-                ),
-                _ActionTile(
-                  icon: Icons.add_box_outlined,
-                  title: "Добавить произведение",
-                  onTap: onOpenAddWork,
                 ),
               ],
             ),

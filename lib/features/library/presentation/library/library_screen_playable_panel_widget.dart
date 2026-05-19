@@ -7,6 +7,7 @@ class _PlayableMediaPanel extends StatefulWidget {
   const _PlayableMediaPanel({
     required this.item,
     required this.onBeginPlaybackSession,
+    required this.onRecordMediaItemView,
     required this.onPlaybackProgressChanged,
     required this.onPausePlaybackSession,
     required this.onCompletePlaybackSession,
@@ -21,6 +22,7 @@ class _PlayableMediaPanel extends StatefulWidget {
   final MediaListItem item;
   final Future<PlaybackSessionOutcome> Function(MediaListItem item)
   onBeginPlaybackSession;
+  final Future<void> Function(String mediaItemId) onRecordMediaItemView;
   final void Function({
     required int positionSeconds,
     required int? durationSeconds,

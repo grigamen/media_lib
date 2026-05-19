@@ -845,7 +845,7 @@ mixin _AppStateLibrary on _AppStateRefs {
       _s._patchItemViewsCountInCatalog(normalizedId, updated.viewsCount);
       notifyListeners();
     } catch (_) {
-      // Просмотр в «Недавних» уже сохранён локально; сбой счётчика не блокирует экран.
+      // Сбой счётчика не блокирует воспроизведение.
     }
   }
 

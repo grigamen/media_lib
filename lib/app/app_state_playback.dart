@@ -41,7 +41,6 @@ mixin _AppStatePlayback on _AppStateRefs {
         }
         _s._playbackLoadState = PlaybackLoadState.ready;
         notifyListeners();
-        await _s.recordMediaItemView(item.id);
         return PlaybackSessionOutcome.success(
           PlaybackSessionConfig(
             mediaItemId: item.id,
@@ -182,7 +181,6 @@ mixin _AppStatePlayback on _AppStateRefs {
       _s._playbackIsCompleted = progress.isCompleted;
       _s._playbackLoadState = PlaybackLoadState.ready;
       notifyListeners();
-      await _s.recordMediaItemView(item.id);
       return PlaybackSessionOutcome.success(
         PlaybackSessionConfig(
           mediaItemId: item.id,
@@ -234,6 +232,7 @@ mixin _AppStatePlayback on _AppStateRefs {
     return _s._bookContentLoader.loadPlainTextForReading(
       item: item,
       session: _s._session,
+      resolveLocalSource: _s.resolveBookLocalSource,
     );
   }
 
@@ -390,6 +389,11 @@ mixin _AppStatePlayback on _AppStateRefs {
         accessToken: session.accessToken,
         mediaItemId: item.id,
         metadataJson: mergedMetadata,
+      );
+      _s._persistAuthorBookLocalFileFromUpload(
+        type: type,
+        mediaItemId: item.id,
+        uploadPayload: uploadPayload,
       );
     } finally {
       _s._uploadTracker.end();

@@ -15,6 +15,7 @@ import "../core/local/auth_token_store.dart";
 import "../core/local/catalog_cache_store.dart";
 import "../core/local/media_lib_database.dart";
 import "../core/local/progress_local_store.dart";
+import "../core/local/author_book_local_file_store.dart";
 import "../core/local/recently_viewed_local_store.dart";
 import "../core/network/api_client.dart";
 import "../features/auth/data/auth_repository.dart";
@@ -28,6 +29,10 @@ import "playback_session.dart";
 
 import "services/admin_catalog_service.dart";
 import "services/book_content_loader.dart";
+import "services/book_offline_cache_stub.dart"
+    if (dart.library.io) "services/book_offline_cache_io.dart";
+import "services/book_file_reader_stub.dart"
+    if (dart.library.io) "services/book_file_reader_io.dart";
 import "services/cover_url_refresh_service.dart";
 import "services/demo_library_data.dart";
 import "services/media_catalog_utils.dart";
@@ -41,6 +46,7 @@ part "app_state_library.dart";
 part "app_state_playback.dart";
 part "app_state_shelves.dart";
 part "app_state_auth.dart";
+part "app_state_book_local.dart";
 
 mixin _AppStateRefs on ChangeNotifier {
   /// Указатель на полный [AppState] из миксинов-частей ([_s]).
@@ -54,7 +60,8 @@ class AppState extends ChangeNotifier
         _AppStateAuth,
         _AppStateLibrary,
         _AppStatePlayback,
-        _AppStateShelves {
+        _AppStateShelves,
+        _AppStateBookLocal {
   /// Создаёт HTTP-клиент, репозитории, вспомогательные сервисы и запускает [_bootstrap].
   AppState()
     : _apiClient = ApiClient(baseUrl: AppConfig.apiBaseUrl),
@@ -148,6 +155,7 @@ class AppState extends ChangeNotifier
   CatalogCacheStore? _catalogCache;
   ProgressLocalStore? _progressStore;
   RecentlyViewedLocalStore? _recentlyViewedStore;
+  AuthorBookLocalFileStore? _authorBookLocalStore;
 
   /// Все произведения, созданные текущим пользователем ([GET /media-items?mine=true], total).
   int _ownedWorksTotal = 0;
@@ -229,10 +237,19 @@ class AppState extends ChangeNotifier
     final byId = <String, MediaListItem>{
       for (final item in _items) item.id: item,
     };
-    return recentIds
-        .map((id) => byId[id])
-        .whereType<MediaListItem>()
-        .toList(growable: false);
+    final seenWorkKeys = <String>{};
+    final result = <MediaListItem>[];
+    for (final id in recentIds) {
+      final item = byId[id];
+      if (item == null) {
+        continue;
+      }
+      final workKey = mediaWorkGroupKey(item);
+      if (seenWorkKeys.add(workKey)) {
+        result.add(item);
+      }
+    }
+    return result;
   }
 
   static const String _prefsKeyDarkMode = "ui.dark_mode";

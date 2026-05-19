@@ -20,6 +20,7 @@ mixin _PlayableMediaPanelFields on State<_PlayableMediaPanel> {
   Duration _position = Duration.zero;
   Duration? _duration;
   bool _sessionStarted = false;
+  bool _viewRecordedForSession = false;
   bool _didRetryPrepare = false;
   bool _isRecoveringStream = false;
   late double _currentSpeed;

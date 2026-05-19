@@ -7,6 +7,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
   const _MediaItemDetailsPage({
     required this.currentUserId,
     required this.group,
+    this.initialMediaItemId,
     required this.availableGenres,
     required this.onLoadLinks,
     required this.onLoadItemById,
@@ -35,10 +36,14 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.onSetWorkUserRating,
     required this.onClearWorkUserRating,
     required this.onAddToShelf,
+    this.onHasBookOfflineCopy,
+    this.onDownloadBookForOffline,
+    this.onSaveAuthorBookLocalFile,
   });
 
   final String? currentUserId;
   final _WorkGroup group;
+  final String? initialMediaItemId;
   final List<String> availableGenres;
   final Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks;
   final Future<MediaListItem?> Function(String mediaItemId) onLoadItemById;
@@ -115,6 +120,15 @@ class _MediaItemDetailsPage extends StatefulWidget {
   onSetWorkUserRating;
   final Future<void> Function(List<String> mediaItemIds) onClearWorkUserRating;
   final Future<bool> Function(String mediaItemId) onAddToShelf;
+  final Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy;
+  final Future<bool> Function(MediaListItem item)? onDownloadBookForOffline;
+  final Future<void> Function({
+    required String mediaItemId,
+    required String filePath,
+    required String filename,
+    required String contentType,
+  })?
+  onSaveAuthorBookLocalFile;
 
   @override
   State<_MediaItemDetailsPage> createState() => _MediaItemDetailsPageState();

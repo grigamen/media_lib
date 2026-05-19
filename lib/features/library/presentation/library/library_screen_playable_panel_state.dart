@@ -55,6 +55,7 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
       _position = Duration.zero;
       _duration = null;
       _sessionStarted = false;
+      _viewRecordedForSession = false;
       _didRetryPrepare = false;
       _isRecoveringStream = false;
       _videoVolume = 1.0;

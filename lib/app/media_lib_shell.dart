@@ -23,14 +23,9 @@ List<MediaListItem> mediaItemsInWorkGroup(
   AppState state,
   MediaListItem anchorItem,
 ) {
-  final titleKey = anchorItem.title.trim().toLowerCase();
-  final authorKey = (anchorItem.author ?? "").trim().toLowerCase();
+  final workKey = mediaWorkGroupKey(anchorItem);
   final grouped = state.items
-      .where(
-        (item) =>
-            item.title.trim().toLowerCase() == titleKey &&
-            (item.author ?? "").trim().toLowerCase() == authorKey,
-      )
+      .where((item) => mediaWorkGroupKey(item) == workKey)
       .toList(growable: false);
   if (grouped.isNotEmpty) {
     return grouped;
@@ -41,12 +36,13 @@ List<MediaListItem> mediaItemsInWorkGroup(
 Future<void> openWorkGroupItemDetails(
   BuildContext context,
   AppState state,
-  List<MediaListItem> groupItems,
+  MediaListItem anchorItem,
 ) {
   return openMediaItemDetailsForAppState(
     context: context,
     state: state,
-    groupItems: groupItems,
+    groupItems: mediaItemsInWorkGroup(state, anchorItem),
+    initialMediaItemId: anchorItem.id,
   );
 }
 
@@ -102,11 +98,7 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
   Widget build(BuildContext context) {
     final state = widget.state;
     Future<void> openItemFromHome(MediaListItem item) {
-      return openWorkGroupItemDetails(
-        context,
-        state,
-        mediaItemsInWorkGroup(state, item),
-      );
+      return openWorkGroupItemDetails(context, state, item);
     }
 
     final pages = <Widget>[
@@ -467,11 +459,7 @@ class _MediaLibAdminMediaShellState extends State<MediaLibAdminMediaShell> {
                   approve: approve,
                 ),
             onOpenItem:
-                (item) => openWorkGroupItemDetails(
-                  context,
-                  widget.state,
-                  mediaItemsInWorkGroup(widget.state, item),
-                ),
+                (item) => openWorkGroupItemDetails(context, widget.state, item),
           ),
     );
   }

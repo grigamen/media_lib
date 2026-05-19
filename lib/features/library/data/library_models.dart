@@ -338,3 +338,9 @@ class MediaItemsFetchResult {
   final List<MediaListItem> items;
   final int total;
 }
+
+/// Ключ одного произведения: один заголовок и автор, разные форматы — одна работа.
+String mediaWorkGroupKey(MediaListItem item) {
+  return "${item.title.trim().toLowerCase()}::"
+      "${(item.author ?? "").trim().toLowerCase()}";
+}

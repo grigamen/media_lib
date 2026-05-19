@@ -127,6 +127,7 @@ mixin _MediaItemDetailsLifecycleMixin on _MediaItemDetailsStateFields {
       setState(() {
         _isLoadingLinked = false;
       });
+      _syncTabControllerToFocusedVariant();
     }
   }
 
@@ -138,6 +139,71 @@ mixin _MediaItemDetailsLifecycleMixin on _MediaItemDetailsStateFields {
       await _refreshVariant(item.id);
     }
     return outcome;
+  }
+
+  Future<void> _pickAuthorBookLocalFile(MediaListItem item) async {
+    final save = widget.onSaveAuthorBookLocalFile;
+    if (save == null) {
+      return;
+    }
+    final result = await pickMediaFileForUpload(
+      context: context,
+      allowedExtensions: const ["txt", "md", "docx"],
+    );
+    if (!mounted || result == null || result.files.isEmpty) {
+      return;
+    }
+    final file = result.files.single;
+    final name = file.name.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Не удалось прочитать файл")),
+      );
+      return;
+    }
+    final mime =
+        _inferContentTypeFromName(name) ?? _fallbackContentType("book");
+    if (!_isFileCompatibleWithType(
+      filename: name,
+      mimeType: mime,
+      mediaType: "book",
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Выберите файл книги (txt, md, docx)")),
+      );
+      return;
+    }
+    final payload = MediaUploadPayload.tryFromPlatformFile(
+      file: file,
+      contentType: mime,
+    );
+    if (payload == null || payload.filePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "На этой платформе нужен путь к файлу на устройстве",
+          ),
+        ),
+      );
+      return;
+    }
+    final resolvedMime = MediaUploadPayload.resolvedMainFileContentType(
+      filename: payload.filename,
+      declaredContentType: payload.contentType,
+      mediaItemType: "book",
+    );
+    await save(
+      mediaItemId: item.id,
+      filePath: payload.filePath!,
+      filename: payload.filename,
+      contentType: resolvedMime,
+    );
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Файл на устройстве привязан для чтения")),
+    );
   }
 
   Future<void> _openBookReader(MediaListItem item) async {
