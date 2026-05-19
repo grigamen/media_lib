@@ -54,6 +54,27 @@ mixin _AppStateRefs on ChangeNotifier {
   AppState get _s => this as AppState;
 }
 
+/// Локально скачанная книга на устройстве текущего пользователя.
+class DownloadedBookDeviceItem {
+  const DownloadedBookDeviceItem({
+    required this.mediaItemId,
+    required this.title,
+    required this.author,
+    required this.filename,
+    required this.filePath,
+    required this.updatedAt,
+    this.coverUrl,
+  });
+
+  final String mediaItemId;
+  final String title;
+  final String author;
+  final String filename;
+  final String filePath;
+  final DateTime updatedAt;
+  final String? coverUrl;
+}
+
 /// Корневой [ChangeNotifier] приложения; поля и геттеры здесь, поведение — в mixins `part`.
 class AppState extends ChangeNotifier
     with

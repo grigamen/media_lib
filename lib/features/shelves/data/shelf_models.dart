@@ -75,8 +75,10 @@ class UserShelfSummary {
 
 /// Первая книга на полке с обложкой; иначе любой элемент с обложкой.
 MediaListItem? pickShelfCoverItem(Iterable<MediaListItem> items) {
+  final ordered = items.toList(growable: false);
   for (final bookOnly in [true, false]) {
-    for (final item in items) {
+    for (var i = ordered.length - 1; i >= 0; i--) {
+      final item = ordered[i];
       if (bookOnly && item.type != "book") {
         continue;
       }

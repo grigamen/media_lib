@@ -25,6 +25,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onThemeToggle,
     required this.onDeleteAllWorks,
     required this.onOpenAddWork,
+    required this.onOpenDownloadedBooks,
     required this.onLogout,
     required this.onUpdateProfile,
     required this.onChangePassword,
@@ -45,6 +46,7 @@ class ProfileScreen extends StatelessWidget {
   final ValueChanged<bool> onThemeToggle;
   final Future<void> Function() onDeleteAllWorks;
   final VoidCallback onOpenAddWork;
+  final VoidCallback onOpenDownloadedBooks;
   final VoidCallback onLogout;
   final Future<void> Function({
     required String displayName,
@@ -159,6 +161,12 @@ class ProfileScreen extends StatelessWidget {
                   icon: Icons.add_box_outlined,
                   title: "Добавить произведение",
                   onTap: onOpenAddWork,
+                ),
+                _ActionTile(
+                  icon: Icons.download_done_outlined,
+                  title: "Скачанные книги",
+                  subtitle: "Файлы книг, сохранённые на это устройство",
+                  onTap: onOpenDownloadedBooks,
                 ),
                 if (onOpenAdminMedia != null) ...[
                   const SizedBox(height: 16),

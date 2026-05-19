@@ -38,21 +38,31 @@ def _get_owned_shelf(db: Session, shelf_id: UUID, current_user: User) -> UserShe
 
 
 def _shelf_cover(db: Session, shelf_id: UUID) -> tuple[str | None, UUID | None]:
-    """Id первой книги на полке (обложка — у клиента по cover_file_id); иначе первый элемент."""
+    """Id последней добавленной книги с обложкой; иначе последний элемент с обложкой."""
     base = (
-        select(MediaItem.id)
+        select(MediaItem.id, MediaItem.cover_url, MediaItem.metadata_json)
         .join(UserShelfItem, UserShelfItem.media_item_id == MediaItem.id)
         .where(
             UserShelfItem.shelf_id == shelf_id,
             MediaItem.deleted_at.is_(None),
         )
-        .order_by(UserShelfItem.position.asc(), UserShelfItem.created_at.asc())
+        .order_by(UserShelfItem.position.desc(), UserShelfItem.created_at.desc())
     )
+
+    def has_cover_data(cover_url: str | None, metadata_json: dict | None) -> bool:
+        if cover_url is not None and str(cover_url).strip():
+            return True
+        if isinstance(metadata_json, dict):
+            cover_file_id = metadata_json.get("cover_file_id")
+            if isinstance(cover_file_id, str) and cover_file_id.strip():
+                return True
+        return False
+
     for book_only in (True, False):
         stmt = base.where(MediaItem.type == "book") if book_only else base
-        item_id = db.scalar(stmt.limit(1))
-        if item_id is not None:
-            return None, item_id
+        for item_id, cover_url, metadata_json in db.execute(stmt).all():
+            if has_cover_data(cover_url, metadata_json):
+                return None, item_id
     return None, None
 
 

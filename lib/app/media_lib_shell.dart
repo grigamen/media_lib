@@ -9,6 +9,7 @@ import "../features/library/data/library_repository.dart";
 import "../features/library/presentation/add_item/add_item_screen.dart";
 import "../features/library/presentation/library/library_screen.dart";
 import "../features/profile/presentation/my_works/my_works_screen.dart";
+import "../features/profile/presentation/profile/downloaded_books_screen.dart";
 import "../features/shelves/presentation/add_to_shelf_dialog.dart";
 import "../features/shelves/presentation/shelf_detail_screen.dart";
 import "../features/shelves/presentation/shelves_screen.dart";
@@ -311,6 +312,13 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
         onThemeToggle: state.toggleTheme,
         onDeleteAllWorks: state.deleteAllMediaItems,
         onOpenAddWork: () => state.setSelectedTab(2),
+        onOpenDownloadedBooks: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => DownloadedBooksScreen(state: state),
+            ),
+          );
+        },
         onLogout: state.logout,
         onUpdateProfile:
             ({required displayName, newEmail, currentPasswordForEmail}) =>

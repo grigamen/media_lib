@@ -2,6 +2,80 @@ part of "app_state.dart";
 
 /// Локальные копии книг: офлайн-скачивание для всех и файл автора на устройстве.
 mixin _AppStateBookLocal on _AppStateRefs {
+  Future<List<DownloadedBookDeviceItem>> listDownloadedBooksOnDevice() async {
+    if (kIsWeb) {
+      return const [];
+    }
+    final userId = _s._currentUserId;
+    final store = _s._authorBookLocalStore;
+    if (userId == null || store == null) {
+      return const [];
+    }
+    final entries = await store.listForUser(userId);
+    if (entries.isEmpty) {
+      return const [];
+    }
+    final byId = <String, MediaListItem>{for (final item in _s._items) item.id: item};
+    final result = <DownloadedBookDeviceItem>[];
+    for (final entry in entries) {
+      final exists = await localBookFileExists(entry.filePath);
+      if (!exists) {
+        await store.deleteForItem(userId: userId, mediaItemId: entry.mediaItemId);
+        continue;
+      }
+      final item = byId[entry.mediaItemId];
+      result.add(
+        DownloadedBookDeviceItem(
+          mediaItemId: entry.mediaItemId,
+          title: item?.title ?? entry.filename,
+          author: item?.author?.trim().isNotEmpty == true ? item!.author!.trim() : "Без автора",
+          filename: entry.filename,
+          filePath: entry.filePath,
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(
+            entry.updatedAtMs,
+            isUtc: true,
+          ),
+          coverUrl: item?.coverUrl,
+        ),
+      );
+    }
+    return result;
+  }
+
+  Future<void> deleteDownloadedBookFromDevice(String mediaItemId) async {
+    if (kIsWeb) {
+      return;
+    }
+    final userId = _s._currentUserId;
+    final store = _s._authorBookLocalStore;
+    if (userId == null || store == null) {
+      return;
+    }
+    final saved = await store.load(userId: userId, mediaItemId: mediaItemId);
+    if (saved != null) {
+      await deleteLocalBookFile(saved.filePath);
+    }
+    await store.deleteForItem(userId: userId, mediaItemId: mediaItemId);
+    notifyListeners();
+  }
+
+  Future<void> deleteAllDownloadedBooksFromDevice() async {
+    if (kIsWeb) {
+      return;
+    }
+    final userId = _s._currentUserId;
+    final store = _s._authorBookLocalStore;
+    if (userId == null || store == null) {
+      return;
+    }
+    final entries = await store.listForUser(userId);
+    for (final entry in entries) {
+      await deleteLocalBookFile(entry.filePath);
+    }
+    await store.clearForUser(userId);
+    notifyListeners();
+  }
+
   Future<AuthorBookLocalSource?> resolveBookLocalSource(
     MediaListItem item,
   ) async {
