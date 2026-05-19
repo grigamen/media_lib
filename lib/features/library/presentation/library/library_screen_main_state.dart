@@ -268,6 +268,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           ),
                           onClearWorkUserRating: widget.onClearWorkUserRating,
                           onAddToShelf: widget.onAddToShelf,
+                          onHasBookOfflineCopy: widget.onHasBookOfflineCopy,
+                          onDownloadBookForOffline:
+                              widget.onDownloadBookForOffline,
+                          onSaveAuthorBookLocalFile:
+                              widget.onSaveAuthorBookLocalFile,
                         );
                       },
                       onOpenLinks: () => _showLinksDialog(group.primaryItem),

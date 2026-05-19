@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 
 import "../../library/data/library_repository.dart";
+import "../../library/presentation/media_cover.dart";
 import "../../shelves/data/shelf_models.dart";
 
 class HomeScreen extends StatefulWidget {
@@ -233,33 +234,40 @@ class _HomeShelfCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SizedBox(
-      width: 156,
+      width: 168,
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: SizedBox(
+            height: 108,
+            child: Row(
               children: [
-                Icon(
-                  Icons.bookmarks_outlined,
-                  size: 28,
-                  color: theme.colorScheme.primary,
+                SizedBox(
+                  width: 72,
+                  child: MediaCoverImage(coverUrl: shelf.coverUrl),
                 ),
-                const Spacer(),
-                Text(
-                  shelf.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "${shelf.itemCount} на полке",
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          shelf.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const Spacer(),
+                        Text(
+                          "${shelf.itemCount} на полке",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -294,16 +302,7 @@ class _ContinueCard extends StatelessWidget {
             child: SizedBox(
               width: 66,
               height: 92,
-              child:
-                  item?.coverUrl?.isNotEmpty == true
-                      ? Image.network(
-                        item!.coverUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder:
-                            (_, __, ___) =>
-                                Container(color: const Color(0xFF4A4757)),
-                      )
-                      : Container(color: const Color(0xFF4A4757)),
+              child: MediaCoverImage(coverUrl: item?.coverUrl),
             ),
           ),
           const SizedBox(width: 12),
@@ -351,16 +350,7 @@ class _RecommendationTile extends StatelessWidget {
               child: SizedBox(
                 width: 36,
                 height: 52,
-                child:
-                    item.coverUrl?.isNotEmpty == true
-                        ? Image.network(
-                          item.coverUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder:
-                              (_, __, ___) =>
-                                  Container(color: const Color(0xFF4A4757)),
-                        )
-                        : Container(color: const Color(0xFF4A4757)),
+                child: MediaCoverImage(coverUrl: item.coverUrl),
               ),
             ),
             const SizedBox(width: 10),

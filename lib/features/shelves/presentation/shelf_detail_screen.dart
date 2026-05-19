@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 import "../../../app/app_state.dart";
 import "../../../app/media_lib_shell.dart";
 import "../../library/data/library_models.dart";
+import "../../library/presentation/media_cover.dart";
 import "../data/shelf_models.dart";
 import "shelf_name_dialog.dart";
 
@@ -196,19 +197,14 @@ class _ShelfDetailScreenState extends State<ShelfDetailScreen> {
         final item = items[index];
         return Card(
           child: ListTile(
-            leading:
-                item.coverUrl?.isNotEmpty == true
-                    ? ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        item.coverUrl!,
-                        width: 48,
-                        height: 64,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.book),
-                      ),
-                    )
-                    : const Icon(Icons.book_outlined),
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: 48,
+                height: 64,
+                child: MediaCoverImage(coverUrl: item.coverUrl),
+              ),
+            ),
             title: Text(item.title),
             subtitle: Text(
               "${item.author?.isNotEmpty == true ? item.author! : "Без автора"} · "

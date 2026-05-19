@@ -163,6 +163,20 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                   state: state,
                   mediaItemId: mediaItemId,
                 ),
+            onHasBookOfflineCopy: state.hasBookOfflineCopy,
+            onDownloadBookForOffline: state.downloadBookForOffline,
+            onSaveAuthorBookLocalFile:
+                ({
+                  required String mediaItemId,
+                  required String filePath,
+                  required String filename,
+                  required String contentType,
+                }) => state.saveAuthorBookLocalFile(
+                  mediaItemId: mediaItemId,
+                  filePath: filePath,
+                  filename: filename,
+                  contentType: contentType,
+                ),
             onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
             hideLibraryControls: true,
             emptyLibraryMessage:

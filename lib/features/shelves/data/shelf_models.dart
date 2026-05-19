@@ -22,6 +22,7 @@ class UserShelfSummary {
     required this.id,
     required this.name,
     required this.itemCount,
+    this.coverUrl,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -29,6 +30,7 @@ class UserShelfSummary {
   final String id;
   final String name;
   final int itemCount;
+  final String? coverUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -36,10 +38,12 @@ class UserShelfSummary {
     final rawItems = json["items"];
     final itemsLen = rawItems is List ? rawItems.length : 0;
     final itemCount = _readInt(json["item_count"]);
+    final cover = json["cover_url"] as String?;
     return UserShelfSummary(
       id: json["id"]?.toString() ?? "",
       name: json["name"] as String? ?? "",
       itemCount: itemCount > 0 ? itemCount : itemsLen,
+      coverUrl: cover != null && cover.trim().isNotEmpty ? cover.trim() : null,
       createdAt: _readDateTime(json["created_at"]),
       updatedAt: _readDateTime(json["updated_at"]),
     );

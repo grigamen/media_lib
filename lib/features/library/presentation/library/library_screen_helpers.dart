@@ -11,6 +11,76 @@ class _WorkAverageRating {
   final int count;
 }
 
+/// Обложка произведения или заглушка.
+Widget _mediaCoverImage(
+  BuildContext context, {
+  required String? coverUrl,
+  BoxFit fit = BoxFit.cover,
+}) =>
+    MediaCoverImage(coverUrl: coverUrl, fit: fit);
+
+/// Подпись рейтинга для карточки в сетке: «4.5 (12)» или «без рейтинга».
+Widget _libraryGridRatingLabel(
+  BuildContext context,
+  _WorkAverageRating? averageRating,
+) {
+  final theme = Theme.of(context);
+  if (averageRating == null) {
+    return Text(
+      "без рейтинга",
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+  return Row(
+    children: [
+      Icon(Icons.star, size: 16, color: Colors.amber.shade700),
+      const SizedBox(width: 4),
+      Text(
+        "${averageRating.average.toStringAsFixed(1)} "
+        "(${averageRating.count})",
+        style: theme.textTheme.labelMedium,
+      ),
+    ],
+  );
+}
+
+/// Средняя оценка в шапке карточки произведения.
+Widget _workAverageRatingHeader(
+  BuildContext context,
+  List<MediaListItem> variants,
+) {
+  final theme = Theme.of(context);
+  final summary = _averageRatingForWorkGroup(variants);
+  if (summary == null) {
+    return Text(
+      "без рейтинга",
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        summary.average.toStringAsFixed(1),
+        style: theme.textTheme.titleMedium,
+      ),
+      const SizedBox(width: 4),
+      Icon(Icons.star, size: 20, color: Colors.amber.shade700),
+      const SizedBox(width: 4),
+      Text(
+        "(${summary.count})",
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ],
+  );
+}
+
 /// Сумма просмотров по всем форматам одного произведения.
 int _totalViewsForWorkGroup(List<MediaListItem> items) {
   var total = 0;

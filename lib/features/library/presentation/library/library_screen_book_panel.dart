@@ -167,7 +167,7 @@ class _BookReadLaunchPanelState extends State<_BookReadLaunchPanel> {
             label: Text(
               _hasOfflineCopy
                   ? "Скачано на устройство"
-                  : "Скачать на устройство",
+                  : "Скачать книгу",
             ),
           ),
         ],

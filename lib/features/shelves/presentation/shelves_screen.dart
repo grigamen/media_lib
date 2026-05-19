@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 
 import "../../../app/app_state.dart";
+import "../../library/presentation/media_cover.dart";
 import "shelf_detail_screen.dart";
 import "shelf_name_dialog.dart";
 
@@ -87,8 +88,16 @@ class _ShelvesScreenState extends State<ShelvesScreen> {
               itemBuilder: (context, index) {
                 final shelf = shelves[index];
                 return Card(
+                  clipBehavior: Clip.antiAlias,
                   child: ListTile(
-                    leading: const Icon(Icons.bookmarks_outlined),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: 48,
+                        height: 64,
+                        child: MediaCoverImage(coverUrl: shelf.coverUrl),
+                      ),
+                    ),
                     title: Text(shelf.name),
                     subtitle: Text("${shelf.itemCount} на полке"),
                     trailing: const Icon(Icons.chevron_right),

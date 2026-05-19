@@ -14,6 +14,7 @@ import "../../data/library_repository.dart";
 import "../../data/library_sort.dart";
 import "../../../shelves/presentation/add_to_shelf_dialog.dart";
 import "../book_reader/book_reader_screen.dart";
+import "../media_cover.dart";
 
 // Здесь собран весь экран «Библиотека»: сетка обложек, открытие карточки, чтение, прослушивание, загрузка файлов.
 // Сам код разбит на отдельные файлы ниже (part), чтобы не держать тысячи строк в одном месте.
@@ -84,6 +85,9 @@ class LibraryScreen extends StatefulWidget {
     required this.onSetWorkUserRating,
     required this.onClearWorkUserRating,
     required this.onAddToShelf,
+    this.onHasBookOfflineCopy,
+    this.onDownloadBookForOffline,
+    this.onSaveAuthorBookLocalFile,
     this.hideLibraryControls = false,
     this.emptyLibraryMessage,
     super.key,
@@ -186,6 +190,15 @@ class LibraryScreen extends StatefulWidget {
   onSetWorkUserRating;
   final Future<void> Function(List<String> mediaItemIds) onClearWorkUserRating;
   final Future<bool> Function(String mediaItemId) onAddToShelf;
+  final Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy;
+  final Future<bool> Function(MediaListItem item)? onDownloadBookForOffline;
+  final Future<void> Function({
+    required String mediaItemId,
+    required String filePath,
+    required String filename,
+    required String contentType,
+  })?
+  onSaveAuthorBookLocalFile;
 
   final bool hideLibraryControls; // если true — не показываем поиск и фильтры (например экран «только мои работы»)
   final String? emptyLibraryMessage; // свой текст, когда список пуст (вместо стандартной фразы)

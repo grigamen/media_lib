@@ -22,6 +22,7 @@ class ShelfResponse(BaseModel):
     id: UUID
     name: str
     item_count: int = 0
+    cover_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

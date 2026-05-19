@@ -113,32 +113,10 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                       child: SizedBox(
                                         height: 160,
                                         width: 110,
-                                        child:
-                                            activeItem.coverUrl?.isNotEmpty ==
-                                                    true
-                                                ? Image.network(
-                                                  activeItem.coverUrl!,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder:
-                                                      (_, __, ___) => Container(
-                                                        color: Colors.black12,
-                                                        child: const Center(
-                                                          child: Icon(
-                                                            Icons
-                                                                .broken_image_outlined,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                )
-                                                : Container(
-                                                  color: Colors.black12,
-                                                  child: const Center(
-                                                    child: Icon(
-                                                      Icons
-                                                          .image_not_supported_outlined,
-                                                    ),
-                                                  ),
-                                                ),
+                                        child: _mediaCoverImage(
+                                          context,
+                                          coverUrl: activeItem.coverUrl,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -156,54 +134,43 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                           ),
                                       const SizedBox(height: 4),
                                       Text(activeAuthor),
-                                      if (_averageRatingForWorkGroup(
-                                            _variants,
-                                          )
-                                          case final summary?) ...[
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              summary.average.toStringAsFixed(
-                                                1,
-                                              ),
-                                              style:
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.titleMedium,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              Icons.star,
-                                              size: 20,
-                                              color: Colors.amber.shade700,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                      const SizedBox(height: 6),
-                                      Row(
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 12,
+                                        runSpacing: 8,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
                                         children: [
-                                          Icon(
-                                            Icons.visibility_outlined,
-                                            size: 18,
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
+                                          _workAverageRatingHeader(
+                                            context,
+                                            _variants,
                                           ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            _formatViewsCount(
-                                              _totalViewsForWorkGroup(
-                                                _variants,
+                                          if (widget.currentUserId != null)
+                                            _WorkUserRatingBar(
+                                              key: ValueKey(
+                                                _rateableVariantIds.join("|"),
                                               ),
+                                              compact: true,
+                                              onLoadStars:
+                                                  () =>
+                                                      widget
+                                                          .onFetchWorkUserRating(
+                                                        _rateableVariantIds,
+                                                      ),
+                                              onSetStars:
+                                                  (stars) =>
+                                                      widget.onSetWorkUserRating(
+                                                        mediaItemIds:
+                                                            _rateableVariantIds,
+                                                        stars: stars,
+                                                      ),
+                                              onClearStars:
+                                                  () =>
+                                                      widget
+                                                          .onClearWorkUserRating(
+                                                        _rateableVariantIds,
+                                                      ),
                                             ),
-                                            style:
-                                                Theme.of(
-                                                  context,
-                                                ).textTheme.bodyMedium,
-                                          ),
                                         ],
                                       ),
                                       if (activeGenres.isNotEmpty) ...[
@@ -262,27 +229,6 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                     label: const Text("На полку"),
                                   ),
                                 ],
-                                if (widget.currentUserId != null) ...[
-                                  const SizedBox(height: 8),
-                                  _WorkUserRatingBar(
-                                    key: ValueKey(
-                                      _rateableVariantIds.join("|"),
-                                    ),
-                                    onLoadStars:
-                                        () => widget.onFetchWorkUserRating(
-                                          _rateableVariantIds,
-                                        ),
-                                    onSetStars:
-                                        (stars) => widget.onSetWorkUserRating(
-                                          mediaItemIds: _rateableVariantIds,
-                                          stars: stars,
-                                        ),
-                                    onClearStars:
-                                        () => widget.onClearWorkUserRating(
-                                          _rateableVariantIds,
-                                        ),
-                                  ),
-                                ],
                               ],
                             ),
                           ),
@@ -304,29 +250,6 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                       key: ValueKey<String>(item.id),
                                       padding: const EdgeInsets.all(16),
                                       children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.visibility_outlined,
-                                              size: 18,
-                                              color:
-                                                  Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _formatViewsCount(
-                                                item.viewsCount,
-                                              ),
-                                              style:
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.bodyMedium,
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             8,
@@ -342,12 +265,48 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  "Описание",
-                                                  style:
-                                                      Theme.of(
-                                                        context,
-                                                      ).textTheme.labelLarge,
+                                                Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      "Описание",
+                                                      style:
+                                                          Theme.of(
+                                                            context,
+                                                          ).textTheme.labelLarge,
+                                                    ),
+                                                    const Spacer(),
+                                                    Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .visibility_outlined,
+                                                          size: 18,
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurfaceVariant,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+                                                        Text(
+                                                          _formatViewsCount(
+                                                            item.viewsCount,
+                                                          ),
+                                                          style:
+                                                              Theme.of(
+                                                                    context,
+                                                                  )
+                                                                  .textTheme
+                                                                  .bodyMedium,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
                                                 ),
                                                 const SizedBox(height: 6),
                                                 Text(
@@ -428,7 +387,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                                     widget.currentUserId,
                                             canUseOffline:
                                                 widget.currentUserId != null &&
-                                                !item.id.startsWith("demo-"),
+                                                !item.id.startsWith("demo-") &&
+                                                !kIsWeb,
                                             onOpenReader:
                                                 () => _openBookReader(item),
                                             onDownloadForOffline:
@@ -548,11 +508,13 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
 class _WorkUserRatingBar extends StatefulWidget {
   const _WorkUserRatingBar({
     super.key,
+    this.compact = false,
     required this.onLoadStars,
     required this.onSetStars,
     required this.onClearStars,
   });
 
+  final bool compact;
   final Future<int?> Function() onLoadStars;
   final Future<int?> Function(int stars) onSetStars;
   final Future<void> Function() onClearStars;
@@ -736,6 +698,39 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final stars = _stars;
+    if (widget.compact) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (stars != null) ...[
+            Text(
+              "Моя оценка:",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              "$stars",
+              style: theme.textTheme.titleMedium,
+            ),
+            Icon(Icons.star, size: 18, color: Colors.amber.shade700),
+            const SizedBox(width: 8),
+          ],
+          TextButton(
+            onPressed: _busy ? null : _openRatingForm,
+            child:
+                _busy
+                    ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : Text(stars == null ? "Оценить" : "Изменить"),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

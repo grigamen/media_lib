@@ -37,6 +37,26 @@ def _get_owned_shelf(db: Session, shelf_id: UUID, current_user: User) -> UserShe
     return shelf
 
 
+def _shelf_cover_url(db: Session, shelf_id: UUID) -> str | None:
+    row = db.execute(
+        select(MediaItem.cover_url)
+        .join(UserShelfItem, UserShelfItem.media_item_id == MediaItem.id)
+        .where(
+            UserShelfItem.shelf_id == shelf_id,
+            MediaItem.cover_url.isnot(None),
+            MediaItem.cover_url != "",
+        )
+        .order_by(UserShelfItem.position.asc(), UserShelfItem.created_at.asc())
+        .limit(1)
+    ).first()
+    if row is None:
+        return None
+    url = row[0]
+    if url is None or not str(url).strip():
+        return None
+    return str(url).strip()
+
+
 def _shelf_to_response(db: Session, shelf: UserShelf) -> ShelfResponse:
     count = db.scalar(
         select(func.count()).select_from(UserShelfItem).where(UserShelfItem.shelf_id == shelf.id)
@@ -45,6 +65,7 @@ def _shelf_to_response(db: Session, shelf: UserShelf) -> ShelfResponse:
         id=shelf.id,
         name=shelf.name,
         item_count=int(count or 0),
+        cover_url=_shelf_cover_url(db, shelf.id),
         created_at=shelf.created_at,
         updated_at=shelf.updated_at,
     )
