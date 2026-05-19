@@ -263,6 +263,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             stars: stars,
                           ),
                           onClearWorkUserRating: widget.onClearWorkUserRating,
+                          onAddToShelf: widget.onAddToShelf,
                         );
                       },
                       onOpenLinks: () => _showLinksDialog(group.primaryItem),

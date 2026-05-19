@@ -36,11 +36,6 @@ String _formatViewsCount(int count) {
   return "$n просмотров";
 }
 
-/// Подпись просмотров для одного формата (книга / аудио / видео).
-String _formatViewsForMediaItem(MediaListItem item) {
-  return "${_labelForType(item.type)}: ${_formatViewsCount(item.viewsCount)}";
-}
-
 /// Взвешенное среднее по всем форматам (книга + аудио + видео) и суммарное число оценок.
 _WorkAverageRating? _averageRatingForWorkGroup(List<MediaListItem> items) {
   var weightedSum = 0.0;
@@ -238,6 +233,7 @@ Future<void> openMediaItemDetailsPage({
   onSetWorkUserRating,
   required Future<void> Function(List<String> mediaItemIds)
   onClearWorkUserRating,
+  required Future<bool> Function(String mediaItemId) onAddToShelf,
 }) {
   if (groupItems.isNotEmpty) {
     onMarkItemViewed(groupItems.first.id);
@@ -276,6 +272,7 @@ Future<void> openMediaItemDetailsPage({
             onFetchWorkUserRating: onFetchWorkUserRating,
             onSetWorkUserRating: onSetWorkUserRating,
             onClearWorkUserRating: onClearWorkUserRating,
+            onAddToShelf: onAddToShelf,
           ),
     ),
   );
@@ -373,6 +370,12 @@ Future<void> openMediaItemDetailsForAppState({
       stars: stars,
     ),
     onClearWorkUserRating: state.clearWorkUserRatingStars,
+    onAddToShelf:
+        (mediaItemId) => showAddToShelfDialog(
+          context: context,
+          state: state,
+          mediaItemId: mediaItemId,
+        ),
   );
 }
 

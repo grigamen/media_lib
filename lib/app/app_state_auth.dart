@@ -52,6 +52,7 @@ mixin _AppStateAuth on _AppStateRefs {
     await _hydrateRecentlyViewedFromDisk();
     _startConnectivityWatcherIfNeeded();
     await _s.fetchLibrary();
+    unawaited(_s.fetchShelves());
   }
 
   /// Сбрасывает состояние «ожидается код 2FA по почте» после успешного входа или отмены.
@@ -333,6 +334,7 @@ mixin _AppStateAuth on _AppStateRefs {
     _s._selectedGenres = const [];
     _s._librarySortField = LibrarySortField.title;
     _s._librarySortDescending = false;
+    _s._clearShelvesOnLogout();
     _s._selectedTab = 0;
     _s._currentUserId = null;
     _s._isAdminUser = false;

@@ -9,6 +9,9 @@ import "../features/library/data/library_repository.dart";
 import "../features/library/presentation/add_item/add_item_screen.dart";
 import "../features/library/presentation/library/library_screen.dart";
 import "../features/profile/presentation/my_works/my_works_screen.dart";
+import "../features/shelves/presentation/add_to_shelf_dialog.dart";
+import "../features/shelves/presentation/shelf_detail_screen.dart";
+import "../features/shelves/presentation/shelves_screen.dart";
 import "../features/profile/presentation/profile/profile_screen.dart";
 import "../features/search/presentation/search_screen.dart";
 import "app_state.dart";
@@ -109,7 +112,30 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
     final pages = <Widget>[
       HomeScreen(
         recentlyViewedItems: state.recentlyViewedItems,
+        shelves: state.shelves,
+        isShelvesLoading: state.isShelvesLoading,
+        shelvesError: state.shelvesError,
         onOpenItem: openItemFromHome,
+        onOpenShelf: (shelf) {
+          Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder:
+                  (_) => ShelfDetailScreen(
+                    state: state,
+                    shelfId: shelf.id,
+                    shelfName: shelf.name,
+                  ),
+            ),
+          );
+        },
+        onOpenAllShelves: () {
+          Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => ShelvesScreen(state: state),
+            ),
+          );
+        },
+        onRefreshShelves: state.fetchShelves,
       ),
       LibraryScreen(
         currentUserId: state.currentUserId,
@@ -213,6 +239,12 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
           stars: stars,
         ),
         onClearWorkUserRating: state.clearWorkUserRatingStars,
+        onAddToShelf:
+            (mediaItemId) => showAddToShelfDialog(
+              context: context,
+              state: state,
+              mediaItemId: mediaItemId,
+            ),
         onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
       ),
       AddItemScreen(
@@ -275,6 +307,13 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
                   currentPassword: currentPassword,
                   newPassword: newPassword,
                 ),
+        onOpenShelves: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ShelvesScreen(state: state),
+            ),
+          );
+        },
         onOpenMyWorks: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(

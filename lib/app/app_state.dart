@@ -20,6 +20,8 @@ import "../core/network/api_client.dart";
 import "../features/auth/data/auth_repository.dart";
 import "../features/library/data/library_repository.dart";
 import "../features/library/data/library_sort.dart";
+import "../features/shelves/data/shelf_models.dart";
+import "../features/shelves/data/shelf_repository.dart";
 
 import "media_upload_payload.dart";
 import "playback_session.dart";
@@ -37,6 +39,7 @@ export "playback_session.dart";
 
 part "app_state_library.dart";
 part "app_state_playback.dart";
+part "app_state_shelves.dart";
 part "app_state_auth.dart";
 
 mixin _AppStateRefs on ChangeNotifier {
@@ -46,13 +49,19 @@ mixin _AppStateRefs on ChangeNotifier {
 
 /// Корневой [ChangeNotifier] приложения; поля и геттеры здесь, поведение — в mixins `part`.
 class AppState extends ChangeNotifier
-    with _AppStateRefs, _AppStateAuth, _AppStateLibrary, _AppStatePlayback {
+    with
+        _AppStateRefs,
+        _AppStateAuth,
+        _AppStateLibrary,
+        _AppStatePlayback,
+        _AppStateShelves {
   /// Создаёт HTTP-клиент, репозитории, вспомогательные сервисы и запускает [_bootstrap].
   AppState()
     : _apiClient = ApiClient(baseUrl: AppConfig.apiBaseUrl),
       _isDarkMode = false {
     _authRepository = AuthRepository(_apiClient);
     _libraryRepository = LibraryRepository(_apiClient);
+    _shelfRepository = ShelfRepository(_apiClient);
     _coverRefresh = CoverUrlRefreshService(_libraryRepository);
     _adminCatalog = AdminCatalogService(
       library: _libraryRepository,
@@ -69,6 +78,7 @@ class AppState extends ChangeNotifier
   final ApiClient _apiClient;
   late final AuthRepository _authRepository;
   late final LibraryRepository _libraryRepository;
+  late final ShelfRepository _shelfRepository;
   late final CoverUrlRefreshService _coverRefresh;
   late final AdminCatalogService _adminCatalog;
   late final PresignedUploadTracker _uploadTracker;
@@ -256,7 +266,11 @@ class AppState extends ChangeNotifier
 
   /// Нижняя навигация: индекс вкладки 0…4 с clamp.
   void setSelectedTab(int value) {
-    _selectedTab = value.clamp(0, 4);
+    final tab = value.clamp(0, 4);
+    _selectedTab = tab;
+    if (tab == 0 && _session != null) {
+      unawaited(fetchShelves());
+    }
     notifyListeners();
   }
 

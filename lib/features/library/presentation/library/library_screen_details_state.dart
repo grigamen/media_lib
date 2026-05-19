@@ -142,10 +142,33 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                           ),
                                       const SizedBox(height: 4),
                                       Text(activeAuthor),
+                                      if (_averageRatingForWorkGroup(
+                                            _variants,
+                                          )
+                                          case final summary?) ...[
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              summary.average.toStringAsFixed(
+                                                1,
+                                              ),
+                                              style:
+                                                  Theme.of(
+                                                    context,
+                                                  ).textTheme.titleMedium,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.star,
+                                              size: 20,
+                                              color: Colors.amber.shade700,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                       const SizedBox(height: 6),
                                       Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
                                         children: [
                                           Icon(
                                             Icons.visibility_outlined,
@@ -156,71 +179,19 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                                 ).colorScheme.onSurfaceVariant,
                                           ),
                                           const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  _formatViewsForMediaItem(
-                                                    activeItem,
-                                                  ),
-                                                  style:
-                                                      Theme.of(
-                                                        context,
-                                                      ).textTheme.bodyMedium,
-                                                ),
-                                                if (_variants.length > 1) ...[
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    "Всего по произведению: "
-                                                    "${_formatViewsCount(_totalViewsForWorkGroup(_variants))}",
-                                                    style:
-                                                        Theme.of(
-                                                              context,
-                                                            )
-                                                            .textTheme
-                                                            .bodySmall
-                                                            ?.copyWith(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .onSurfaceVariant,
-                                                            ),
-                                                  ),
-                                                ],
-                                              ],
+                                          Text(
+                                            _formatViewsCount(
+                                              _totalViewsForWorkGroup(
+                                                _variants,
+                                              ),
                                             ),
+                                            style:
+                                                Theme.of(
+                                                  context,
+                                                ).textTheme.bodyMedium,
                                           ),
                                         ],
                                       ),
-                                      if (_averageRatingForWorkGroup(
-                                            _variants,
-                                          )
-                                          case final summary?) ...[
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.star,
-                                              size: 18,
-                                              color: Colors.amber.shade700,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              "Средняя оценка: "
-                                              "${summary.average.toStringAsFixed(1)} "
-                                              "(${summary.count})",
-                                              style:
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.bodyMedium,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
                                       if (activeGenres.isNotEmpty) ...[
                                             const SizedBox(height: 8),
                                             Wrap(
@@ -246,6 +217,37 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                     ),
                                   ],
                                 ),
+                                if (widget.currentUserId != null &&
+                                    !activeItem.id.startsWith("demo-")) ...[
+                                  const SizedBox(height: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      final added = await widget.onAddToShelf(
+                                        activeItem.id,
+                                      );
+                                      if (!added || !context.mounted) {
+                                        return;
+                                      }
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (!context.mounted) {
+                                              return;
+                                            }
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  "Добавлено на полку",
+                                                ),
+                                              ),
+                                            );
+                                          });
+                                    },
+                                    icon: const Icon(Icons.bookmark_add_outlined),
+                                    label: const Text("На полку"),
+                                  ),
+                                ],
                                 if (widget.currentUserId != null) ...[
                                   const SizedBox(height: 8),
                                   _WorkUserRatingBar(
@@ -286,6 +288,29 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                       key: ValueKey<String>(item.id),
                                       padding: const EdgeInsets.all(16),
                                       children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.visibility_outlined,
+                                              size: 18,
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              _formatViewsCount(
+                                                item.viewsCount,
+                                              ),
+                                              style:
+                                                  Theme.of(
+                                                    context,
+                                                  ).textTheme.bodyMedium,
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             8,
@@ -663,28 +688,16 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Моя оценка", style: theme.textTheme.titleSmall),
-        const SizedBox(height: 6),
         if (stars != null) ...[
-          Row(
-            children: [
-              for (var i = 1; i <= 5; i++)
-                Icon(
-                  stars >= i ? Icons.star : Icons.star_border,
-                  size: 22,
-                  color:
-                      stars >= i
-                          ? Colors.amber.shade700
-                          : theme.colorScheme.outline,
-                ),
-              const SizedBox(width: 6),
-              Text(
-                "$stars из 5",
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            "Ваша оценка: $stars",
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
-          const SizedBox(height: 8),
         ],
+        const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: _busy ? null : _openRatingForm,
           icon:

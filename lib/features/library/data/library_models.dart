@@ -104,8 +104,8 @@ class MediaListItem {
             ? rawMetadata
             : (rawMetadata is Map ? rawMetadata.cast<String, dynamic>() : null);
     return MediaListItem(
-      id: json["id"] as String? ?? "",
-      userId: json["user_id"] as String?,
+      id: json["id"]?.toString() ?? "",
+      userId: json["user_id"]?.toString(),
       title: json["title"] as String? ?? "Untitled",
       type: json["type"] as String? ?? "unknown",
       author: json["author"] as String?,

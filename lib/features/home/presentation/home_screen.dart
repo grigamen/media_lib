@@ -1,16 +1,44 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 
 import "../../library/data/library_repository.dart";
+import "../../shelves/data/shelf_models.dart";
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.recentlyViewedItems,
+    required this.shelves,
+    required this.isShelvesLoading,
+    required this.shelvesError,
     required this.onOpenItem,
+    required this.onOpenShelf,
+    required this.onOpenAllShelves,
+    required this.onRefreshShelves,
     super.key,
   });
 
   final List<MediaListItem> recentlyViewedItems;
+  final List<UserShelfSummary> shelves;
+  final bool isShelvesLoading;
+  final String? shelvesError;
   final Future<void> Function(MediaListItem item) onOpenItem;
+  final void Function(UserShelfSummary shelf) onOpenShelf;
+  final VoidCallback onOpenAllShelves;
+  final Future<void> Function() onRefreshShelves;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.shelves.isEmpty && !widget.isShelvesLoading) {
+      unawaited(widget.onRefreshShelves());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,28 +54,59 @@ class HomeScreen extends StatelessWidget {
     }
 
     final latestItem =
-        recentlyViewedItems.isNotEmpty ? recentlyViewedItems.first : null;
+        widget.recentlyViewedItems.isNotEmpty
+            ? widget.recentlyViewedItems.first
+            : null;
     final previouslyViewed =
-        recentlyViewedItems.length > 1
-            ? recentlyViewedItems.skip(1).toList(growable: false)
+        widget.recentlyViewedItems.length > 1
+            ? widget.recentlyViewedItems.skip(1).toList(growable: false)
             : <MediaListItem>[];
 
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-          children: [
-            Text("Главная", style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 18),
-            Text(
-              "Последнее",
+        child: RefreshIndicator(
+          onRefresh: widget.onRefreshShelves,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+            children: [
+              Text(
+                "Главная",
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Мои полки",
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: widget.onOpenAllShelves,
+                    child: const Text("Все полки"),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _HomeShelvesSection(
+                shelves: widget.shelves,
+                isLoading: widget.isShelvesLoading,
+                error: widget.shelvesError,
+                onOpenShelf: widget.onOpenShelf,
+                onOpenAllShelves: widget.onOpenAllShelves,
+                onRetry: widget.onRefreshShelves,
+              ),
+              const SizedBox(height: 18),
+              Text(
+                "Последнее",
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 14),
             _ContinueCard(
               item: latestItem,
               displayAuthor: authorOrFallback(latestItem),
-              onOpenItem: onOpenItem,
+              onOpenItem: widget.onOpenItem,
             ),
             const SizedBox(height: 18),
             Text(
@@ -65,10 +124,147 @@ class HomeScreen extends StatelessWidget {
                 (item) => _RecommendationTile(
                   item: item,
                   displayAuthor: authorOrFallback(item),
-                  onOpenItem: onOpenItem,
+                  onOpenItem: widget.onOpenItem,
                 ),
               ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeShelvesSection extends StatelessWidget {
+  const _HomeShelvesSection({
+    required this.shelves,
+    required this.isLoading,
+    required this.error,
+    required this.onOpenShelf,
+    required this.onOpenAllShelves,
+    required this.onRetry,
+  });
+
+  final List<UserShelfSummary> shelves;
+  final bool isLoading;
+  final String? error;
+  final void Function(UserShelfSummary shelf) onOpenShelf;
+  final VoidCallback onOpenAllShelves;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (isLoading && shelves.isEmpty) {
+      return const SizedBox(
+        height: 100,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (error != null && shelves.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            error!,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+          TextButton(
+            onPressed: () => onRetry(),
+            child: const Text("Повторить"),
+          ),
+        ],
+      );
+    }
+    if (shelves.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Соберите произведения в свои подборки",
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Полки видите только вы. Добавляйте книги и фильмы из карточки "
+                "кнопкой «На полку».",
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.tonal(
+                onPressed: onOpenAllShelves,
+                child: const Text("Создать полку"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 118,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: shelves.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final shelf = shelves[index];
+          return _HomeShelfCard(
+            shelf: shelf,
+            onTap: () => onOpenShelf(shelf),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _HomeShelfCard extends StatelessWidget {
+  const _HomeShelfCard({required this.shelf, required this.onTap});
+
+  final UserShelfSummary shelf;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 156,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.bookmarks_outlined,
+                  size: 28,
+                  color: theme.colorScheme.primary,
+                ),
+                const Spacer(),
+                Text(
+                  shelf.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "${shelf.itemCount} на полке",
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

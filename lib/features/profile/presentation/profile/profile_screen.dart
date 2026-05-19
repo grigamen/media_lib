@@ -29,6 +29,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onUpdateProfile,
     required this.onChangePassword,
     this.onOpenMyWorks,
+    this.onOpenShelves,
     this.onOpenAdminMedia,
     super.key,
   });
@@ -57,6 +58,7 @@ class ProfileScreen extends StatelessWidget {
   })
   onChangePassword;
   final VoidCallback? onOpenMyWorks;
+  final VoidCallback? onOpenShelves;
   final VoidCallback? onOpenAdminMedia;
 
   /// Разметка списка секций профиля и обработчики навигации/диалогов.
@@ -135,6 +137,15 @@ class ProfileScreen extends StatelessWidget {
                   value: isDarkMode,
                   onChanged: onThemeToggle,
                 ),
+                if (onOpenShelves != null) ...[
+                  _ActionTile(
+                    icon: Icons.bookmarks_outlined,
+                    title: "Мои полки",
+                    subtitle:
+                        "Личные подборки произведений — видите только вы",
+                    onTap: onOpenShelves!,
+                  ),
+                ],
                 if (hasOwnedWorks && onOpenMyWorks != null) ...[
                   _ActionTile(
                     icon: Icons.collections_bookmark_outlined,

@@ -34,6 +34,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.onFetchWorkUserRating,
     required this.onSetWorkUserRating,
     required this.onClearWorkUserRating,
+    required this.onAddToShelf,
   });
 
   final String? currentUserId;
@@ -113,6 +114,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
   })
   onSetWorkUserRating;
   final Future<void> Function(List<String> mediaItemIds) onClearWorkUserRating;
+  final Future<bool> Function(String mediaItemId) onAddToShelf;
 
   @override
   State<_MediaItemDetailsPage> createState() => _MediaItemDetailsPageState();

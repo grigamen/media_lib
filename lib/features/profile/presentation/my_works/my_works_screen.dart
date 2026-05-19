@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 import "../../../../app/app_state.dart";
 import "../../../library/data/library_repository.dart";
 import "../../../library/presentation/library/library_screen.dart";
+import "../../../shelves/presentation/add_to_shelf_dialog.dart";
 
 class MyWorksScreen extends StatefulWidget {
   const MyWorksScreen({required this.state, super.key});
@@ -156,6 +157,12 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
               stars: stars,
             ),
             onClearWorkUserRating: state.clearWorkUserRatingStars,
+            onAddToShelf:
+                (mediaItemId) => showAddToShelfDialog(
+                  context: context,
+                  state: state,
+                  mediaItemId: mediaItemId,
+                ),
             onFetchPlaybackStreamUrl: state.fetchPlaybackStreamUrl,
             hideLibraryControls: true,
             emptyLibraryMessage:
