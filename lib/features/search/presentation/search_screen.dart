@@ -198,6 +198,20 @@ class _SearchScreenState extends State<SearchScreen> {
     return _genres.any((g) => g.toLowerCase() == lower);
   }
 
+  Widget _section(BuildContext context, Widget child) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.35,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: child,
+    );
+  }
+
   Widget _boundRow({
     required String valueHint,
     required TextEditingController valueController,
@@ -210,24 +224,31 @@ class _SearchScreenState extends State<SearchScreen> {
       children: [
         Expanded(
           flex: 5,
-          child: DropdownButtonFormField<LibraryBoundCompare?>(
-            value: compare,
-            decoration: const InputDecoration(
-              labelText: "Условие",
-              isDense: true,
-            ),
-            items: [
-              const DropdownMenuItem<LibraryBoundCompare?>(
-                value: null,
-                child: Text("—"),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                label: Text(labelForBoundCompare(LibraryBoundCompare.greater)),
+                selected: compare == LibraryBoundCompare.greater,
+                onSelected:
+                    (_) => onCompareChanged(
+                      compare == LibraryBoundCompare.greater
+                          ? null
+                          : LibraryBoundCompare.greater,
+                    ),
               ),
-              for (final op in LibraryBoundCompare.values)
-                DropdownMenuItem(
-                  value: op,
-                  child: Text(labelForBoundCompare(op)),
-                ),
+              FilterChip(
+                label: Text(labelForBoundCompare(LibraryBoundCompare.less)),
+                selected: compare == LibraryBoundCompare.less,
+                onSelected:
+                    (_) => onCompareChanged(
+                      compare == LibraryBoundCompare.less
+                          ? null
+                          : LibraryBoundCompare.less,
+                    ),
+              ),
             ],
-            onChanged: onCompareChanged,
           ),
         ),
         const SizedBox(width: 8),
@@ -237,7 +258,6 @@ class _SearchScreenState extends State<SearchScreen> {
             controller: valueController,
             keyboardType: keyboardType,
             decoration: InputDecoration(
-              labelText: "Значение",
               hintText: valueHint,
               isDense: true,
             ),
@@ -250,16 +270,11 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hintStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
           children: [
-            Text("Поиск", style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 14),
             TextField(
               controller: _controller,
               onSubmitted: (_) => unawaited(_submit()),
@@ -274,134 +289,133 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              "Вид произведения",
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Не отмечено — все виды. Можно выбрать несколько.",
-              style: hintStyle,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final spec in _typeSpecs)
-                  FilterChip(
-                    label: Text(spec.label),
-                    selected: _types.contains(spec.key),
-                    onSelected: (_) => _toggleType(spec.key),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text("Рейтинг", style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Text(
-              "Наличие и граница по средней оценке (1–5). Граница необязательна.",
-              style: hintStyle,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilterChip(
-                  label: const Text("С рейтингом"),
-                  selected: _ratingPresence == LibraryRatingPresence.withRating,
-                  onSelected: (_) =>
-                      _selectRatingPresence(LibraryRatingPresence.withRating),
-                ),
-                FilterChip(
-                  label: const Text("Без рейтинга"),
-                  selected:
-                      _ratingPresence == LibraryRatingPresence.withoutRating,
-                  onSelected:
-                      (_) => _selectRatingPresence(
-                        LibraryRatingPresence.withoutRating,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _boundRow(
-              valueHint: "4",
-              valueController: _ratingBoundController,
-              compare: _ratingBoundCompare,
-              onCompareChanged: (value) {
-                setState(() => _ratingBoundCompare = value);
-              },
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 20),
-            Text("Просмотры", style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Text(
-              "Наличие и граница по сумме просмотров всех форматов.",
-              style: hintStyle,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilterChip(
-                  label: const Text("С просмотрами"),
-                  selected: _viewsPresence == LibraryViewsPresence.withViews,
-                  onSelected: (_) =>
-                      _selectViewsPresence(LibraryViewsPresence.withViews),
-                ),
-                FilterChip(
-                  label: const Text("Без просмотров"),
-                  selected: _viewsPresence == LibraryViewsPresence.withoutViews,
-                  onSelected:
-                      (_) => _selectViewsPresence(
-                        LibraryViewsPresence.withoutViews,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _boundRow(
-              valueHint: "100",
-              valueController: _viewsBoundController,
-              compare: _viewsBoundCompare,
-              onCompareChanged: (value) {
-                setState(() => _viewsBoundCompare = value);
-              },
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "Жанры",
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _genres.isEmpty
-                  ? "Не выбрано — любые жанры. Выберите один или несколько."
-                  : "Показываются произведения, где есть хотя бы один из выбранных жанров.",
-              style: hintStyle,
-            ),
-            const SizedBox(height: 8),
-            if (widget.availableGenres.isEmpty)
-              Text(
-                "Список жанров загрузится после запроса каталога.",
-                style: Theme.of(context).textTheme.bodySmall,
-              )
-            else
+            _section(
+              context,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final genre in widget.availableGenres)
+                  for (final spec in _typeSpecs)
                     FilterChip(
-                      label: Text(genre),
-                      selected: _genreSelected(genre),
-                      onSelected: (_) => _toggleGenre(genre),
+                      label: Text(spec.label),
+                      selected: _types.contains(spec.key),
+                      onSelected: (_) => _toggleType(spec.key),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Divider(color: Theme.of(context).colorScheme.outlineVariant),
+            const SizedBox(height: 20),
+            _section(
+              context,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text("С рейтингом"),
+                        selected:
+                            _ratingPresence == LibraryRatingPresence.withRating,
+                        onSelected:
+                            (_) => _selectRatingPresence(
+                              LibraryRatingPresence.withRating,
+                            ),
+                      ),
+                      FilterChip(
+                        label: const Text("Без рейтинга"),
+                        selected:
+                            _ratingPresence ==
+                            LibraryRatingPresence.withoutRating,
+                        onSelected:
+                            (_) => _selectRatingPresence(
+                              LibraryRatingPresence.withoutRating,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _boundRow(
+                    valueHint: "4",
+                    valueController: _ratingBoundController,
+                    compare: _ratingBoundCompare,
+                    onCompareChanged: (value) {
+                      setState(() => _ratingBoundCompare = value);
+                    },
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Divider(color: Theme.of(context).colorScheme.outlineVariant),
+            const SizedBox(height: 20),
+            _section(
+              context,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text("С просмотрами"),
+                        selected:
+                            _viewsPresence == LibraryViewsPresence.withViews,
+                        onSelected:
+                            (_) => _selectViewsPresence(
+                              LibraryViewsPresence.withViews,
+                            ),
+                      ),
+                      FilterChip(
+                        label: const Text("Без просмотров"),
+                        selected:
+                            _viewsPresence == LibraryViewsPresence.withoutViews,
+                        onSelected:
+                            (_) => _selectViewsPresence(
+                              LibraryViewsPresence.withoutViews,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _boundRow(
+                    valueHint: "100",
+                    valueController: _viewsBoundController,
+                    compare: _viewsBoundCompare,
+                    onCompareChanged: (value) {
+                      setState(() => _viewsBoundCompare = value);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Divider(color: Theme.of(context).colorScheme.outlineVariant),
+            const SizedBox(height: 20),
+            if (widget.availableGenres.isEmpty)
+              const SizedBox.shrink()
+            else
+              _section(
+                context,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final genre in widget.availableGenres)
+                      FilterChip(
+                        label: Text(genre),
+                        selected: _genreSelected(genre),
+                        onSelected: (_) => _toggleGenre(genre),
+                      ),
+                  ],
+                ),
               ),
             const SizedBox(height: 16),
             Align(

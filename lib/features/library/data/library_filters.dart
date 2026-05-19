@@ -12,12 +12,10 @@ enum LibraryViewsPresence {
   withoutViews,
 }
 
-/// Сравнение с порогом: больше / не меньше / меньше / не больше.
+/// Сравнение с порогом: больше / меньше.
 enum LibraryBoundCompare {
   greater,
-  greaterOrEqual,
   less,
-  lessOrEqual,
 }
 
 /// Фильтр по рейтингу: наличие и/или граница по средней оценке (1–5).
@@ -159,25 +157,19 @@ String? _boundLabel(
   if (isRating) {
     return switch (compare) {
       LibraryBoundCompare.greater => "Рейтинг > $formatted",
-      LibraryBoundCompare.greaterOrEqual => "Рейтинг ≥ $formatted",
       LibraryBoundCompare.less => "Рейтинг < $formatted",
-      LibraryBoundCompare.lessOrEqual => "Рейтинг ≤ $formatted",
     };
   }
   return switch (compare) {
     LibraryBoundCompare.greater => "Просмотров > $formatted",
-    LibraryBoundCompare.greaterOrEqual => "Просмотров ≥ $formatted",
     LibraryBoundCompare.less => "Просмотров < $formatted",
-    LibraryBoundCompare.lessOrEqual => "Просмотров ≤ $formatted",
   };
 }
 
 String labelForBoundCompare(LibraryBoundCompare compare) {
   return switch (compare) {
     LibraryBoundCompare.greater => "Больше",
-    LibraryBoundCompare.greaterOrEqual => "Не меньше",
     LibraryBoundCompare.less => "Меньше",
-    LibraryBoundCompare.lessOrEqual => "Не больше",
   };
 }
 

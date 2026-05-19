@@ -26,6 +26,7 @@ from app.jwt_utils import (
 )
 from app.mail import send_login_otp_email, send_profile_otp_email
 from app.models import TwoFAEmailChallenge, User
+from app.models.user_shelf import UserShelf
 from app.models.user import utcnow
 from app.schemas.auth import (
     Email2FAEnableConfirmRequest,
@@ -153,6 +154,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Registe
     db.add(user)
     db.commit()
     db.refresh(user)
+    db.add(UserShelf(user_id=user.id, name="Моя полка"))
+    db.commit()
 
     return RegisterResponse(user_id=user.id, email=user.email, display_name=user.display_name)
 

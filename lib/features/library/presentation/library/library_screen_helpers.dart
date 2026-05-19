@@ -133,9 +133,7 @@ String _formatViewsCount(int count) {
 bool _matchesBound(double value, LibraryBoundCompare compare, double bound) {
   return switch (compare) {
     LibraryBoundCompare.greater => value > bound,
-    LibraryBoundCompare.greaterOrEqual => value >= bound,
     LibraryBoundCompare.less => value < bound,
-    LibraryBoundCompare.lessOrEqual => value <= bound,
   };
 }
 

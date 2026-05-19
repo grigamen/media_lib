@@ -162,9 +162,23 @@ mixin _AppStateShelves on _AppStateRefs {
     if (session == null) {
       return null;
     }
-    return _s._shelfRepository.fetchShelf(
+    final detail = await _s._shelfRepository.fetchShelf(
       accessToken: session.accessToken,
       shelfId: shelfId,
+    );
+    if (detail.items.isEmpty) {
+      return detail;
+    }
+    final refreshedItems = await _s._coverRefresh.withFreshCoverUrls(
+      session: session,
+      items: detail.items,
+    );
+    return UserShelfDetail(
+      id: detail.id,
+      name: detail.name,
+      items: refreshedItems,
+      createdAt: detail.createdAt,
+      updatedAt: detail.updatedAt,
     );
   }
 
