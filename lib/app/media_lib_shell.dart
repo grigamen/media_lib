@@ -104,11 +104,13 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
     final pages = <Widget>[
       HomeScreen(
         recentlyViewedItems: state.recentlyViewedItems,
-        shelves: state.shelves,
+        catalogItems: state.items,
+        shelves: state.homeShelves,
         isShelvesLoading: state.isShelvesLoading,
         shelvesError: state.shelvesError,
         onOpenItem: openItemFromHome,
         onOpenShelf: (shelf) {
+          state.markShelfOpened(shelf.id);
           Navigator.of(context).push<void>(
             MaterialPageRoute<void>(
               builder:
@@ -139,16 +141,21 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
         searchQuery: state.searchQuery,
         selectedTypes: state.selectedTypes,
         selectedGenres: state.selectedGenres,
+        libraryRatingCriteria: state.libraryRatingCriteria,
+        libraryViewsCriteria: state.libraryViewsCriteria,
         librarySortField: state.librarySortField,
         librarySortDescending: state.librarySortDescending,
         onSetLibrarySortField: state.setLibrarySort,
         onToggleLibrarySortDirection: state.toggleLibrarySortDirection,
         onSetLibraryFilters:
-            (query, types, genres) => state.applyLibraryFilters(
-              searchQuery: query,
-              selectedTypes: types,
-              selectedGenres: genres,
-            ),
+            (query, types, genres, ratingCriteria, viewsCriteria) =>
+                state.applyLibraryFilters(
+                  searchQuery: query,
+                  selectedTypes: types,
+                  selectedGenres: genres,
+                  ratingCriteria: ratingCriteria,
+                  viewsCriteria: viewsCriteria,
+                ),
         availableGenres: state.availableGenres,
         onLoadLinks: state.fetchLinksForItem,
         onLoadItemById: state.fetchMediaItemById,
@@ -278,13 +285,18 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
         initialQuery: state.searchQuery,
         selectedTypes: state.selectedTypes,
         selectedGenres: state.selectedGenres,
+        ratingCriteria: state.libraryRatingCriteria,
+        viewsCriteria: state.libraryViewsCriteria,
         availableGenres: state.availableGenres,
         onApply:
-            (query, types, genres) => state.applyLibraryFilters(
-              searchQuery: query,
-              selectedTypes: types,
-              selectedGenres: genres,
-            ),
+            (query, types, genres, ratingCriteria, viewsCriteria) =>
+                state.applyLibraryFilters(
+                  searchQuery: query,
+                  selectedTypes: types,
+                  selectedGenres: genres,
+                  ratingCriteria: ratingCriteria,
+                  viewsCriteria: viewsCriteria,
+                ),
         onOpenLibrary: () => state.setSelectedTab(1),
       ),
       ProfileScreen(

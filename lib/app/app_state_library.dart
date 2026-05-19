@@ -119,6 +119,9 @@ mixin _AppStateLibrary on _AppStateRefs {
       await refreshOwnedWorksCount();
       notifyListeners();
       unawaited(_prefetchLibraryUserRatings());
+      if (_s._shelves.isNotEmpty) {
+        unawaited(_s.refreshShelfCoversAfterCatalog());
+      }
     }
   }
 
@@ -239,11 +242,28 @@ mixin _AppStateLibrary on _AppStateRefs {
     required String searchQuery,
     List<String> selectedTypes = const [],
     List<String> selectedGenres = const [],
+    LibraryRatingCriteria ratingCriteria = LibraryRatingCriteria.any,
+    LibraryViewsCriteria viewsCriteria = LibraryViewsCriteria.any,
   }) async {
-    _s._searchQuery = searchQuery.trim();
-    _s._selectedTypes = normalizeLibrarySelectedTypes(selectedTypes);
-    _s._selectedGenres = normalizeLibraryGenres(selectedGenres);
-    await fetchLibrary();
+    final nextQuery = searchQuery.trim();
+    final nextTypes = normalizeLibrarySelectedTypes(selectedTypes);
+    final nextGenres = normalizeLibraryGenres(selectedGenres);
+    final needsFetch =
+        _s._searchQuery != nextQuery ||
+        !listEquals(_s._selectedTypes, nextTypes) ||
+        !listEquals(_s._selectedGenres, nextGenres);
+
+    _s._searchQuery = nextQuery;
+    _s._selectedTypes = nextTypes;
+    _s._selectedGenres = nextGenres;
+    _s._libraryRatingCriteria = ratingCriteria;
+    _s._libraryViewsCriteria = viewsCriteria;
+
+    if (needsFetch) {
+      await fetchLibrary();
+    } else {
+      notifyListeners();
+    }
   }
 
   /// Сортировка сетки библиотеки (клиентская, без перезапроса каталога).

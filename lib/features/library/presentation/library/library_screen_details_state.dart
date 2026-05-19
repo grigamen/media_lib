@@ -135,17 +135,33 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                       const SizedBox(height: 4),
                                       Text(activeAuthor),
                                       const SizedBox(height: 8),
-                                      Wrap(
-                                        spacing: 12,
-                                        runSpacing: 8,
+                                      Row(
                                         crossAxisAlignment:
-                                            WrapCrossAlignment.center,
+                                            CrossAxisAlignment.center,
                                         children: [
                                           _workAverageRatingHeader(
                                             context,
                                             _variants,
                                           ),
-                                          if (widget.currentUserId != null)
+                                          if (widget.currentUserId != null) ...[
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                  ),
+                                              child: Text(
+                                                "|",
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                  color:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .outline,
+                                                ),
+                                              ),
+                                            ),
                                             _WorkUserRatingBar(
                                               key: ValueKey(
                                                 _rateableVariantIds.join("|"),
@@ -171,6 +187,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                                         _rateableVariantIds,
                                                       ),
                                             ),
+                                          ],
                                         ],
                                       ),
                                       if (activeGenres.isNotEmpty) ...[
@@ -504,6 +521,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
       .toList(growable: false);
 }
 
+const _kUserRatingStarColor = Color(0xFF42A5F5);
+
 /// Звёздная оценка произведения (1–5) для всех форматов работы.
 class _WorkUserRatingBar extends StatefulWidget {
   const _WorkUserRatingBar({
@@ -632,7 +651,7 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
                               size: 40,
                               color:
                                   draft >= i
-                                      ? Colors.amber.shade700
+                                      ? _kUserRatingStarColor
                                       : theme.colorScheme.outline,
                             ),
                           ),
@@ -701,30 +720,30 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
     if (widget.compact) {
       return Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (stars != null) ...[
-            Text(
-              "Моя оценка:",
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              "$stars",
-              style: theme.textTheme.titleMedium,
-            ),
-            Icon(Icons.star, size: 18, color: Colors.amber.shade700),
+            Text("$stars", style: theme.textTheme.titleMedium),
+            Icon(Icons.star, size: 20, color: _kUserRatingStarColor),
             const SizedBox(width: 8),
           ],
           TextButton(
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             onPressed: _busy ? null : _openRatingForm,
             child:
                 _busy
-                    ? const SizedBox(
+                    ? SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _kUserRatingStarColor,
+                      ),
                     )
                     : Text(stars == null ? "Оценить" : "Изменить"),
           ),

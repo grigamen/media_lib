@@ -37,35 +37,36 @@ def _get_owned_shelf(db: Session, shelf_id: UUID, current_user: User) -> UserShe
     return shelf
 
 
-def _shelf_cover_url(db: Session, shelf_id: UUID) -> str | None:
-    row = db.execute(
-        select(MediaItem.cover_url)
+def _shelf_cover(db: Session, shelf_id: UUID) -> tuple[str | None, UUID | None]:
+    """Id первой книги на полке (обложка — у клиента по cover_file_id); иначе первый элемент."""
+    base = (
+        select(MediaItem.id)
         .join(UserShelfItem, UserShelfItem.media_item_id == MediaItem.id)
         .where(
             UserShelfItem.shelf_id == shelf_id,
-            MediaItem.cover_url.isnot(None),
-            MediaItem.cover_url != "",
+            MediaItem.deleted_at.is_(None),
         )
         .order_by(UserShelfItem.position.asc(), UserShelfItem.created_at.asc())
-        .limit(1)
-    ).first()
-    if row is None:
-        return None
-    url = row[0]
-    if url is None or not str(url).strip():
-        return None
-    return str(url).strip()
+    )
+    for book_only in (True, False):
+        stmt = base.where(MediaItem.type == "book") if book_only else base
+        item_id = db.scalar(stmt.limit(1))
+        if item_id is not None:
+            return None, item_id
+    return None, None
 
 
 def _shelf_to_response(db: Session, shelf: UserShelf) -> ShelfResponse:
     count = db.scalar(
         select(func.count()).select_from(UserShelfItem).where(UserShelfItem.shelf_id == shelf.id)
     )
+    cover_url, cover_media_item_id = _shelf_cover(db, shelf.id)
     return ShelfResponse(
         id=shelf.id,
         name=shelf.name,
         item_count=int(count or 0),
-        cover_url=_shelf_cover_url(db, shelf.id),
+        cover_url=cover_url,
+        cover_media_item_id=cover_media_item_id,
         created_at=shelf.created_at,
         updated_at=shelf.updated_at,
     )

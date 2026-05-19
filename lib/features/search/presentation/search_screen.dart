@@ -3,11 +3,15 @@ import "dart:async";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
+import "../../library/data/library_filters.dart";
+
 class SearchScreen extends StatefulWidget {
   const SearchScreen({
     required this.initialQuery,
     required this.selectedTypes,
     required this.selectedGenres,
+    required this.ratingCriteria,
+    required this.viewsCriteria,
     required this.availableGenres,
     required this.onApply,
     required this.onOpenLibrary,
@@ -17,8 +21,16 @@ class SearchScreen extends StatefulWidget {
   final String initialQuery;
   final List<String> selectedTypes;
   final List<String> selectedGenres;
+  final LibraryRatingCriteria ratingCriteria;
+  final LibraryViewsCriteria viewsCriteria;
   final List<String> availableGenres;
-  final Future<void> Function(String query, List<String> types, List<String> genres)
+  final Future<void> Function(
+    String query,
+    List<String> types,
+    List<String> genres,
+    LibraryRatingCriteria ratingCriteria,
+    LibraryViewsCriteria viewsCriteria,
+  )
   onApply;
   final VoidCallback onOpenLibrary;
 
@@ -28,8 +40,14 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   late final TextEditingController _controller;
+  late final TextEditingController _ratingBoundController;
+  late final TextEditingController _viewsBoundController;
   late List<String> _types;
   late List<String> _genres;
+  late LibraryRatingPresence _ratingPresence;
+  late LibraryViewsPresence _viewsPresence;
+  LibraryBoundCompare? _ratingBoundCompare;
+  LibraryBoundCompare? _viewsBoundCompare;
 
   static const _typeSpecs = <({String key, String label})>[
     (key: "book", label: "Книги"),
@@ -41,8 +59,18 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialQuery);
+    _ratingBoundController = TextEditingController(
+      text: _formatRatingBound(widget.ratingCriteria.boundValue),
+    );
+    _viewsBoundController = TextEditingController(
+      text: widget.viewsCriteria.boundValue?.toString() ?? "",
+    );
     _types = List<String>.from(widget.selectedTypes);
     _genres = List<String>.from(widget.selectedGenres);
+    _ratingPresence = widget.ratingCriteria.presence;
+    _viewsPresence = widget.viewsCriteria.presence;
+    _ratingBoundCompare = widget.ratingCriteria.boundCompare;
+    _viewsBoundCompare = widget.viewsCriteria.boundCompare;
   }
 
   @override
@@ -58,12 +86,37 @@ class _SearchScreenState extends State<SearchScreen> {
     if (!listEquals(widget.selectedGenres, oldWidget.selectedGenres)) {
       _genres = List<String>.from(widget.selectedGenres);
     }
+    if (widget.ratingCriteria != oldWidget.ratingCriteria) {
+      _ratingPresence = widget.ratingCriteria.presence;
+      _ratingBoundCompare = widget.ratingCriteria.boundCompare;
+      final formatted = _formatRatingBound(widget.ratingCriteria.boundValue);
+      if (_ratingBoundController.text != formatted) {
+        _ratingBoundController.text = formatted;
+      }
+    }
+    if (widget.viewsCriteria != oldWidget.viewsCriteria) {
+      _viewsPresence = widget.viewsCriteria.presence;
+      _viewsBoundCompare = widget.viewsCriteria.boundCompare;
+      final formatted = widget.viewsCriteria.boundValue?.toString() ?? "";
+      if (_viewsBoundController.text != formatted) {
+        _viewsBoundController.text = formatted;
+      }
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _ratingBoundController.dispose();
+    _viewsBoundController.dispose();
     super.dispose();
+  }
+
+  static String _formatRatingBound(double? value) {
+    if (value == null) {
+      return "";
+    }
+    return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1);
   }
 
   void _toggleType(String key) {
@@ -96,8 +149,47 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
+  void _selectRatingPresence(LibraryRatingPresence next) {
+    setState(() {
+      _ratingPresence =
+          _ratingPresence == next ? LibraryRatingPresence.any : next;
+    });
+  }
+
+  void _selectViewsPresence(LibraryViewsPresence next) {
+    setState(() {
+      _viewsPresence = _viewsPresence == next ? LibraryViewsPresence.any : next;
+    });
+  }
+
+  LibraryRatingCriteria _buildRatingCriteria() {
+    final boundValue = parseRatingBoundInput(_ratingBoundController.text);
+    final compare = boundValue != null ? _ratingBoundCompare : null;
+    return LibraryRatingCriteria(
+      presence: _ratingPresence,
+      boundCompare: compare,
+      boundValue: boundValue,
+    );
+  }
+
+  LibraryViewsCriteria _buildViewsCriteria() {
+    final boundValue = parseViewsBoundInput(_viewsBoundController.text);
+    final compare = boundValue != null ? _viewsBoundCompare : null;
+    return LibraryViewsCriteria(
+      presence: _viewsPresence,
+      boundCompare: compare,
+      boundValue: boundValue,
+    );
+  }
+
   Future<void> _submit() async {
-    await widget.onApply(_controller.text.trim(), _types, _genres);
+    await widget.onApply(
+      _controller.text.trim(),
+      _types,
+      _genres,
+      _buildRatingCriteria(),
+      _buildViewsCriteria(),
+    );
     widget.onOpenLibrary();
   }
 
@@ -106,8 +198,61 @@ class _SearchScreenState extends State<SearchScreen> {
     return _genres.any((g) => g.toLowerCase() == lower);
   }
 
+  Widget _boundRow({
+    required String valueHint,
+    required TextEditingController valueController,
+    required LibraryBoundCompare? compare,
+    required ValueChanged<LibraryBoundCompare?> onCompareChanged,
+    TextInputType keyboardType = TextInputType.number,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 5,
+          child: DropdownButtonFormField<LibraryBoundCompare?>(
+            value: compare,
+            decoration: const InputDecoration(
+              labelText: "Условие",
+              isDense: true,
+            ),
+            items: [
+              const DropdownMenuItem<LibraryBoundCompare?>(
+                value: null,
+                child: Text("—"),
+              ),
+              for (final op in LibraryBoundCompare.values)
+                DropdownMenuItem(
+                  value: op,
+                  child: Text(labelForBoundCompare(op)),
+                ),
+            ],
+            onChanged: onCompareChanged,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 4,
+          child: TextField(
+            controller: valueController,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              labelText: "Значение",
+              hintText: valueHint,
+              isDense: true,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hintStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -136,9 +281,7 @@ class _SearchScreenState extends State<SearchScreen> {
             const SizedBox(height: 8),
             Text(
               "Не отмечено — все виды. Можно выбрать несколько.",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: hintStyle,
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -154,6 +297,82 @@ class _SearchScreenState extends State<SearchScreen> {
               ],
             ),
             const SizedBox(height: 20),
+            Text("Рейтинг", style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Text(
+              "Наличие и граница по средней оценке (1–5). Граница необязательна.",
+              style: hintStyle,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text("С рейтингом"),
+                  selected: _ratingPresence == LibraryRatingPresence.withRating,
+                  onSelected: (_) =>
+                      _selectRatingPresence(LibraryRatingPresence.withRating),
+                ),
+                FilterChip(
+                  label: const Text("Без рейтинга"),
+                  selected:
+                      _ratingPresence == LibraryRatingPresence.withoutRating,
+                  onSelected:
+                      (_) => _selectRatingPresence(
+                        LibraryRatingPresence.withoutRating,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _boundRow(
+              valueHint: "4",
+              valueController: _ratingBoundController,
+              compare: _ratingBoundCompare,
+              onCompareChanged: (value) {
+                setState(() => _ratingBoundCompare = value);
+              },
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: 20),
+            Text("Просмотры", style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Text(
+              "Наличие и граница по сумме просмотров всех форматов.",
+              style: hintStyle,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text("С просмотрами"),
+                  selected: _viewsPresence == LibraryViewsPresence.withViews,
+                  onSelected: (_) =>
+                      _selectViewsPresence(LibraryViewsPresence.withViews),
+                ),
+                FilterChip(
+                  label: const Text("Без просмотров"),
+                  selected: _viewsPresence == LibraryViewsPresence.withoutViews,
+                  onSelected:
+                      (_) => _selectViewsPresence(
+                        LibraryViewsPresence.withoutViews,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _boundRow(
+              valueHint: "100",
+              valueController: _viewsBoundController,
+              compare: _viewsBoundCompare,
+              onCompareChanged: (value) {
+                setState(() => _viewsBoundCompare = value);
+              },
+            ),
+            const SizedBox(height: 20),
             Text(
               "Жанры",
               style: Theme.of(context).textTheme.titleSmall,
@@ -163,9 +382,7 @@ class _SearchScreenState extends State<SearchScreen> {
               _genres.isEmpty
                   ? "Не выбрано — любые жанры. Выберите один или несколько."
                   : "Показываются произведения, где есть хотя бы один из выбранных жанров.",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: hintStyle,
             ),
             const SizedBox(height: 8),
             if (widget.availableGenres.isEmpty)
@@ -194,9 +411,15 @@ class _SearchScreenState extends State<SearchScreen> {
                   setState(() {
                     _types = [];
                     _genres = [];
+                    _ratingPresence = LibraryRatingPresence.any;
+                    _viewsPresence = LibraryViewsPresence.any;
+                    _ratingBoundCompare = null;
+                    _viewsBoundCompare = null;
+                    _ratingBoundController.clear();
+                    _viewsBoundController.clear();
                   });
                 },
-                child: const Text("Сбросить виды и жанры"),
+                child: const Text("Сбросить фильтры"),
               ),
             ),
             FilledButton(

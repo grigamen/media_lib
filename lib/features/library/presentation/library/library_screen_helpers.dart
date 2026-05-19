@@ -19,6 +19,29 @@ Widget _mediaCoverImage(
 }) =>
     MediaCoverImage(coverUrl: coverUrl, fit: fit);
 
+/// Число просмотров для карточки в сетке (сумма по всем форматам).
+Widget _libraryGridViewsLabel(BuildContext context, List<MediaListItem> items) {
+  final theme = Theme.of(context);
+  final count = _totalViewsForWorkGroup(items);
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(
+        Icons.visibility_outlined,
+        size: 16,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+      const SizedBox(width: 4),
+      Text(
+        "$count",
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ],
+  );
+}
+
 /// Подпись рейтинга для карточки в сетке: «4.5 (12)» или «без рейтинга».
 Widget _libraryGridRatingLabel(
   BuildContext context,
@@ -107,6 +130,86 @@ String _formatViewsCount(int count) {
 }
 
 /// Взвешенное среднее по всем форматам (книга + аудио + видео) и суммарное число оценок.
+bool _matchesBound(double value, LibraryBoundCompare compare, double bound) {
+  return switch (compare) {
+    LibraryBoundCompare.greater => value > bound,
+    LibraryBoundCompare.greaterOrEqual => value >= bound,
+    LibraryBoundCompare.less => value < bound,
+    LibraryBoundCompare.lessOrEqual => value <= bound,
+  };
+}
+
+bool _workGroupMatchesRatingCriteria(
+  _WorkGroup group,
+  LibraryRatingCriteria criteria,
+) {
+  final summary = _averageRatingForWorkGroup(group.groupItems);
+  switch (criteria.presence) {
+    case LibraryRatingPresence.any:
+      break;
+    case LibraryRatingPresence.withRating:
+      if (summary == null) {
+        return false;
+      }
+    case LibraryRatingPresence.withoutRating:
+      if (summary != null) {
+        return false;
+      }
+  }
+  final compare = criteria.boundCompare;
+  final bound = criteria.boundValue;
+  if (compare != null && bound != null) {
+    if (summary == null) {
+      return false;
+    }
+    if (!_matchesBound(summary.average, compare, bound)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _workGroupMatchesViewsCriteria(
+  _WorkGroup group,
+  LibraryViewsCriteria criteria,
+) {
+  final views = _totalViewsForWorkGroup(group.groupItems);
+  switch (criteria.presence) {
+    case LibraryViewsPresence.any:
+      break;
+    case LibraryViewsPresence.withViews:
+      if (views <= 0) {
+        return false;
+      }
+    case LibraryViewsPresence.withoutViews:
+      if (views > 0) {
+        return false;
+      }
+  }
+  final compare = criteria.boundCompare;
+  final bound = criteria.boundValue;
+  if (compare != null && bound != null) {
+    if (!_matchesBound(views.toDouble(), compare, bound.toDouble())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+List<_WorkGroup> _filterWorkGroups(
+  List<_WorkGroup> groups, {
+  required LibraryRatingCriteria ratingCriteria,
+  required LibraryViewsCriteria viewsCriteria,
+}) {
+  return groups
+      .where(
+        (group) =>
+            _workGroupMatchesRatingCriteria(group, ratingCriteria) &&
+            _workGroupMatchesViewsCriteria(group, viewsCriteria),
+      )
+      .toList(growable: false);
+}
+
 _WorkAverageRating? _averageRatingForWorkGroup(List<MediaListItem> items) {
   var weightedSum = 0.0;
   var totalCount = 0;

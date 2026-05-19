@@ -28,7 +28,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       field: widget.librarySortField,
       descending: widget.librarySortDescending,
     );
-    return result;
+    return _filterWorkGroups(
+      result,
+      ratingCriteria: widget.libraryRatingCriteria,
+      viewsCriteria: widget.libraryViewsCriteria,
+    );
   }
 
   @override
@@ -113,6 +117,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       searchQuery: widget.searchQuery,
                       selectedTypes: widget.selectedTypes,
                       selectedGenres: widget.selectedGenres,
+                      libraryRatingCriteria: widget.libraryRatingCriteria,
+                      libraryViewsCriteria: widget.libraryViewsCriteria,
                       librarySortField: widget.librarySortField,
                       librarySortDescending: widget.librarySortDescending,
                       onSetLibrarySortField: widget.onSetLibrarySortField,
@@ -147,6 +153,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       searchQuery: widget.searchQuery,
                       selectedTypes: widget.selectedTypes,
                       selectedGenres: widget.selectedGenres,
+                      libraryRatingCriteria: widget.libraryRatingCriteria,
+                      libraryViewsCriteria: widget.libraryViewsCriteria,
                       librarySortField: widget.librarySortField,
                       librarySortDescending: widget.librarySortDescending,
                       onSetLibrarySortField: widget.onSetLibrarySortField,
@@ -178,6 +186,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     searchQuery: widget.searchQuery,
                     selectedTypes: widget.selectedTypes,
                     selectedGenres: widget.selectedGenres,
+                    libraryRatingCriteria: widget.libraryRatingCriteria,
+                    libraryViewsCriteria: widget.libraryViewsCriteria,
                     librarySortField: widget.librarySortField,
                     librarySortDescending: widget.librarySortDescending,
                     onSetLibrarySortField: widget.onSetLibrarySortField,

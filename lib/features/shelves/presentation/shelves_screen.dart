@@ -4,6 +4,7 @@ import "package:flutter/material.dart";
 
 import "../../../app/app_state.dart";
 import "../../library/presentation/media_cover.dart";
+import "../data/shelf_models.dart";
 import "shelf_detail_screen.dart";
 import "shelf_name_dialog.dart";
 
@@ -95,13 +96,19 @@ class _ShelvesScreenState extends State<ShelvesScreen> {
                       child: SizedBox(
                         width: 48,
                         height: 64,
-                        child: MediaCoverImage(coverUrl: shelf.coverUrl),
+                        child: MediaCoverImage(
+                          coverUrl: shelfCoverUrlForShelf(
+                            shelf,
+                            widget.state.items,
+                          ),
+                        ),
                       ),
                     ),
                     title: Text(shelf.name),
                     subtitle: Text("${shelf.itemCount} на полке"),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
+                      widget.state.markShelfOpened(shelf.id);
                       Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
                           builder:

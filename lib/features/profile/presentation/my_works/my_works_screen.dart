@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 
 import "../../../../app/app_state.dart";
+import "../../../library/data/library_filters.dart";
 import "../../../library/data/library_repository.dart";
 import "../../../library/presentation/library/library_screen.dart";
 import "../../../shelves/presentation/add_to_shelf_dialog.dart";
@@ -70,11 +71,13 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
             searchQuery: "",
             selectedTypes: const [],
             selectedGenres: const [],
+            libraryRatingCriteria: LibraryRatingCriteria.any,
+            libraryViewsCriteria: LibraryViewsCriteria.any,
             librarySortField: state.librarySortField,
             librarySortDescending: state.librarySortDescending,
             onSetLibrarySortField: state.setLibrarySort,
             onToggleLibrarySortDirection: state.toggleLibrarySortDirection,
-            onSetLibraryFilters: (_, __, ___) async {},
+            onSetLibraryFilters: (_, __, ___, ____, _____) async {},
             availableGenres: state.availableGenres,
             onLoadLinks: state.fetchLinksForItem,
             onLoadItemById: state.fetchMediaItemById,

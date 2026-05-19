@@ -9,6 +9,7 @@ import "../../shelves/data/shelf_models.dart";
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.recentlyViewedItems,
+    required this.catalogItems,
     required this.shelves,
     required this.isShelvesLoading,
     required this.shelvesError,
@@ -20,6 +21,7 @@ class HomeScreen extends StatefulWidget {
   });
 
   final List<MediaListItem> recentlyViewedItems;
+  final List<MediaListItem> catalogItems;
   final List<UserShelfSummary> shelves;
   final bool isShelvesLoading;
   final String? shelvesError;
@@ -92,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 10),
               _HomeShelvesSection(
                 shelves: widget.shelves,
+                catalogItems: widget.catalogItems,
                 isLoading: widget.isShelvesLoading,
                 error: widget.shelvesError,
                 onOpenShelf: widget.onOpenShelf,
@@ -139,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HomeShelvesSection extends StatelessWidget {
   const _HomeShelvesSection({
     required this.shelves,
+    required this.catalogItems,
     required this.isLoading,
     required this.error,
     required this.onOpenShelf,
@@ -147,6 +151,7 @@ class _HomeShelvesSection extends StatelessWidget {
   });
 
   final List<UserShelfSummary> shelves;
+  final List<MediaListItem> catalogItems;
   final bool isLoading;
   final String? error;
   final void Function(UserShelfSummary shelf) onOpenShelf;
@@ -216,6 +221,7 @@ class _HomeShelvesSection extends StatelessWidget {
           final shelf = shelves[index];
           return _HomeShelfCard(
             shelf: shelf,
+            catalogItems: catalogItems,
             onTap: () => onOpenShelf(shelf),
           );
         },
@@ -225,9 +231,14 @@ class _HomeShelvesSection extends StatelessWidget {
 }
 
 class _HomeShelfCard extends StatelessWidget {
-  const _HomeShelfCard({required this.shelf, required this.onTap});
+  const _HomeShelfCard({
+    required this.shelf,
+    required this.catalogItems,
+    required this.onTap,
+  });
 
   final UserShelfSummary shelf;
+  final List<MediaListItem> catalogItems;
   final VoidCallback onTap;
 
   @override
@@ -245,7 +256,9 @@ class _HomeShelfCard extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 72,
-                  child: MediaCoverImage(coverUrl: shelf.coverUrl),
+                  child: MediaCoverImage(
+                    coverUrl: shelfCoverUrlForShelf(shelf, catalogItems),
+                  ),
                 ),
                 Expanded(
                   child: Padding(

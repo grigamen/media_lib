@@ -20,6 +20,7 @@ import "../core/local/recently_viewed_local_store.dart";
 import "../core/network/api_client.dart";
 import "../features/auth/data/auth_repository.dart";
 import "../features/library/data/library_repository.dart";
+import "../features/library/data/library_filters.dart";
 import "../features/library/data/library_sort.dart";
 import "../features/shelves/data/shelf_models.dart";
 import "../features/shelves/data/shelf_repository.dart";
@@ -128,11 +129,16 @@ class AppState extends ChangeNotifier
   /// Счётчик просмотров для demo-карточек (ключ — media_item_id).
   final Map<String, int> _demoViewsCountByMediaId = {};
 
+  /// Время последнего открытия полки (мс UTC) — для порядка на главной.
+  final Map<String, int> _shelfLastOpenedAtMs = {};
+
   /// После первого непустого ответа API пустой список больше не заменяется демо-данными.
   bool _sawNonEmptyServerLibrary = false;
   String _searchQuery = "";
   List<String> _selectedTypes = const [];
   List<String> _selectedGenres = const [];
+  LibraryRatingCriteria _libraryRatingCriteria = LibraryRatingCriteria.any;
+  LibraryViewsCriteria _libraryViewsCriteria = LibraryViewsCriteria.any;
   LibrarySortField _librarySortField = LibrarySortField.title;
   bool _librarySortDescending = false;
   int _selectedTab = 0;
@@ -199,6 +205,10 @@ class AppState extends ChangeNotifier
   List<String> get selectedTypes => List.unmodifiable(_selectedTypes);
 
   List<String> get selectedGenres => List.unmodifiable(_selectedGenres);
+
+  LibraryRatingCriteria get libraryRatingCriteria => _libraryRatingCriteria;
+
+  LibraryViewsCriteria get libraryViewsCriteria => _libraryViewsCriteria;
 
   LibrarySortField get librarySortField => _librarySortField;
 

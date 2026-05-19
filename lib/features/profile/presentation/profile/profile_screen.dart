@@ -137,11 +137,6 @@ class ProfileScreen extends StatelessWidget {
                   value: isDarkMode,
                   onChanged: onThemeToggle,
                 ),
-                _ActionTile(
-                  icon: Icons.add_box_outlined,
-                  title: "Добавить произведение",
-                  onTap: onOpenAddWork,
-                ),
                 if (onOpenShelves != null) ...[
                   _ActionTile(
                     icon: Icons.bookmarks_outlined,
@@ -160,6 +155,11 @@ class ProfileScreen extends StatelessWidget {
                     onTap: onOpenMyWorks!,
                   ),
                 ],
+                _ActionTile(
+                  icon: Icons.add_box_outlined,
+                  title: "Добавить произведение",
+                  onTap: onOpenAddWork,
+                ),
                 if (onOpenAdminMedia != null) ...[
                   const SizedBox(height: 16),
                   Text(

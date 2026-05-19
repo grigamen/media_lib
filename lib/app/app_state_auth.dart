@@ -351,6 +351,8 @@ mixin _AppStateAuth on _AppStateRefs {
     _s._searchQuery = "";
     _s._selectedTypes = const [];
     _s._selectedGenres = const [];
+    _s._libraryRatingCriteria = LibraryRatingCriteria.any;
+    _s._libraryViewsCriteria = LibraryViewsCriteria.any;
     _s._librarySortField = LibrarySortField.title;
     _s._librarySortDescending = false;
     _s._clearShelvesOnLogout();

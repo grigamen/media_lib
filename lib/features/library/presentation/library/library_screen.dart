@@ -11,6 +11,7 @@ import "../../../../core/audio/audiobook_audio_handler.dart";
 import "../../../../core/files/media_upload_file_pick.dart";
 import "../../../../core/network/api_client.dart";
 import "../../data/library_repository.dart";
+import "../../data/library_filters.dart";
 import "../../data/library_sort.dart";
 import "../../../shelves/presentation/add_to_shelf_dialog.dart";
 import "../book_reader/book_reader_screen.dart";
@@ -50,6 +51,8 @@ class LibraryScreen extends StatefulWidget {
     required this.searchQuery,
     required this.selectedTypes,
     required this.selectedGenres,
+    required this.libraryRatingCriteria,
+    required this.libraryViewsCriteria,
     required this.librarySortField,
     required this.librarySortDescending,
     required this.onSetLibrarySortField,
@@ -102,10 +105,14 @@ class LibraryScreen extends StatefulWidget {
   final String searchQuery; // что пользователь искал в прошлый раз (строка поиска)
   final List<String> selectedTypes; // какие виды контента включены в фильтре: книга / аудио / видео
   final List<String> selectedGenres; // какие жанры выбраны в фильтре
+  final LibraryRatingCriteria libraryRatingCriteria;
+  final LibraryViewsCriteria libraryViewsCriteria;
   final Future<void> Function(
     String searchQuery,
     List<String> selectedTypes,
     List<String> selectedGenres,
+    LibraryRatingCriteria ratingCriteria,
+    LibraryViewsCriteria viewsCriteria,
   )
   onSetLibraryFilters; // пользователь поменял поиск или фильтры — сохранить и перезагрузить список
   final LibrarySortField librarySortField;

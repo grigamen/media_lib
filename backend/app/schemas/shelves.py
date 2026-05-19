@@ -23,6 +23,7 @@ class ShelfResponse(BaseModel):
     name: str
     item_count: int = 0
     cover_url: str | None = None
+    cover_media_item_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

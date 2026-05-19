@@ -31,6 +31,8 @@ class _LibraryControls extends StatelessWidget {
     required this.searchQuery,
     required this.selectedTypes,
     required this.selectedGenres,
+    required this.libraryRatingCriteria,
+    required this.libraryViewsCriteria,
     required this.librarySortField,
     required this.librarySortDescending,
     required this.onSetLibrarySortField,
@@ -43,6 +45,8 @@ class _LibraryControls extends StatelessWidget {
   final String searchQuery;
   final List<String> selectedTypes;
   final List<String> selectedGenres;
+  final LibraryRatingCriteria libraryRatingCriteria;
+  final LibraryViewsCriteria libraryViewsCriteria;
   final LibrarySortField librarySortField;
   final bool librarySortDescending;
   final void Function(LibrarySortField field) onSetLibrarySortField;
@@ -51,6 +55,8 @@ class _LibraryControls extends StatelessWidget {
     String searchQuery,
     List<String> selectedTypes,
     List<String> selectedGenres,
+    LibraryRatingCriteria ratingCriteria,
+    LibraryViewsCriteria viewsCriteria,
   )
   onSetLibraryFilters;
   final VoidCallback onSearchFieldTap;
@@ -60,7 +66,11 @@ class _LibraryControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final q = searchQuery.trim();
     final hasActiveFilters =
-        q.isNotEmpty || selectedTypes.isNotEmpty || selectedGenres.isNotEmpty;
+        q.isNotEmpty ||
+        selectedTypes.isNotEmpty ||
+        selectedGenres.isNotEmpty ||
+        libraryRatingCriteria.isActive ||
+        libraryViewsCriteria.isActive;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -83,29 +93,22 @@ class _LibraryControls extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: "Сортировка",
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<LibrarySortField>(
-                    isExpanded: true,
-                    value: librarySortField,
-                    items: [
-                      for (final field in LibrarySortField.values)
-                        DropdownMenuItem(
-                          value: field,
-                          child: Text(field.label),
-                        ),
-                    ],
-                    onChanged: (field) {
-                      if (field != null) {
-                        onSetLibrarySortField(field);
-                      }
-                    },
-                  ),
-                ),
+              child: DropdownMenu<LibrarySortField>(
+                initialSelection: librarySortField,
+                label: const Text("Сортировка"),
+                expandedInsets: EdgeInsets.zero,
+                onSelected: (field) {
+                  if (field != null) {
+                    onSetLibrarySortField(field);
+                  }
+                },
+                dropdownMenuEntries: [
+                  for (final field in LibrarySortField.values)
+                    DropdownMenuEntry(
+                      value: field,
+                      label: field.label,
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 4),
@@ -141,7 +144,13 @@ class _LibraryControls extends StatelessWidget {
                   ),
                   onDeleted: () {
                     unawaited(
-                      onSetLibraryFilters("", selectedTypes, selectedGenres),
+                      onSetLibraryFilters(
+                        "",
+                        selectedTypes,
+                        selectedGenres,
+                        libraryRatingCriteria,
+                        libraryViewsCriteria,
+                      ),
                     );
                   },
                 ),
@@ -152,7 +161,15 @@ class _LibraryControls extends StatelessWidget {
                     final next = selectedTypes
                         .where((t) => t != typeKey)
                         .toList(growable: false);
-                    unawaited(onSetLibraryFilters(q, next, selectedGenres));
+                    unawaited(
+                      onSetLibraryFilters(
+                        q,
+                        next,
+                        selectedGenres,
+                        libraryRatingCriteria,
+                        libraryViewsCriteria,
+                      ),
+                    );
                   },
                 ),
               for (final genre in selectedGenres)
@@ -163,7 +180,79 @@ class _LibraryControls extends StatelessWidget {
                     final next = selectedGenres
                         .where((g) => g.toLowerCase() != lower)
                         .toList(growable: false);
-                    unawaited(onSetLibraryFilters(q, selectedTypes, next));
+                    unawaited(
+                      onSetLibraryFilters(
+                        q,
+                        selectedTypes,
+                        next,
+                        libraryRatingCriteria,
+                        libraryViewsCriteria,
+                      ),
+                    );
+                  },
+                ),
+              if (libraryRatingCriteria.presenceChipLabel != null)
+                InputChip(
+                  label: Text(libraryRatingCriteria.presenceChipLabel!),
+                  onDeleted: () {
+                    unawaited(
+                      onSetLibraryFilters(
+                        q,
+                        selectedTypes,
+                        selectedGenres,
+                        libraryRatingCriteria.copyWith(
+                          presence: LibraryRatingPresence.any,
+                        ),
+                        libraryViewsCriteria,
+                      ),
+                    );
+                  },
+                ),
+              if (libraryRatingCriteria.boundChipLabel != null)
+                InputChip(
+                  label: Text(libraryRatingCriteria.boundChipLabel!),
+                  onDeleted: () {
+                    unawaited(
+                      onSetLibraryFilters(
+                        q,
+                        selectedTypes,
+                        selectedGenres,
+                        libraryRatingCriteria.copyWith(clearBound: true),
+                        libraryViewsCriteria,
+                      ),
+                    );
+                  },
+                ),
+              if (libraryViewsCriteria.presenceChipLabel != null)
+                InputChip(
+                  label: Text(libraryViewsCriteria.presenceChipLabel!),
+                  onDeleted: () {
+                    unawaited(
+                      onSetLibraryFilters(
+                        q,
+                        selectedTypes,
+                        selectedGenres,
+                        libraryRatingCriteria,
+                        libraryViewsCriteria.copyWith(
+                          presence: LibraryViewsPresence.any,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              if (libraryViewsCriteria.boundChipLabel != null)
+                InputChip(
+                  label: Text(libraryViewsCriteria.boundChipLabel!),
+                  onDeleted: () {
+                    unawaited(
+                      onSetLibraryFilters(
+                        q,
+                        selectedTypes,
+                        selectedGenres,
+                        libraryRatingCriteria,
+                        libraryViewsCriteria.copyWith(clearBound: true),
+                      ),
+                    );
                   },
                 ),
             ],
@@ -304,7 +393,14 @@ class _LibraryItemCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 4),
-          _libraryGridRatingLabel(context, averageRating),
+          Row(
+            children: [
+              Expanded(
+                child: _libraryGridRatingLabel(context, averageRating),
+              ),
+              _libraryGridViewsLabel(context, group.groupItems),
+            ],
+          ),
         ],
       ),
     );
