@@ -43,6 +43,7 @@ part 'library_screen_main_state.dart';
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     required this.currentUserId,
+    required this.isAdminUser,
     required this.items,
     required this.usingDemoItems,
     required this.isLoading,
@@ -87,6 +88,11 @@ class LibraryScreen extends StatefulWidget {
     required this.onFetchWorkUserRating,
     required this.onSetWorkUserRating,
     required this.onClearWorkUserRating,
+    required this.onFetchMediaComments,
+    required this.onCreateMediaComment,
+    required this.onUpdateMediaComment,
+    required this.onDeleteMediaComment,
+    required this.onFetchItemsByAuthor,
     required this.onAddToShelf,
     this.onHasBookOfflineCopy,
     this.onDownloadBookForOffline,
@@ -97,6 +103,7 @@ class LibraryScreen extends StatefulWidget {
   });
 
   final String? currentUserId; // кто сейчас вошёл — нужно, чтобы показать «это ваше» и разрешить правки
+  final bool isAdminUser;
   final List<MediaListItem> items; // всё, что пришло с сервера одним списком (потом сгруппируем по произведениям)
   final bool usingDemoItems; // если на сервере пусто, показываем тестовые карточки, чтобы экран не был пустым
   final bool isLoading; // идёт загрузка списка (первый раз или обновление)
@@ -196,6 +203,20 @@ class LibraryScreen extends StatefulWidget {
   })
   onSetWorkUserRating;
   final Future<void> Function(List<String> mediaItemIds) onClearWorkUserRating;
+  final Future<List<MediaComment>> Function(String mediaItemId)
+  onFetchMediaComments;
+  final Future<MediaComment> Function({
+    required String mediaItemId,
+    required String text,
+  })
+  onCreateMediaComment;
+  final Future<MediaComment> Function({
+    required String commentId,
+    required String text,
+  })
+  onUpdateMediaComment;
+  final Future<void> Function(String commentId) onDeleteMediaComment;
+  final Future<List<MediaListItem>> Function(String author) onFetchItemsByAuthor;
   final Future<bool> Function(String mediaItemId) onAddToShelf;
   final Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy;
   final Future<bool> Function(MediaListItem item)? onDownloadBookForOffline;

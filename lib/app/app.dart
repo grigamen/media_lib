@@ -62,9 +62,7 @@ class _MediaLibAppState extends State<MediaLibApp> {
                         ),
                         Center(
                           child: Card(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                            ),
+                            margin: const EdgeInsets.symmetric(horizontal: 32),
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(
                                 24,
@@ -74,16 +72,13 @@ class _MediaLibAppState extends State<MediaLibApp> {
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Text(
                                     "Загрузка файла в хранилище…",
                                     textAlign: TextAlign.center,
                                     style:
-                                        Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium,
+                                        Theme.of(context).textTheme.titleMedium,
                                   ),
                                   const SizedBox(height: 16),
                                   ClipRRect(
@@ -102,8 +97,10 @@ class _MediaLibAppState extends State<MediaLibApp> {
                                   ),
                                   const SizedBox(height: 12),
                                   TextButton(
-                                    onPressed: () =>
-                                        _state.dismissPresignedUploadOverlay(),
+                                    onPressed:
+                                        () =>
+                                            _state
+                                                .dismissPresignedUploadOverlay(),
                                     child: const Text("Скрыть индикатор"),
                                   ),
                                   Text(
@@ -111,14 +108,14 @@ class _MediaLibAppState extends State<MediaLibApp> {
                                     "повторить позже. Загрузка на сервер при этом "
                                     "может ещё продолжаться или оборваться.",
                                     textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        ),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.copyWith(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 ],
                               ),

@@ -143,8 +143,7 @@ class ProfileScreen extends StatelessWidget {
                   _ActionTile(
                     icon: Icons.bookmarks_outlined,
                     title: "Мои полки",
-                    subtitle:
-                        "Личные подборки произведений — видите только вы",
+                    subtitle: "Личные подборки произведений — видите только вы",
                     onTap: onOpenShelves!,
                   ),
                 ],
@@ -192,8 +191,7 @@ class ProfileScreen extends StatelessWidget {
                   twofaEnabled: twofaEnabled,
                   icon: Icons.mark_email_unread_outlined,
                   title: "Код на email после пароля",
-                  subtitle:
-                      "Письмо с одноразовым кодом при входе (мягкая 2FA)",
+                  subtitle: "Письмо с одноразовым кодом при входе (мягкая 2FA)",
                   onToggle:
                       (ctx, enable) => _handleTwoFaToggle(
                         ctx,

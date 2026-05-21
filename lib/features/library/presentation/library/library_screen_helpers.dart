@@ -357,10 +357,28 @@ String? resolveInitialMediaItemIdForGroup({
   return groupItems.first.id;
 }
 
+/// Собирает список произведений в группы по title+author.
+List<_WorkGroup> _buildWorkGroupsFromItems(List<MediaListItem> items) {
+  final groups = <String, List<MediaListItem>>{};
+  for (final item in items) {
+    final key = mediaWorkGroupKey(item);
+    groups.putIfAbsent(key, () => <MediaListItem>[]).add(item);
+  }
+  final result =
+      groups.values
+          .map((groupItems) => _WorkGroup(groupItems: groupItems))
+          .toList(growable: true);
+  result.sort(
+    (a, b) => a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase()),
+  );
+  return result;
+}
+
 /// Открывает большой экран одного произведения и передаёт туда все нужные «что сделать по нажатию» из родителя.
 Future<void> openMediaItemDetailsPage({
   required BuildContext context,
   required String? currentUserId,
+  required bool isAdminUser,
   required List<MediaListItem> groupItems,
   String? initialMediaItemId,
   required List<String> availableGenres,
@@ -439,6 +457,21 @@ Future<void> openMediaItemDetailsPage({
   onSetWorkUserRating,
   required Future<void> Function(List<String> mediaItemIds)
   onClearWorkUserRating,
+  required Future<List<MediaComment>> Function(String mediaItemId)
+  onFetchMediaComments,
+  required Future<MediaComment> Function({
+    required String mediaItemId,
+    required String text,
+  })
+  onCreateMediaComment,
+  required Future<MediaComment> Function({
+    required String commentId,
+    required String text,
+  })
+  onUpdateMediaComment,
+  required Future<void> Function(String commentId) onDeleteMediaComment,
+  required Future<List<MediaListItem>> Function(String author)
+  onFetchItemsByAuthor,
   required Future<bool> Function(String mediaItemId) onAddToShelf,
   Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy,
   Future<bool> Function(MediaListItem item)? onDownloadBookForOffline,
@@ -463,6 +496,7 @@ Future<void> openMediaItemDetailsPage({
       builder:
           (_) => _MediaItemDetailsPage(
             currentUserId: currentUserId,
+            isAdminUser: isAdminUser,
             group: group,
             initialMediaItemId: resolvedInitialId,
             availableGenres: availableGenres,
@@ -492,6 +526,11 @@ Future<void> openMediaItemDetailsPage({
             onFetchWorkUserRating: onFetchWorkUserRating,
             onSetWorkUserRating: onSetWorkUserRating,
             onClearWorkUserRating: onClearWorkUserRating,
+            onFetchMediaComments: onFetchMediaComments,
+            onCreateMediaComment: onCreateMediaComment,
+            onUpdateMediaComment: onUpdateMediaComment,
+            onDeleteMediaComment: onDeleteMediaComment,
+            onFetchItemsByAuthor: onFetchItemsByAuthor,
             onAddToShelf: onAddToShelf,
             onHasBookOfflineCopy: onHasBookOfflineCopy,
             onDownloadBookForOffline: onDownloadBookForOffline,
@@ -511,6 +550,7 @@ Future<void> openMediaItemDetailsForAppState({
   return openMediaItemDetailsPage(
     context: context,
     currentUserId: state.currentUserId,
+    isAdminUser: state.isAdminUser,
     groupItems: groupItems,
     initialMediaItemId: initialMediaItemId,
     availableGenres: state.availableGenres,
@@ -595,6 +635,15 @@ Future<void> openMediaItemDetailsForAppState({
       stars: stars,
     ),
     onClearWorkUserRating: state.clearWorkUserRatingStars,
+    onFetchMediaComments: state.fetchMediaCommentsForItem,
+    onCreateMediaComment:
+        ({required String mediaItemId, required String text}) =>
+            state.createMediaComment(mediaItemId: mediaItemId, text: text),
+    onUpdateMediaComment:
+        ({required String commentId, required String text}) =>
+            state.updateMediaComment(commentId: commentId, text: text),
+    onDeleteMediaComment: state.deleteMediaComment,
+    onFetchItemsByAuthor: state.fetchMediaItemsByAuthor,
     onAddToShelf:
         (mediaItemId) => showAddToShelfDialog(
           context: context,
@@ -615,6 +664,26 @@ Future<void> openMediaItemDetailsForAppState({
           filename: filename,
           contentType: contentType,
         ),
+  );
+}
+
+/// Ссылка на автора в шапке карточки произведения.
+Widget _workAuthorLink(
+  BuildContext context, {
+  required String authorName,
+  required VoidCallback? onTap,
+}) {
+  final theme = Theme.of(context);
+  final style = theme.textTheme.bodyMedium?.copyWith(
+    color: onTap == null ? null : theme.colorScheme.primary,
+    decoration: onTap == null ? null : TextDecoration.underline,
+  );
+  if (onTap == null) {
+    return Text(authorName, style: style);
+  }
+  return InkWell(
+    onTap: onTap,
+    child: Text(authorName, style: style),
   );
 }
 

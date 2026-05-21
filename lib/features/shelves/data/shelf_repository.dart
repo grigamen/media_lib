@@ -22,11 +22,9 @@ class ShelfRepository {
     required String accessToken,
     required String name,
   }) async {
-    final response = await _apiClient.postJson(
-      "/shelves",
-      {"name": name},
-      accessToken: accessToken,
-    );
+    final response = await _apiClient.postJson("/shelves", {
+      "name": name,
+    }, accessToken: accessToken);
     return UserShelfSummary.fromJson(response);
   }
 
@@ -46,11 +44,9 @@ class ShelfRepository {
     required String shelfId,
     required String name,
   }) async {
-    final response = await _apiClient.patchJson(
-      "/shelves/$shelfId",
-      {"name": name},
-      accessToken: accessToken,
-    );
+    final response = await _apiClient.patchJson("/shelves/$shelfId", {
+      "name": name,
+    }, accessToken: accessToken);
     return UserShelfSummary.fromJson(response);
   }
 
@@ -58,10 +54,7 @@ class ShelfRepository {
     required String accessToken,
     required String shelfId,
   }) async {
-    await _apiClient.deleteJson(
-      "/shelves/$shelfId",
-      accessToken: accessToken,
-    );
+    await _apiClient.deleteJson("/shelves/$shelfId", accessToken: accessToken);
   }
 
   Future<UserShelfSummary> addItemToShelf({
@@ -69,11 +62,9 @@ class ShelfRepository {
     required String shelfId,
     required String mediaItemId,
   }) async {
-    final response = await _apiClient.postJson(
-      "/shelves/$shelfId/items",
-      {"media_item_id": mediaItemId},
-      accessToken: accessToken,
-    );
+    final response = await _apiClient.postJson("/shelves/$shelfId/items", {
+      "media_item_id": mediaItemId,
+    }, accessToken: accessToken);
     return UserShelfSummary.fromJson(response);
   }
 

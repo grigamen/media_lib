@@ -74,10 +74,7 @@ class _LibraryControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Библиотека",
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
+        Text("Библиотека", style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 10),
         TextField(
           controller: searchController,
@@ -104,19 +101,13 @@ class _LibraryControls extends StatelessWidget {
                 },
                 dropdownMenuEntries: [
                   for (final field in LibrarySortField.values)
-                    DropdownMenuEntry(
-                      value: field,
-                      label: field.label,
-                    ),
+                    DropdownMenuEntry(value: field, label: field.label),
                 ],
               ),
             ),
             const SizedBox(width: 4),
             IconButton(
-              tooltip:
-                  librarySortDescending
-                      ? "По убыванию"
-                      : "По возрастанию",
+              tooltip: librarySortDescending ? "По убыванию" : "По возрастанию",
               onPressed: onToggleLibrarySortDirection,
               icon: Icon(
                 librarySortDescending
@@ -139,9 +130,7 @@ class _LibraryControls extends StatelessWidget {
             children: [
               if (q.isNotEmpty)
                 InputChip(
-                  label: Text(
-                    "Запрос: «${_truncateForChip(q, 28)}»",
-                  ),
+                  label: Text("Запрос: «${_truncateForChip(q, 28)}»"),
                   onDeleted: () {
                     unawaited(
                       onSetLibraryFilters(
@@ -318,9 +307,7 @@ class _LibraryItemCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color:
-                              Theme.of(
-                                context,
-                              ).colorScheme.secondaryContainer,
+                              Theme.of(context).colorScheme.secondaryContainer,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -395,9 +382,7 @@ class _LibraryItemCard extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(
-                child: _libraryGridRatingLabel(context, averageRating),
-              ),
+              Expanded(child: _libraryGridRatingLabel(context, averageRating)),
               _libraryGridViewsLabel(context, group.groupItems),
             ],
           ),

@@ -232,6 +232,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         openMediaItemDetailsPage(
                           context: context,
                           currentUserId: widget.currentUserId,
+                          isAdminUser: widget.isAdminUser,
                           groupItems: group.groupItems,
                           initialMediaItemId: resolveInitialMediaItemIdForGroup(
                             groupItems: group.groupItems,
@@ -277,6 +278,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             stars: stars,
                           ),
                           onClearWorkUserRating: widget.onClearWorkUserRating,
+                          onFetchMediaComments: widget.onFetchMediaComments,
+                          onCreateMediaComment: widget.onCreateMediaComment,
+                          onUpdateMediaComment: widget.onUpdateMediaComment,
+                          onDeleteMediaComment: widget.onDeleteMediaComment,
+                          onFetchItemsByAuthor: widget.onFetchItemsByAuthor,
                           onAddToShelf: widget.onAddToShelf,
                           onHasBookOfflineCopy: widget.onHasBookOfflineCopy,
                           onDownloadBookForOffline:

@@ -18,10 +18,7 @@ enum CatalogCacheFallback {
 
 /// Результат поиска в локальном кэше каталога (блок G недели 8).
 class CatalogCacheLookupResult {
-  const CatalogCacheLookupResult({
-    required this.items,
-    required this.fallback,
-  });
+  const CatalogCacheLookupResult({required this.items, required this.fallback});
 
   final List<MediaListItem>? items;
   final CatalogCacheFallback fallback;
@@ -41,12 +38,11 @@ class CatalogCacheStore {
     required List<String> selectedTypes,
     required List<String> selectedGenres,
   }) {
-    final t =
-        [...selectedTypes.map((e) => e.trim()).where((e) => e.isNotEmpty)]
-          ..sort();
-    final g =
-        [...selectedGenres.map((e) => e.trim()).where((e) => e.isNotEmpty)]
-          ..sort();
+    final t = [...selectedTypes.map((e) => e.trim()).where((e) => e.isNotEmpty)]
+      ..sort();
+    final g = [
+      ...selectedGenres.map((e) => e.trim()).where((e) => e.isNotEmpty),
+    ]..sort();
     return "$userId\x1e${searchQuery.trim()}\x1e${t.join(",")}\x1e${g.join("\x1d")}";
   }
 

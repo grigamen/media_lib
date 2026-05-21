@@ -42,9 +42,9 @@ class MediaCoverImage extends StatelessWidget {
     return Image.network(
       url,
       fit: fit,
-      errorBuilder: (_, __, ___) => MediaCoverPlaceholder(
-        iconSize: fit == BoxFit.cover ? 48 : 32,
-      ),
+      errorBuilder:
+          (_, __, ___) =>
+              MediaCoverPlaceholder(iconSize: fit == BoxFit.cover ? 48 : 32),
     );
   }
 }

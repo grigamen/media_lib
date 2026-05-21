@@ -29,20 +29,14 @@ Future<bool> showAddToShelfDialog({
     showDragHandle: true,
     isScrollControlled: true,
     builder: (sheetContext) {
-      return _AddToShelfSheet(
-        state: state,
-        mediaItemId: mediaItemId,
-      );
+      return _AddToShelfSheet(state: state, mediaItemId: mediaItemId);
     },
   );
   return added == true;
 }
 
 class _AddToShelfSheet extends StatefulWidget {
-  const _AddToShelfSheet({
-    required this.state,
-    required this.mediaItemId,
-  });
+  const _AddToShelfSheet({required this.state, required this.mediaItemId});
 
   final AppState state;
   final String mediaItemId;
@@ -112,7 +106,9 @@ class _AddToShelfSheetState extends State<_AddToShelfSheet> {
         setState(() => _busy = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Произведение не появилось на полке. Проверьте backend."),
+            content: Text(
+              "Произведение не появилось на полке. Проверьте backend.",
+            ),
           ),
         );
         return;
@@ -131,9 +127,9 @@ class _AddToShelfSheetState extends State<_AddToShelfSheet> {
         return;
       }
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Не удалось создать полку: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Не удалось создать полку: $e")));
     }
   }
 

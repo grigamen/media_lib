@@ -3,7 +3,8 @@ part of 'library_screen.dart';
 // Окно «добавить ещё один формат» к тому же произведению: тип, поля, при необходимости файл — проверяем, что формат ещё не был.
 
 /// Набор методов с окном добавления формата (книга / аудио / видео).
-mixin _MediaItemDetailsAddFormatDialogsMixin on _MediaItemDetailsLifecycleMixin {
+mixin _MediaItemDetailsAddFormatDialogsMixin
+    on _MediaItemDetailsLifecycleMixin {
   /// Создаём новую запись на сервере и добавляем её в список вкладок на экране.
   Future<void> _showAddFormatDialog() async {
     final sourceItem = _variants.first;

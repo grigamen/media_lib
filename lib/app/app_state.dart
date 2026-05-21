@@ -114,7 +114,8 @@ class AppState extends ChangeNotifier
   late final BookContentLoader _bookContentLoader;
   late final PlaybackProgressPusher _playbackPusher;
   late final PendingProgressMirrorFlush _pendingProgressFlush;
-  final PlaybackProgressSyncTimer _playbackSyncTimer = PlaybackProgressSyncTimer();
+  final PlaybackProgressSyncTimer _playbackSyncTimer =
+      PlaybackProgressSyncTimer();
   final AuthTokenStore _authTokenStore = AuthTokenStore();
 
   bool _bootstrapComplete = false;

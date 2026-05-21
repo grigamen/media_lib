@@ -65,8 +65,7 @@ class UserShelfSummary {
       name: json["name"] as String? ?? "",
       itemCount: itemCount > 0 ? itemCount : itemsLen,
       coverUrl: cover != null && cover.trim().isNotEmpty ? cover.trim() : null,
-      coverMediaItemId:
-          coverItemId != null ? coverItemId.toString() : null,
+      coverMediaItemId: coverItemId != null ? coverItemId.toString() : null,
       createdAt: _readDateTime(json["created_at"]),
       updatedAt: _readDateTime(json["updated_at"]),
     );
@@ -146,10 +145,9 @@ class UserShelfDetail {
     return UserShelfDetail(
       id: json["id"]?.toString() ?? "",
       name: json["name"] as String? ?? "",
-      items:
-          rawItems
-              .map((e) => MediaListItem.fromJson(e as Map<String, dynamic>))
-              .toList(growable: false),
+      items: rawItems
+          .map((e) => MediaListItem.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false),
       createdAt: _readDateTime(json["created_at"]),
       updatedAt: _readDateTime(json["updated_at"]),
     );

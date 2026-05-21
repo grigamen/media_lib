@@ -104,33 +104,33 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 18),
               Text(
                 "Последнее",
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 14),
-            _ContinueCard(
-              item: latestItem,
-              displayAuthor: authorOrFallback(latestItem),
-              onOpenItem: widget.onOpenItem,
-            ),
-            const SizedBox(height: 18),
-            Text(
-              "Ранее просмотренные",
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 10),
-            if (previouslyViewed.isEmpty)
-              Text(
-                "Пока нет просмотренных произведений",
-                style: Theme.of(context).textTheme.bodyMedium,
-              )
-            else
-              ...previouslyViewed.map(
-                (item) => _RecommendationTile(
-                  item: item,
-                  displayAuthor: authorOrFallback(item),
-                  onOpenItem: widget.onOpenItem,
-                ),
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
+              const SizedBox(height: 14),
+              _ContinueCard(
+                item: latestItem,
+                displayAuthor: authorOrFallback(latestItem),
+                onOpenItem: widget.onOpenItem,
+              ),
+              const SizedBox(height: 18),
+              Text(
+                "Ранее просмотренные",
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 10),
+              if (previouslyViewed.isEmpty)
+                Text(
+                  "Пока нет просмотренных произведений",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                )
+              else
+                ...previouslyViewed.map(
+                  (item) => _RecommendationTile(
+                    item: item,
+                    displayAuthor: authorOrFallback(item),
+                    onOpenItem: widget.onOpenItem,
+                  ),
+                ),
             ],
           ),
         ),
@@ -171,10 +171,7 @@ class _HomeShelvesSection extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            error!,
-            style: TextStyle(color: theme.colorScheme.error),
-          ),
+          Text(error!, style: TextStyle(color: theme.colorScheme.error)),
           TextButton(
             onPressed: () => onRetry(),
             child: const Text("Повторить"),

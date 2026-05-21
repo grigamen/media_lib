@@ -124,18 +124,14 @@ class AuthorBookLocalFileStore {
     required String contentType,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    await _db.insert(
-      "author_book_local_file",
-      <String, Object?>{
-        "user_id": userId,
-        "media_item_id": mediaItemId,
-        "file_path": filePath,
-        "filename": filename,
-        "content_type": contentType,
-        "updated_at_ms": now,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert("author_book_local_file", <String, Object?>{
+      "user_id": userId,
+      "media_item_id": mediaItemId,
+      "file_path": filePath,
+      "filename": filename,
+      "content_type": contentType,
+      "updated_at_ms": now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> clearForUser(String userId) async {

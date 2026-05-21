@@ -69,8 +69,7 @@ int adjustBookPageBreakAfterMeasure({
   }
   final lookback = math.min(4000, end - start);
   final minIndex = math.max(start + 1, end - lookback);
-  final halfMinHeight =
-      maxHeight > 0 ? maxHeight * 0.5 : 0.0;
+  final halfMinHeight = maxHeight > 0 ? maxHeight * 0.5 : 0.0;
   for (var j = end; j > minIndex; j--) {
     if (_isAfterTwoOrMoreEmptyLinesBoundary(text, j)) {
       if (maxHeight <= 0) {
@@ -147,21 +146,39 @@ int adjustParagraphBlockCohesion({
     return end;
   }
   if (p0 < start) {
-    final hRem =
-        _textPainterHeightForSubstring(text, start, p1, maxWidth, style, textScaler);
+    final hRem = _textPainterHeightForSubstring(
+      text,
+      start,
+      p1,
+      maxWidth,
+      style,
+      textScaler,
+    );
     if (hRem <= maxHeight) {
       return p1;
     }
     return end;
   }
-  final hFullPage =
-      _textPainterHeightForSubstring(text, start, p1, maxWidth, style, textScaler);
+  final hFullPage = _textPainterHeightForSubstring(
+    text,
+    start,
+    p1,
+    maxWidth,
+    style,
+    textScaler,
+  );
   if (hFullPage <= maxHeight) {
     return p1;
   }
   if (p0 > start) {
-    final hBefore =
-        _textPainterHeightForSubstring(text, start, p0, maxWidth, style, textScaler);
+    final hBefore = _textPainterHeightForSubstring(
+      text,
+      start,
+      p0,
+      maxWidth,
+      style,
+      textScaler,
+    );
     if (hBefore <= maxHeight) {
       return p0;
     }
@@ -291,7 +308,13 @@ bool _isAfterSentenceBoundary(String text, int j) {
     return false;
   }
   final p = text[j - 2];
-  if (p == "." || p == "!" || p == "?" || p == "…" || p == "‼" || p == "⁇" || p == "⁈") {
+  if (p == "." ||
+      p == "!" ||
+      p == "?" ||
+      p == "…" ||
+      p == "‼" ||
+      p == "⁇" ||
+      p == "⁈") {
     return true;
   }
   if (j >= 3) {

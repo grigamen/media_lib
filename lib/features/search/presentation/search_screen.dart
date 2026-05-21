@@ -136,13 +136,11 @@ class _SearchScreenState extends State<SearchScreen> {
     }
     setState(() {
       final lower = g.toLowerCase();
-      final has =
-          _genres.any((existing) => existing.toLowerCase() == lower);
+      final has = _genres.any((existing) => existing.toLowerCase() == lower);
       if (has) {
-        _genres =
-            _genres
-                .where((existing) => existing.toLowerCase() != lower)
-                .toList(growable: false);
+        _genres = _genres
+            .where((existing) => existing.toLowerCase() != lower)
+            .toList(growable: false);
       } else {
         _genres = [..._genres, g];
       }
@@ -203,9 +201,9 @@ class _SearchScreenState extends State<SearchScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.35,
-        ),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
@@ -257,10 +255,7 @@ class _SearchScreenState extends State<SearchScreen> {
           child: TextField(
             controller: valueController,
             keyboardType: keyboardType,
-            decoration: InputDecoration(
-              hintText: valueHint,
-              isDense: true,
-            ),
+            decoration: InputDecoration(hintText: valueHint, isDense: true),
             onChanged: (_) => setState(() {}),
           ),
         ),

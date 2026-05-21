@@ -63,10 +63,7 @@ class _ShelfNameDialogState extends State<_ShelfNameDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text("Отмена"),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text("Сохранить"),
-        ),
+        FilledButton(onPressed: _submit, child: const Text("Сохранить")),
       ],
     );
   }

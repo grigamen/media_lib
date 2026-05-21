@@ -6,6 +6,7 @@ part of 'library_screen.dart';
 class _MediaItemDetailsPage extends StatefulWidget {
   const _MediaItemDetailsPage({
     required this.currentUserId,
+    required this.isAdminUser,
     required this.group,
     this.initialMediaItemId,
     required this.availableGenres,
@@ -35,6 +36,11 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.onFetchWorkUserRating,
     required this.onSetWorkUserRating,
     required this.onClearWorkUserRating,
+    required this.onFetchMediaComments,
+    required this.onCreateMediaComment,
+    required this.onUpdateMediaComment,
+    required this.onDeleteMediaComment,
+    required this.onFetchItemsByAuthor,
     required this.onAddToShelf,
     this.onHasBookOfflineCopy,
     this.onDownloadBookForOffline,
@@ -42,6 +48,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
   });
 
   final String? currentUserId;
+  final bool isAdminUser;
   final _WorkGroup group;
   final String? initialMediaItemId;
   final List<String> availableGenres;
@@ -119,6 +126,20 @@ class _MediaItemDetailsPage extends StatefulWidget {
   })
   onSetWorkUserRating;
   final Future<void> Function(List<String> mediaItemIds) onClearWorkUserRating;
+  final Future<List<MediaComment>> Function(String mediaItemId)
+  onFetchMediaComments;
+  final Future<MediaComment> Function({
+    required String mediaItemId,
+    required String text,
+  })
+  onCreateMediaComment;
+  final Future<MediaComment> Function({
+    required String commentId,
+    required String text,
+  })
+  onUpdateMediaComment;
+  final Future<void> Function(String commentId) onDeleteMediaComment;
+  final Future<List<MediaListItem>> Function(String author) onFetchItemsByAuthor;
   final Future<bool> Function(String mediaItemId) onAddToShelf;
   final Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy;
   final Future<bool> Function(MediaListItem item)? onDownloadBookForOffline;

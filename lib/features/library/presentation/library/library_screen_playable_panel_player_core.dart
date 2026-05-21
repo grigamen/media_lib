@@ -311,7 +311,6 @@ mixin _PlayableMediaPanelPlayerCore
     await _seekTo(nextSec.toDouble());
   }
 
-
   void _scheduleControlsAutoHideIfPlaying() {
     _controlsHideTimer?.cancel();
     if (!_showControls || !_isPlaying) {
@@ -372,8 +371,7 @@ mixin _PlayableMediaPanelPlayerCore
     }
     final showHours =
         totalReference.inSeconds >= 3600 ||
-        (totalReference.inSeconds == 0 &&
-            positionReference.inSeconds >= 3600);
+        (totalReference.inSeconds == 0 && positionReference.inSeconds >= 3600);
     final s = time.inSeconds;
     if (!showHours) {
       final m = s ~/ 60;

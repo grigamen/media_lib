@@ -1,22 +1,11 @@
 /// Наличие средней оценки у произведения.
-enum LibraryRatingPresence {
-  any,
-  withRating,
-  withoutRating,
-}
+enum LibraryRatingPresence { any, withRating, withoutRating }
 
 /// Наличие просмотров (сумма по форматам).
-enum LibraryViewsPresence {
-  any,
-  withViews,
-  withoutViews,
-}
+enum LibraryViewsPresence { any, withViews, withoutViews }
 
 /// Сравнение с порогом: больше / меньше.
-enum LibraryBoundCompare {
-  greater,
-  less,
-}
+enum LibraryBoundCompare { greater, less }
 
 /// Фильтр по рейтингу: наличие и/или граница по средней оценке (1–5).
 class LibraryRatingCriteria {

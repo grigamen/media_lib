@@ -199,10 +199,9 @@ mixin _AppStateShelves on _AppStateRefs {
       shelfId: shelfId,
       name: trimmed,
     );
-    _s._shelves =
-        _s._shelves
-            .map((s) => s.id == shelfId ? updated : s)
-            .toList(growable: false);
+    _s._shelves = _s._shelves
+        .map((s) => s.id == shelfId ? updated : s)
+        .toList(growable: false);
     _notifyShelvesChanged();
     return true;
   }
@@ -216,7 +215,9 @@ mixin _AppStateShelves on _AppStateRefs {
       accessToken: session.accessToken,
       shelfId: shelfId,
     );
-    _s._shelves = _s._shelves.where((s) => s.id != shelfId).toList(growable: false);
+    _s._shelves = _s._shelves
+        .where((s) => s.id != shelfId)
+        .toList(growable: false);
     _s._shelfLastOpenedAtMs.remove(shelfId);
     _notifyShelvesChanged();
     return true;
@@ -256,21 +257,17 @@ mixin _AppStateShelves on _AppStateRefs {
         createdAt: detail.createdAt,
         updatedAt: detail.updatedAt,
       );
-      summary = await _resolveShelfCover(
-        summary,
-        session,
-        {for (final i in _s._items) i.id: i},
-      );
+      summary = await _resolveShelfCover(summary, session, {
+        for (final i in _s._items) i.id: i,
+      });
       added = detail.items.any(
         (item) => item.id.toLowerCase() == normalizedMediaId,
       );
     } on ApiException {
       added = true;
-      summary = await _resolveShelfCover(
-        postSummary,
-        session,
-        {for (final i in _s._items) i.id: i},
-      );
+      summary = await _resolveShelfCover(postSummary, session, {
+        for (final i in _s._items) i.id: i,
+      });
     }
 
     final index = _s._shelves.indexWhere(
@@ -308,11 +305,9 @@ mixin _AppStateShelves on _AppStateRefs {
         updatedAt: DateTime.now().toUtc(),
       );
       if (nextCount > 0) {
-        updated = await _resolveShelfCover(
-          updated,
-          session,
-          {for (final i in _s._items) i.id: i},
-        );
+        updated = await _resolveShelfCover(updated, session, {
+          for (final i in _s._items) i.id: i,
+        });
       } else {
         updated = UserShelfSummary(
           id: old.id,

@@ -708,6 +708,89 @@ mixin _AppStateLibrary on _AppStateRefs {
     }
   }
 
+  Future<List<MediaComment>> fetchMediaCommentsForItem(String mediaItemId) async {
+    if (mediaItemId.startsWith("demo-")) {
+      return const [];
+    }
+    final session = _s._session;
+    if (session == null) {
+      return const [];
+    }
+    return _s._libraryRepository.fetchMediaComments(
+      accessToken: session.accessToken,
+      mediaItemId: mediaItemId,
+    );
+  }
+
+  /// Все карточки каталога с указанным автором (точное совпадение имени).
+  Future<List<MediaListItem>> fetchMediaItemsByAuthor(String author) async {
+    final normalizedAuthor = author.trim();
+    if (normalizedAuthor.isEmpty) {
+      return const [];
+    }
+    final authorKey = normalizeAuthorKey(normalizedAuthor);
+    if (_s._usingDemoItems) {
+      return DemoLibraryData.items
+          .where((item) => normalizeAuthorKey(item.author) == authorKey)
+          .toList(growable: false);
+    }
+    final session = _s._session;
+    if (session == null) {
+      return const [];
+    }
+    final result = await _s._libraryRepository.fetchMediaItemsWithMeta(
+      accessToken: session.accessToken,
+      author: normalizedAuthor,
+      limit: 100,
+    );
+    final items = dedupeMediaItemsById(result.items);
+    return _s._coverRefresh.withFreshCoverUrls(session: session, items: items);
+  }
+
+  Future<MediaComment> createMediaComment({
+    required String mediaItemId,
+    required String text,
+  }) async {
+    if (mediaItemId.startsWith("demo-")) {
+      throw ApiException("Комментарии доступны для серверных произведений.");
+    }
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт, чтобы писать комментарии.");
+    }
+    return _s._libraryRepository.createMediaComment(
+      accessToken: session.accessToken,
+      mediaItemId: mediaItemId,
+      text: text,
+    );
+  }
+
+  Future<MediaComment> updateMediaComment({
+    required String commentId,
+    required String text,
+  }) async {
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт, чтобы редактировать комментарии.");
+    }
+    return _s._libraryRepository.updateMediaComment(
+      accessToken: session.accessToken,
+      commentId: commentId,
+      text: text,
+    );
+  }
+
+  Future<void> deleteMediaComment(String commentId) async {
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт, чтобы удалять комментарии.");
+    }
+    await _s._libraryRepository.deleteMediaComment(
+      accessToken: session.accessToken,
+      commentId: commentId,
+    );
+  }
+
   /// Прогресс и оценка по произведению (`GET …/progress` создаёт строку при отсутствии).
   Future<MediaProgress> fetchMediaProgressForItem(String mediaItemId) async {
     if (mediaItemId.startsWith("demo-")) {

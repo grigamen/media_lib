@@ -133,7 +133,16 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                                 ).textTheme.headlineSmall,
                                           ),
                                       const SizedBox(height: 4),
-                                      Text(activeAuthor),
+                                      _workAuthorLink(
+                                        context,
+                                        authorName: activeAuthor,
+                                        onTap:
+                                            activeAuthor == "Не указан"
+                                                ? null
+                                                : () => _showOtherWorksByAuthor(
+                                                  activeAuthor,
+                                                ),
+                                      ),
                                       const SizedBox(height: 8),
                                       Row(
                                         crossAxisAlignment:
@@ -338,6 +347,22 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                             ),
                                           ),
                                         ),
+                                        const SizedBox(height: 16),
+                                        _MediaCommentsSection(
+                                          key: ValueKey("comments-${item.id}"),
+                                          mediaItemId: item.id,
+                                          mediaItemOwnerId: item.userId,
+                                          currentUserId: widget.currentUserId,
+                                          isAdminUser: widget.isAdminUser,
+                                          onLoadComments:
+                                              widget.onFetchMediaComments,
+                                          onCreateComment:
+                                              widget.onCreateMediaComment,
+                                          onUpdateComment:
+                                              widget.onUpdateMediaComment,
+                                          onDeleteComment:
+                                              widget.onDeleteMediaComment,
+                                        ),
                                         if (widget.currentUserId != null &&
                                             item.userId ==
                                                 widget.currentUserId &&
@@ -519,6 +544,151 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
       .map((item) => item.id)
       .where((id) => id.isNotEmpty)
       .toList(growable: false);
+
+  Future<void> _showOtherWorksByAuthor(String authorName) async {
+    final excludeWorkKey = mediaWorkGroupKey(_variants.first);
+    final items = await widget.onFetchItemsByAuthor(authorName);
+    if (!mounted) {
+      return;
+    }
+    final groups =
+        _buildWorkGroupsFromItems(items)
+            .where((group) => mediaWorkGroupKey(group.primaryItem) != excludeWorkKey)
+            .toList(growable: false);
+    if (!mounted) {
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final listHeight =
+            (MediaQuery.sizeOf(sheetContext).height * 0.55).clamp(160.0, 480.0);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  "Другие произведения автора",
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  authorName,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (groups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      "Других произведений этого автора не найдено.",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: listHeight,
+                    child: ListView.separated(
+                      itemCount: groups.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final group = groups[index];
+                        final formatLabels =
+                            group.types
+                                .map(_labelForType)
+                                .toList(growable: false);
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 48,
+                              height: 64,
+                              child: _mediaCoverImage(
+                                context,
+                                coverUrl: group.primaryItem.coverUrl,
+                              ),
+                            ),
+                          ),
+                          title: Text(group.displayTitle),
+                          subtitle: Text(formatLabels.join(", ")),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.of(sheetContext).pop();
+                            unawaited(_openWorkGroup(group.groupItems));
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openWorkGroup(List<MediaListItem> groupItems) async {
+    if (groupItems.isEmpty || !mounted) {
+      return;
+    }
+    await openMediaItemDetailsPage(
+      context: context,
+      currentUserId: widget.currentUserId,
+      isAdminUser: widget.isAdminUser,
+      groupItems: groupItems,
+      initialMediaItemId: groupItems.first.id,
+      availableGenres: widget.availableGenres,
+      onLoadLinks: widget.onLoadLinks,
+      onLoadItemById: widget.onLoadItemById,
+      onUpdateItem: widget.onUpdateItem,
+      onAddFormatToWork: widget.onAddFormatToWork,
+      onBeginPlaybackSession: widget.onBeginPlaybackSession,
+      onPlaybackProgressChanged: widget.onPlaybackProgressChanged,
+      onPausePlaybackSession: widget.onPausePlaybackSession,
+      onCompletePlaybackSession: widget.onCompletePlaybackSession,
+      onFlushPlaybackSession: widget.onFlushPlaybackSession,
+      onEndPlaybackSession: widget.onEndPlaybackSession,
+      playbackSpeed: widget.playbackSpeed,
+      onSetPlaybackSpeed: widget.onSetPlaybackSpeed,
+      pendingPlaybackSync: widget.pendingPlaybackSync,
+      onFetchPlaybackStreamUrl: widget.onFetchPlaybackStreamUrl,
+      playbackError: widget.playbackError,
+      onLoadBookContent: widget.onLoadBookContent,
+      onRecordMediaItemView: widget.onRecordMediaItemView,
+      onMarkItemViewed: (_) {},
+      onFetchMediaFiles: widget.onFetchMediaFiles,
+      onBindMainMediaFile: widget.onBindMainMediaFile,
+      onUploadAndBindMainMediaFile: widget.onUploadAndBindMainMediaFile,
+      onFetchMediaProgress: widget.onFetchMediaProgress,
+      onSetMediaItemUserRating: widget.onSetMediaItemUserRating,
+      onClearMediaItemUserRating: widget.onClearMediaItemUserRating,
+      onFetchWorkUserRating: widget.onFetchWorkUserRating,
+      onSetWorkUserRating: widget.onSetWorkUserRating,
+      onClearWorkUserRating: widget.onClearWorkUserRating,
+      onFetchMediaComments: widget.onFetchMediaComments,
+      onCreateMediaComment: widget.onCreateMediaComment,
+      onUpdateMediaComment: widget.onUpdateMediaComment,
+      onDeleteMediaComment: widget.onDeleteMediaComment,
+      onFetchItemsByAuthor: widget.onFetchItemsByAuthor,
+      onAddToShelf: widget.onAddToShelf,
+      onHasBookOfflineCopy: widget.onHasBookOfflineCopy,
+      onDownloadBookForOffline: widget.onDownloadBookForOffline,
+      onSaveAuthorBookLocalFile: widget.onSaveAuthorBookLocalFile,
+    );
+  }
 }
 
 const _kUserRatingStarColor = Color(0xFF42A5F5);
@@ -777,6 +947,401 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
           label: Text(stars == null ? "Поставить оценку" : "Изменить оценку"),
         ),
       ],
+    );
+  }
+}
+
+class _MediaCommentsSection extends StatefulWidget {
+  const _MediaCommentsSection({
+    super.key,
+    required this.mediaItemId,
+    required this.mediaItemOwnerId,
+    required this.currentUserId,
+    required this.isAdminUser,
+    required this.onLoadComments,
+    required this.onCreateComment,
+    required this.onUpdateComment,
+    required this.onDeleteComment,
+  });
+
+  final String mediaItemId;
+  final String? mediaItemOwnerId;
+  final String? currentUserId;
+  final bool isAdminUser;
+  final Future<List<MediaComment>> Function(String mediaItemId) onLoadComments;
+  final Future<MediaComment> Function({
+    required String mediaItemId,
+    required String text,
+  })
+  onCreateComment;
+  final Future<MediaComment> Function({
+    required String commentId,
+    required String text,
+  })
+  onUpdateComment;
+  final Future<void> Function(String commentId) onDeleteComment;
+
+  @override
+  State<_MediaCommentsSection> createState() => _MediaCommentsSectionState();
+}
+
+class _MediaCommentsSectionState extends State<_MediaCommentsSection> {
+  final TextEditingController _controller = TextEditingController();
+  List<MediaComment> _comments = const [];
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void didUpdateWidget(covariant _MediaCommentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mediaItemId != widget.mediaItemId) {
+      _comments = const [];
+      _controller.clear();
+      unawaited(_load());
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final comments = await widget.onLoadComments(widget.mediaItemId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _comments = comments;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = e is ApiException ? e.message : "Не удалось загрузить комментарии";
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _saving) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final created = await widget.onCreateComment(
+        mediaItemId: widget.mediaItemId,
+        text: text,
+      );
+      if (!mounted) {
+        return;
+      }
+      _controller.clear();
+      setState(() {
+        _comments = [..._comments, created];
+        _saving = false;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _saving = false);
+      _showError(e, "Не удалось добавить комментарий");
+    }
+  }
+
+  Future<void> _edit(MediaComment comment) async {
+    final controller = TextEditingController(text: comment.text);
+    final result = await showDialog<String>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text("Редактировать комментарий"),
+            content: TextField(
+              controller: controller,
+              minLines: 3,
+              maxLines: 6,
+              maxLength: 2000,
+              decoration: const InputDecoration(
+                hintText: "Ваш комментарий",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text("Отмена"),
+              ),
+              FilledButton(
+                onPressed:
+                    () => Navigator.of(dialogContext).pop(controller.text),
+                child: const Text("Сохранить"),
+              ),
+            ],
+          ),
+    );
+    controller.dispose();
+    final text = result?.trim();
+    if (text == null || text.isEmpty || text == comment.text.trim()) {
+      return;
+    }
+    try {
+      final updated = await widget.onUpdateComment(
+        commentId: comment.id,
+        text: text,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _comments = [
+          for (final item in _comments) item.id == updated.id ? updated : item,
+        ];
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _showError(e, "Не удалось обновить комментарий");
+    }
+  }
+
+  Future<void> _delete(MediaComment comment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text("Удалить комментарий?"),
+            content: const Text("Это действие нельзя отменить."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text("Отмена"),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text("Удалить"),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      await widget.onDeleteComment(comment.id);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _comments = _comments
+            .where((item) => item.id != comment.id)
+            .toList(growable: false);
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _showError(e, "Не удалось удалить комментарий");
+    }
+  }
+
+  void _showError(Object error, String fallback) {
+    final message = error is ApiException ? error.message : fallback;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _formatCommentDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) {
+      return "";
+    }
+    final local = parsed.toLocal();
+    String two(int value) => value.toString().padLeft(2, "0");
+    return "${two(local.day)}.${two(local.month)}.${local.year} "
+        "${two(local.hour)}:${two(local.minute)}";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final canComment =
+        widget.currentUserId != null && !widget.mediaItemId.startsWith("demo-");
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text("Комментарии", style: theme.textTheme.titleMedium),
+                const SizedBox(width: 8),
+                Text(
+                  "${_comments.length}",
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: "Обновить",
+                  onPressed: _loading ? null : _load,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            if (canComment) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: _controller,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: 2000,
+                decoration: const InputDecoration(
+                  hintText: "Напишите комментарий",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _submit,
+                  icon:
+                      _saving
+                          ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.send),
+                  label: const Text("Отправить"),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.currentUserId == null
+                    ? "Войдите, чтобы оставить комментарий."
+                    : "Комментарии к демо-произведениям недоступны.",
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (_loading)
+              const Center(child: CircularProgressIndicator())
+            else if (_error != null)
+              Text(_error!, style: TextStyle(color: theme.colorScheme.error))
+            else if (_comments.isEmpty)
+              Text(
+                "Комментариев пока нет.",
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              ..._comments.map((comment) {
+                final isCommentAuthor = comment.userId == widget.currentUserId;
+                final isWorkOwner =
+                    widget.currentUserId != null &&
+                    widget.mediaItemOwnerId != null &&
+                    widget.mediaItemOwnerId == widget.currentUserId;
+                final canEdit = isCommentAuthor || isWorkOwner || widget.isAdminUser;
+                final canDelete = isCommentAuthor || isWorkOwner || widget.isAdminUser;
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: theme.colorScheme.outlineVariant),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      comment.authorDisplayName,
+                                      style: theme.textTheme.titleSmall,
+                                    ),
+                                    Text(
+                                      _formatCommentDate(comment.createdAt),
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (canEdit || canDelete)
+                                PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == "edit") {
+                                      unawaited(_edit(comment));
+                                    } else if (value == "delete") {
+                                      unawaited(_delete(comment));
+                                    }
+                                  },
+                                  itemBuilder: (context) {
+                                    return [
+                                      if (canEdit)
+                                        const PopupMenuItem(
+                                          value: "edit",
+                                          child: Text("Редактировать"),
+                                        ),
+                                      if (canDelete)
+                                        const PopupMenuItem(
+                                          value: "delete",
+                                          child: Text("Удалить"),
+                                        ),
+                                    ];
+                                  },
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(comment.text),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
     );
   }
 }

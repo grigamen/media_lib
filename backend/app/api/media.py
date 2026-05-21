@@ -21,13 +21,16 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_admin
 from app.config import DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES, settings
 from app.db import get_db
-from app.models import MediaFile, MediaItem, MediaLink, Progress, User
+from app.models import MediaComment, MediaFile, MediaItem, MediaLink, Progress, User
 from app.schemas.media import (
     MediaFileCompleteResponse,
     MediaFileListItemResponse,
     MediaFileStreamResponse,
     MediaFileUploadInitRequest,
     MediaFileUploadInitResponse,
+    MediaCommentCreate,
+    MediaCommentResponse,
+    MediaCommentUpdate,
     GenreListResponse,
     MediaItemCreate,
     MediaItemsListResponse,
@@ -214,6 +217,49 @@ def _calculate_progress_percent(position_seconds: int, duration_seconds: int | N
     return round(percent, 2)
 
 
+def _normalize_comment_text(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Comment cannot be empty")
+    return normalized
+
+
+def _get_media_comment(
+    db: Session,
+    comment_id: UUID,
+    current_user: User,
+) -> tuple[MediaComment, MediaItem]:
+    comment = db.get(MediaComment, comment_id)
+    if comment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    media_item = _get_visible_media_item(db, comment.media_item_id, current_user)
+    return comment, media_item
+
+
+def _user_can_edit_media_comment(
+    comment: MediaComment,
+    media_item: MediaItem,
+    current_user: User,
+) -> bool:
+    if current_user.is_admin:
+        return True
+    if comment.user_id == current_user.id:
+        return True
+    return media_item.user_id == current_user.id
+
+
+def _user_can_delete_media_comment(
+    comment: MediaComment,
+    media_item: MediaItem,
+    current_user: User,
+) -> bool:
+    if current_user.is_admin:
+        return True
+    if comment.user_id == current_user.id:
+        return True
+    return media_item.user_id == current_user.id
+
+
 def _normalize_filename(filename: str) -> str:
     """Имя файла без опасных символов для ключа в объектном хранилище."""
     cleaned = filename.strip()
@@ -393,6 +439,7 @@ def create_media_item(
 @router.get("/media-items", response_model=MediaItemsListResponse)
 def list_media_items(
     q: str | None = Query(default=None, min_length=1, max_length=255),
+    author: str | None = Query(default=None, min_length=1, max_length=255),
     type: MediaType | None = Query(default=None),
     types: list[MediaType] | None = Query(default=None),
     genres: list[str] | None = Query(default=None),
@@ -463,6 +510,12 @@ def list_media_items(
                 MediaItem.author.ilike(f"%{q}%"),
             )
         )
+    if author:
+        normalized_author = author.strip()
+        if normalized_author:
+            conditions.append(
+                func.lower(func.trim(MediaItem.author)) == normalized_author.lower()
+            )
     genre_terms: list[str] = []
     if genres:
         seen_g: set[str] = set()
@@ -683,6 +736,84 @@ def clear_media_user_rating(
     db.commit()
     db.refresh(progress)
     return progress
+
+
+@router.get("/media-items/{media_item_id}/comments", response_model=list[MediaCommentResponse])
+def list_media_item_comments(
+    media_item_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MediaComment]:
+    """Комментарии под произведением, старые сверху."""
+    _get_visible_media_item(db, media_item_id, current_user)
+    stmt = (
+        select(MediaComment)
+        .where(MediaComment.media_item_id == media_item_id)
+        .order_by(MediaComment.created_at.asc(), MediaComment.id.asc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(db.scalars(stmt).all())
+
+
+@router.post(
+    "/media-items/{media_item_id}/comments",
+    response_model=MediaCommentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_media_item_comment(
+    media_item_id: UUID,
+    payload: MediaCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MediaComment:
+    """Добавляет комментарий текущего пользователя под произведением."""
+    _get_visible_media_item(db, media_item_id, current_user)
+    comment = MediaComment(
+        media_item_id=media_item_id,
+        user_id=current_user.id,
+        author_display_name=current_user.display_name,
+        text=_normalize_comment_text(payload.text),
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+@router.patch("/media-comments/{comment_id}", response_model=MediaCommentResponse)
+def update_media_item_comment(
+    comment_id: UUID,
+    payload: MediaCommentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MediaComment:
+    """Редактирует автор комментария, владелец произведения или админ."""
+    comment, media_item = _get_media_comment(db, comment_id, current_user)
+    if not _user_can_edit_media_comment(comment, media_item, current_user):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    comment.text = _normalize_comment_text(payload.text)
+    if current_user.id == comment.user_id:
+        comment.author_display_name = current_user.display_name
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+@router.delete("/media-comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_media_item_comment(
+    comment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """Удаляет автор комментария, владелец произведения или админ."""
+    comment, media_item = _get_media_comment(db, comment_id, current_user)
+    if not _user_can_delete_media_comment(comment, media_item, current_user):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    db.delete(comment)
+    db.commit()
 
 
 @router.post(

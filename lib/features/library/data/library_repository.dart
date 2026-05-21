@@ -47,6 +47,7 @@ class LibraryRepository {
   Future<MediaItemsFetchResult> fetchMediaItemsWithMeta({
     required String accessToken,
     String? query,
+    String? author,
     String? type,
     List<String> types = const [],
     List<String> genres = const [],
@@ -63,6 +64,10 @@ class LibraryRepository {
     final normalizedQuery = query?.trim();
     if (normalizedQuery != null && normalizedQuery.isNotEmpty) {
       params.add("q=${Uri.encodeQueryComponent(normalizedQuery)}");
+    }
+    final normalizedAuthor = author?.trim();
+    if (normalizedAuthor != null && normalizedAuthor.isNotEmpty) {
+      params.add("author=${Uri.encodeQueryComponent(normalizedAuthor)}");
     }
     for (final t in _normalizeQueryTypes(types, type)) {
       params.add("types=${Uri.encodeQueryComponent(t)}");
@@ -269,6 +274,58 @@ class LibraryRepository {
       accessToken: accessToken,
     );
     return MediaListItem.fromJson(response);
+  }
+
+  Future<List<MediaComment>> fetchMediaComments({
+    required String accessToken,
+    required String mediaItemId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final response = await _apiClient.getJsonList(
+      "/media-items/$mediaItemId/comments?limit=$limit&offset=$offset",
+      accessToken: accessToken,
+    );
+    return response
+        .whereType<Map<String, dynamic>>()
+        .map(MediaComment.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<MediaComment> createMediaComment({
+    required String accessToken,
+    required String mediaItemId,
+    required String text,
+  }) async {
+    final response = await _apiClient.postJson(
+      "/media-items/$mediaItemId/comments",
+      <String, dynamic>{"text": text},
+      accessToken: accessToken,
+    );
+    return MediaComment.fromJson(response);
+  }
+
+  Future<MediaComment> updateMediaComment({
+    required String accessToken,
+    required String commentId,
+    required String text,
+  }) async {
+    final response = await _apiClient.patchJson(
+      "/media-comments/$commentId",
+      <String, dynamic>{"text": text},
+      accessToken: accessToken,
+    );
+    return MediaComment.fromJson(response);
+  }
+
+  Future<void> deleteMediaComment({
+    required String accessToken,
+    required String commentId,
+  }) async {
+    await _apiClient.deleteJson(
+      "/media-comments/$commentId",
+      accessToken: accessToken,
+    );
   }
 
   /// Текущий прогресс слушателя/читателя по произведению.

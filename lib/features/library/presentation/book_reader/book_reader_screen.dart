@@ -135,7 +135,8 @@ class _BookReaderScreenState extends State<BookReaderScreen>
 
                 _scheduleLayoutSync(context, text, maxW, maxH);
 
-                final layoutReady = text.isEmpty ||
+                final layoutReady =
+                    text.isEmpty ||
                     (_layoutSignature != null && _layoutMaxW != null);
 
                 if (text.isNotEmpty && !layoutReady) {
@@ -146,8 +147,10 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                   fit: StackFit.expand,
                   children: [
                     AnimatedBuilder(
-                      animation:
-                          Listenable.merge([_pageIndex, _paginationBump]),
+                      animation: Listenable.merge([
+                        _pageIndex,
+                        _paginationBump,
+                      ]),
                       builder: (context, _) {
                         final pageCount = _itemCountForPageView(text);
                         return PageView.builder(
@@ -175,14 +178,7 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                                   style,
                                   scaler,
                                 );
-                                _prepareNeighbors(
-                                  text,
-                                  w,
-                                  h,
-                                  style,
-                                  scaler,
-                                  i,
-                                );
+                                _prepareNeighbors(text, w, h, style, scaler, i);
                                 if (!_enumeratedToEnd &&
                                     i == _pageStarts.length - 1 &&
                                     i < _pageStarts.length &&
@@ -246,7 +242,9 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                                     enum0 != _enumeratedToEnd) {
                                   _notifyPaginationChanged();
                                 }
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
                                   if (!mounted) {
                                     return;
                                   }
@@ -257,8 +255,9 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                                 child: SizedBox(
                                   width: 28,
                                   height: 28,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               );
                             }
@@ -296,8 +295,9 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                                 child: SizedBox(
                                   width: 28,
                                   height: 28,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               );
                             }
@@ -315,9 +315,7 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                     if (text.isNotEmpty && _initialReaderLayoutPending)
                       ColoredBox(
                         color: theme.scaffoldBackgroundColor,
-                        child: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
+                        child: const Center(child: CircularProgressIndicator()),
                       ),
                   ],
                 );
@@ -339,14 +337,17 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                       children: [
                         IconButton(
                           tooltip: "Назад",
-                          onPressed: pageIdx > 0
-                              ? () {
-                                  _pageController.previousPage(
-                                    duration: const Duration(milliseconds: 220),
-                                    curve: Curves.easeOut,
-                                  );
-                                }
-                              : null,
+                          onPressed:
+                              pageIdx > 0
+                                  ? () {
+                                    _pageController.previousPage(
+                                      duration: const Duration(
+                                        milliseconds: 220,
+                                      ),
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
+                                  : null,
                           icon: const Icon(Icons.chevron_left),
                         ),
                         Expanded(
@@ -360,14 +361,17 @@ class _BookReaderScreenState extends State<BookReaderScreen>
                         ),
                         IconButton(
                           tooltip: "Вперёд",
-                          onPressed: pageIdx < pageCount - 1
-                              ? () {
-                                  _pageController.nextPage(
-                                    duration: const Duration(milliseconds: 220),
-                                    curve: Curves.easeOut,
-                                  );
-                                }
-                              : null,
+                          onPressed:
+                              pageIdx < pageCount - 1
+                                  ? () {
+                                    _pageController.nextPage(
+                                      duration: const Duration(
+                                        milliseconds: 220,
+                                      ),
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
+                                  : null,
                           icon: const Icon(Icons.chevron_right),
                         ),
                       ],
@@ -382,4 +386,3 @@ class _BookReaderScreenState extends State<BookReaderScreen>
     );
   }
 }
-

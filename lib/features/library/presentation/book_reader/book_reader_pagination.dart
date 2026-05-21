@@ -265,14 +265,7 @@ mixin _BookReaderPagination on _BookReaderFields {
           _enumeratedToEnd = true;
           return math.max(0, _pageStarts.length - 1);
         }
-        final next = _measurePageEnd(
-          text,
-          last,
-          maxW,
-          maxH,
-          style,
-          scaler,
-        );
+        final next = _measurePageEnd(text, last, maxW, maxH, style, scaler);
         if (next >= text.length) {
           _enumeratedToEnd = true;
           return math.max(0, _pageStarts.length - 1);
@@ -285,14 +278,7 @@ mixin _BookReaderPagination on _BookReaderFields {
         _enumeratedToEnd = true;
         return page;
       }
-      final endExcl = _measurePageEnd(
-        text,
-        start,
-        maxW,
-        maxH,
-        style,
-        scaler,
-      );
+      final endExcl = _measurePageEnd(text, start, maxW, maxH, style, scaler);
       if (endExcl >= text.length) {
         _enumeratedToEnd = true;
         return page;

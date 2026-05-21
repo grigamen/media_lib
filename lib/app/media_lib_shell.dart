@@ -134,6 +134,7 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
       ),
       LibraryScreen(
         currentUserId: state.currentUserId,
+        isAdminUser: state.isAdminUser,
         items: state.items,
         usingDemoItems: state.usingDemoItems,
         isLoading: state.isLibraryLoading,
@@ -239,6 +240,15 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
           stars: stars,
         ),
         onClearWorkUserRating: state.clearWorkUserRatingStars,
+        onFetchMediaComments: state.fetchMediaCommentsForItem,
+        onCreateMediaComment:
+            ({required String mediaItemId, required String text}) =>
+                state.createMediaComment(mediaItemId: mediaItemId, text: text),
+        onUpdateMediaComment:
+            ({required String commentId, required String text}) =>
+                state.updateMediaComment(commentId: commentId, text: text),
+        onDeleteMediaComment: state.deleteMediaComment,
+        onFetchItemsByAuthor: state.fetchMediaItemsByAuthor,
         onAddToShelf:
             (mediaItemId) => showAddToShelfDialog(
               context: context,

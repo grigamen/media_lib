@@ -15,12 +15,17 @@ mixin _AppStateBookLocal on _AppStateRefs {
     if (entries.isEmpty) {
       return const [];
     }
-    final byId = <String, MediaListItem>{for (final item in _s._items) item.id: item};
+    final byId = <String, MediaListItem>{
+      for (final item in _s._items) item.id: item,
+    };
     final result = <DownloadedBookDeviceItem>[];
     for (final entry in entries) {
       final exists = await localBookFileExists(entry.filePath);
       if (!exists) {
-        await store.deleteForItem(userId: userId, mediaItemId: entry.mediaItemId);
+        await store.deleteForItem(
+          userId: userId,
+          mediaItemId: entry.mediaItemId,
+        );
         continue;
       }
       final item = byId[entry.mediaItemId];
@@ -28,7 +33,10 @@ mixin _AppStateBookLocal on _AppStateRefs {
         DownloadedBookDeviceItem(
           mediaItemId: entry.mediaItemId,
           title: item?.title ?? entry.filename,
-          author: item?.author?.trim().isNotEmpty == true ? item!.author!.trim() : "Без автора",
+          author:
+              item?.author?.trim().isNotEmpty == true
+                  ? item!.author!.trim()
+                  : "Без автора",
           filename: entry.filename,
           filePath: entry.filePath,
           updatedAt: DateTime.fromMillisecondsSinceEpoch(

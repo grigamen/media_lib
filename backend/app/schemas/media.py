@@ -94,6 +94,26 @@ class UserRatingSetRequest(BaseModel):
     stars: int = Field(ge=1, le=5)
 
 
+class MediaCommentCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class MediaCommentUpdate(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class MediaCommentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    media_item_id: UUID
+    user_id: UUID
+    author_display_name: str
+    text: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class ProgressResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

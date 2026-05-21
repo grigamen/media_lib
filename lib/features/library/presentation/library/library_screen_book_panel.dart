@@ -94,9 +94,9 @@ class _BookReadLaunchPanelState extends State<_BookReadLaunchPanel> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) {
         setState(() => _downloading = false);
@@ -151,7 +151,8 @@ class _BookReadLaunchPanelState extends State<_BookReadLaunchPanel> {
         if (widget.canUseOffline && widget.onDownloadForOffline != null) ...[
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: _downloading || _hasOfflineCopy ? null : _downloadForOffline,
+            onPressed:
+                _downloading || _hasOfflineCopy ? null : _downloadForOffline,
             icon:
                 _downloading
                     ? const SizedBox(
@@ -165,9 +166,7 @@ class _BookReadLaunchPanelState extends State<_BookReadLaunchPanel> {
                           : Icons.download_outlined,
                     ),
             label: Text(
-              _hasOfflineCopy
-                  ? "Скачано на устройство"
-                  : "Скачать книгу",
+              _hasOfflineCopy ? "Скачано на устройство" : "Скачать книгу",
             ),
           ),
         ],

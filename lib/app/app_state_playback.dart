@@ -164,7 +164,10 @@ mixin _AppStatePlayback on _AppStateRefs {
       final String streamFileId;
       final String? activeStreamFileId;
       if (filesToPickFrom.isNotEmpty) {
-        final picked = pickPlaybackFileIdFromReady(filesToPickFrom, mediaFileId);
+        final picked = pickPlaybackFileIdFromReady(
+          filesToPickFrom,
+          mediaFileId,
+        );
         streamFileId = picked ?? filesToPickFrom.first.id;
         activeStreamFileId = streamFileId;
       } else {

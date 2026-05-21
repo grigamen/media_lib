@@ -158,11 +158,9 @@ class AuthRepository {
     required String accessToken,
     required String currentPassword,
   }) async {
-    await _apiClient.postJson(
-      "/auth/2fa/email/enable/start",
-      {"current_password": currentPassword},
-      accessToken: accessToken,
-    );
+    await _apiClient.postJson("/auth/2fa/email/enable/start", {
+      "current_password": currentPassword,
+    }, accessToken: accessToken);
   }
 
   /// Шаг 2 включения 2FA — проверка кода.
@@ -170,11 +168,9 @@ class AuthRepository {
     required String accessToken,
     required String code,
   }) async {
-    await _apiClient.postJson(
-      "/auth/2fa/email/enable/confirm",
-      {"code": code.trim()},
-      accessToken: accessToken,
-    );
+    await _apiClient.postJson("/auth/2fa/email/enable/confirm", {
+      "code": code.trim(),
+    }, accessToken: accessToken);
   }
 
   /// Отключение 2FA при верном пароле.
@@ -182,11 +178,9 @@ class AuthRepository {
     required String accessToken,
     required String currentPassword,
   }) async {
-    await _apiClient.postJson(
-      "/auth/2fa/email/disable",
-      {"current_password": currentPassword},
-      accessToken: accessToken,
-    );
+    await _apiClient.postJson("/auth/2fa/email/disable", {
+      "current_password": currentPassword,
+    }, accessToken: accessToken);
   }
 
   /// Восстановление сессии по refresh-токену (старт приложения).
@@ -228,7 +222,11 @@ class AuthRepository {
         body["current_password"] = currentPassword;
       }
     }
-    final res = await _apiClient.patchJson("/auth/me", body, accessToken: accessToken);
+    final res = await _apiClient.patchJson(
+      "/auth/me",
+      body,
+      accessToken: accessToken,
+    );
     final outEmail = res["email"] as String? ?? currentEmail;
     final outName = res["display_name"] as String? ?? displayName.trim();
     final twofa = res["twofa_enabled"] == true;
@@ -241,14 +239,10 @@ class AuthRepository {
     required String currentPassword,
     required String newPassword,
   }) async {
-    await _apiClient.postJson(
-      "/auth/change-password",
-      {
-        "current_password": currentPassword,
-        "new_password": newPassword,
-      },
-      accessToken: accessToken,
-    );
+    await _apiClient.postJson("/auth/change-password", {
+      "current_password": currentPassword,
+      "new_password": newPassword,
+    }, accessToken: accessToken);
   }
 }
 

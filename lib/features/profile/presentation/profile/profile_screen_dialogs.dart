@@ -4,7 +4,6 @@ part of "profile_screen.dart";
 
 /// Диалоги, открываемые из [ProfileScreen] (редактирование, безопасность).
 extension _ProfileScreenDialogs on ProfileScreen {
-
   /// Имя, email и при смене почты — текущий пароль; вызов [onUpdateProfile].
   Future<void> _openEditProfileDialog(BuildContext context) async {
     final nameCtrl = TextEditingController(text: displayName);

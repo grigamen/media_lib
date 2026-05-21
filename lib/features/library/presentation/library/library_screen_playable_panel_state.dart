@@ -4,8 +4,11 @@ part of 'library_screen.dart';
 
 /// Жизненный цикл панели: от начала до закрытия, плюс отрисовка либо звуковой карточки, либо видео с поверхностью.
 class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
-    with _PlayableMediaPanelFields, WidgetsBindingObserver,
-        _PlayableMediaPanelPlayerCore, _PlayableMediaPanelPlayer {
+    with
+        _PlayableMediaPanelFields,
+        WidgetsBindingObserver,
+        _PlayableMediaPanelPlayerCore,
+        _PlayableMediaPanelPlayer {
   @override
   void initState() {
     super.initState();
@@ -305,8 +308,7 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
                             if (_isVideo && isVideoReady)
                               IconButton(
                                 tooltip: "Полный экран",
-                                onPressed:
-                                    () => _openFullscreenVideo(context),
+                                onPressed: () => _openFullscreenVideo(context),
                                 color: Colors.white,
                                 icon: const Icon(Icons.fullscreen),
                               ),
@@ -315,7 +317,8 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
                               initialValue: _currentSpeed,
                               onSelected: _changeSpeed,
                               itemBuilder:
-                                  (context) => _PlayableMediaPanelFields._speedOptions
+                                  (context) => _PlayableMediaPanelFields
+                                      ._speedOptions
                                       .map(
                                         (speed) => PopupMenuItem<double>(
                                           value: speed,
@@ -349,60 +352,56 @@ class _PlayableMediaPanelState extends State<_PlayableMediaPanel>
                         right: 8,
                         bottom: 8,
                         child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black45,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _videoTimeSliderRow(
-                                  context: context,
-                                  currentSeconds: currentSeconds.toDouble(),
-                                  totalSeconds: totalSeconds,
-                                  positionLabel: _formatVideoTime(
-                                    _position,
-                                    _duration ?? Duration.zero,
-                                    _position,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _videoTimeSliderRow(
+                                context: context,
+                                currentSeconds: currentSeconds.toDouble(),
+                                totalSeconds: totalSeconds,
+                                positionLabel: _formatVideoTime(
+                                  _position,
+                                  _duration ?? Duration.zero,
+                                  _position,
+                                ),
+                                durationLabel: _formatVideoTime(
+                                  _duration,
+                                  _duration ?? Duration.zero,
+                                  _position,
+                                ),
+                              ),
+                              _videoQuickSeekBar(
+                                iconColor: Colors.white,
+                                center: IconButton(
+                                  onPressed:
+                                      _isInitializing ? null : _togglePlayPause,
+                                  color: Colors.white,
+                                  icon: Icon(
+                                    _isPlaying ? Icons.pause : Icons.play_arrow,
                                   ),
-                                  durationLabel: _formatVideoTime(
-                                    _duration,
-                                    _duration ?? Duration.zero,
-                                    _position,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 44,
+                                    minHeight: 44,
                                   ),
                                 ),
-                                _videoQuickSeekBar(
-                                  iconColor: Colors.white,
-                                  center: IconButton(
-                                    onPressed:
-                                        _isInitializing
-                                            ? null
-                                            : _togglePlayPause,
-                                    color: Colors.white,
-                                    icon: Icon(
-                                      _isPlaying
-                                          ? Icons.pause
-                                          : Icons.play_arrow,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 44,
-                                      minHeight: 44,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
+            ),
             if (currentError != null) ...[
               const SizedBox(height: 8),
               Text(

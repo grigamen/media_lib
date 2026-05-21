@@ -57,7 +57,9 @@ class _DownloadedBooksScreenState extends State<DownloadedBooksScreen> {
       builder:
           (dialogContext) => AlertDialog(
             title: const Text("Удалить файл с устройства?"),
-            content: Text("Книга \"${item.title}\" будет удалена только локально."),
+            content: Text(
+              "Книга \"${item.title}\" будет удалена только локально.",
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -78,9 +80,9 @@ class _DownloadedBooksScreenState extends State<DownloadedBooksScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Книга удалена с устройства")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Книга удалена с устройства")));
   }
 
   Future<void> _deleteAll() async {
@@ -177,4 +179,3 @@ class _DownloadedBooksScreenState extends State<DownloadedBooksScreen> {
     );
   }
 }
-

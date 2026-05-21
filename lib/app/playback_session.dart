@@ -68,19 +68,21 @@ List<MediaFileSummary> playbackStreamCandidates(
   List<MediaFileSummary> readySortedAsc,
   String mediaType,
 ) {
-  return readySortedAsc.where((f) {
-    final ct = f.contentType.trim().toLowerCase();
-    if (ct.startsWith("image/")) {
-      return false;
-    }
-    if (mediaType == "video") {
-      return ct.startsWith("video/") || ct == "application/octet-stream";
-    }
-    if (mediaType == "audiobook") {
-      return ct.startsWith("audio/") || ct == "application/octet-stream";
-    }
-    return false;
-  }).toList(growable: false);
+  return readySortedAsc
+      .where((f) {
+        final ct = f.contentType.trim().toLowerCase();
+        if (ct.startsWith("image/")) {
+          return false;
+        }
+        if (mediaType == "video") {
+          return ct.startsWith("video/") || ct == "application/octet-stream";
+        }
+        if (mediaType == "audiobook") {
+          return ct.startsWith("audio/") || ct == "application/octet-stream";
+        }
+        return false;
+      })
+      .toList(growable: false);
 }
 
 String? pickPlaybackFileIdFromReady(

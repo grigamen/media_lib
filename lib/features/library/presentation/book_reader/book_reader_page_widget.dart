@@ -30,10 +30,7 @@ class _BookReaderPageState extends State<_BookReaderPage>
         child: Align(
           alignment: Alignment.topLeft,
           child: SelectionArea(
-            child: Text(
-              widget.slice,
-              style: widget.textStyle,
-            ),
+            child: Text(widget.slice, style: widget.textStyle),
           ),
         ),
       ),

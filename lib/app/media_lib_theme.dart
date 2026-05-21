@@ -5,10 +5,7 @@ ThemeData buildMediaLibTheme(Brightness brightness) {
   final isDark = brightness == Brightness.dark;
   final base = ThemeData(
     brightness: brightness,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: brightness,
-    ),
+    colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: brightness),
     useMaterial3: true,
   );
   final scheme = base.colorScheme;
@@ -65,9 +62,7 @@ ThemeData buildMediaLibTheme(Brightness brightness) {
       style: FilledButton.styleFrom(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
       ),
     ),

@@ -26,9 +26,12 @@ mixin _PlayableMediaPanelPlayer on _PlayableMediaPanelPlayerCore {
     required Color iconColor,
     required Widget center,
   }) {
-    final enabled =
-        _isReady && _videoController != null && !_isInitializing;
-    Widget btn({required int delta, required IconData icon, required String tip}) {
+    final enabled = _isReady && _videoController != null && !_isInitializing;
+    Widget btn({
+      required int delta,
+      required IconData icon,
+      required String tip,
+    }) {
       return IconButton(
         tooltip: tip,
         onPressed: enabled ? () => unawaited(_seekVideoRelative(delta)) : null,
@@ -41,27 +44,11 @@ mixin _PlayableMediaPanelPlayer on _PlayableMediaPanelPlayerCore {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        btn(
-          delta: -30,
-          icon: Icons.replay_30,
-          tip: "Назад на 30 секунд",
-        ),
-        btn(
-          delta: -10,
-          icon: Icons.replay_10,
-          tip: "Назад на 10 секунд",
-        ),
+        btn(delta: -30, icon: Icons.replay_30, tip: "Назад на 30 секунд"),
+        btn(delta: -10, icon: Icons.replay_10, tip: "Назад на 10 секунд"),
         center,
-        btn(
-          delta: 10,
-          icon: Icons.forward_10,
-          tip: "Вперёд на 10 секунд",
-        ),
-        btn(
-          delta: 30,
-          icon: Icons.forward_30,
-          tip: "Вперёд на 30 секунд",
-        ),
+        btn(delta: 10, icon: Icons.forward_10, tip: "Вперёд на 10 секунд"),
+        btn(delta: 30, icon: Icons.forward_30, tip: "Вперёд на 30 секунд"),
       ],
     );
   }
@@ -101,8 +88,7 @@ mixin _PlayableMediaPanelPlayer on _PlayableMediaPanelPlayerCore {
             child: Slider(
               value: currentSeconds,
               max: (totalSeconds > 0 ? totalSeconds : 1).toDouble(),
-              onChanged:
-                  (_isReady && totalSeconds > 0) ? _seekTo : null,
+              onChanged: (_isReady && totalSeconds > 0) ? _seekTo : null,
             ),
           ),
         ),
@@ -217,9 +203,12 @@ mixin _PlayableMediaPanelPlayer on _PlayableMediaPanelPlayerCore {
                                       initialValue: _currentSpeed,
                                       onSelected: _changeSpeed,
                                       itemBuilder:
-                                          (context) => _PlayableMediaPanelFields._speedOptions
+                                          (context) => _PlayableMediaPanelFields
+                                              ._speedOptions
                                               .map(
-                                                (speed) => PopupMenuItem<double>(
+                                                (
+                                                  speed,
+                                                ) => PopupMenuItem<double>(
                                                   value: speed,
                                                   child: Text(
                                                     "${speed.toStringAsFixed(speed == speed.roundToDouble() ? 0 : 2)}x",
@@ -237,7 +226,8 @@ mixin _PlayableMediaPanelPlayer on _PlayableMediaPanelPlayerCore {
                                         Icons.close,
                                         color: Colors.white,
                                       ),
-                                      onPressed: () => Navigator.of(context).pop(),
+                                      onPressed:
+                                          () => Navigator.of(context).pop(),
                                     ),
                                   ],
                                 ),
@@ -246,7 +236,9 @@ mixin _PlayableMediaPanelPlayer on _PlayableMediaPanelPlayerCore {
                                 valueListenable: controller,
                                 builder: (context, value, child) {
                                   final totalSeconds = value.duration.inSeconds;
-                                  final currentSeconds = value.position.inSeconds
+                                  final currentSeconds = value
+                                      .position
+                                      .inSeconds
                                       .clamp(
                                         0,
                                         totalSeconds > 0 ? totalSeconds : 0,
@@ -323,5 +315,4 @@ mixin _PlayableMediaPanelPlayer on _PlayableMediaPanelPlayerCore {
       setState(() {});
     }
   }
-
 }

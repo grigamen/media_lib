@@ -159,7 +159,10 @@ class _EmailTwoFaScreenState extends State<EmailTwoFaScreen> {
                           ],
                           const SizedBox(height: 16),
                           FilledButton(
-                            onPressed: widget.isLoading ? null : () => unawaited(_submit()),
+                            onPressed:
+                                widget.isLoading
+                                    ? null
+                                    : () => unawaited(_submit()),
                             child:
                                 widget.isLoading
                                     ? const SizedBox(

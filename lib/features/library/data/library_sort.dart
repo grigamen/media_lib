@@ -1,9 +1,5 @@
 /// Поле сортировки каталога библиотеки (группы произведений).
-enum LibrarySortField {
-  title,
-  rating,
-  views,
-}
+enum LibrarySortField { title, rating, views }
 
 extension LibrarySortFieldLabels on LibrarySortField {
   String get label {

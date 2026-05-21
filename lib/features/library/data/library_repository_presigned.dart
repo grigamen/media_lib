@@ -117,27 +117,31 @@ extension LibraryRepositoryPresigned on LibraryRepository {
             onProgress?.call(clamped, total);
             sink.add(data);
           },
-          handleError: (Object error, StackTrace stackTrace, EventSink<List<int>> sink) {
+          handleError: (
+            Object error,
+            StackTrace stackTrace,
+            EventSink<List<int>> sink,
+          ) {
             sink.addError(error, stackTrace);
           },
         ),
       );
 
-      final bodyDone = request.sink.addStream(metered).then((_) => request.sink.close());
+      final bodyDone = request.sink
+          .addStream(metered)
+          .then((_) => request.sink.close());
       late final http.StreamedResponse streamed;
       try {
-        streamed = await client
-            .send(request)
-            .timeout(_presignedUploadTimeout);
+        streamed = await client.send(request).timeout(_presignedUploadTimeout);
       } on TimeoutException {
         await bodyDone.catchError((_) {});
         throw ApiException("Таймаут при загрузке файла в хранилище");
       }
       await bodyDone;
 
-      final response = await http.Response.fromStream(streamed).timeout(
-        _presignedReadResponseTimeout,
-      );
+      final response = await http.Response.fromStream(
+        streamed,
+      ).timeout(_presignedReadResponseTimeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
           "Хранилище вернуло ошибку при загрузке файла: HTTP ${response.statusCode}",

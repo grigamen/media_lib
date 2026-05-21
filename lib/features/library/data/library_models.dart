@@ -166,6 +166,38 @@ class MediaLinkItem {
   }
 }
 
+class MediaComment {
+  const MediaComment({
+    required this.id,
+    required this.mediaItemId,
+    required this.userId,
+    required this.authorDisplayName,
+    required this.text,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String mediaItemId;
+  final String userId;
+  final String authorDisplayName;
+  final String text;
+  final String createdAt;
+  final String updatedAt;
+
+  factory MediaComment.fromJson(Map<String, dynamic> json) {
+    return MediaComment(
+      id: json["id"] as String? ?? "",
+      mediaItemId: json["media_item_id"] as String? ?? "",
+      userId: json["user_id"] as String? ?? "",
+      authorDisplayName: json["author_display_name"] as String? ?? "Пользователь",
+      text: json["text"] as String? ?? "",
+      createdAt: json["created_at"] as String? ?? "",
+      updatedAt: json["updated_at"] as String? ?? "",
+    );
+  }
+}
+
 class MediaProgress {
   const MediaProgress({
     required this.mediaItemId,
@@ -339,8 +371,10 @@ class MediaItemsFetchResult {
   final int total;
 }
 
+/// Нормализованное имя автора для сравнения и фильтрации.
+String normalizeAuthorKey(String? author) => (author ?? "").trim().toLowerCase();
+
 /// Ключ одного произведения: один заголовок и автор, разные форматы — одна работа.
 String mediaWorkGroupKey(MediaListItem item) {
-  return "${item.title.trim().toLowerCase()}::"
-      "${(item.author ?? "").trim().toLowerCase()}";
+  return "${item.title.trim().toLowerCase()}::${normalizeAuthorKey(item.author)}";
 }

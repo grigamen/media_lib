@@ -180,9 +180,7 @@ mixin _MediaItemDetailsLifecycleMixin on _MediaItemDetailsStateFields {
     if (payload == null || payload.filePath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            "На этой платформе нужен путь к файлу на устройстве",
-          ),
+          content: Text("На этой платформе нужен путь к файлу на устройстве"),
         ),
       );
       return;
