@@ -347,22 +347,6 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(height: 16),
-                                        _MediaCommentsSection(
-                                          key: ValueKey("comments-${item.id}"),
-                                          mediaItemId: item.id,
-                                          mediaItemOwnerId: item.userId,
-                                          currentUserId: widget.currentUserId,
-                                          isAdminUser: widget.isAdminUser,
-                                          onLoadComments:
-                                              widget.onFetchMediaComments,
-                                          onCreateComment:
-                                              widget.onCreateMediaComment,
-                                          onUpdateComment:
-                                              widget.onUpdateMediaComment,
-                                          onDeleteComment:
-                                              widget.onDeleteMediaComment,
-                                        ),
                                         if (widget.currentUserId != null &&
                                             item.userId ==
                                                 widget.currentUserId &&
@@ -524,6 +508,24 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                             playbackError: widget.playbackError,
                                           ),
                                         ],
+                                        const SizedBox(height: 16),
+                                        _MediaCommentsSection(
+                                          key: ValueKey("comments-${item.id}"),
+                                          mediaItemId: item.id,
+                                          mediaItemOwnerId: item.userId,
+                                          currentUserId: widget.currentUserId,
+                                          isAdminUser: widget.isAdminUser,
+                                          onLoadComments:
+                                              widget.onFetchMediaComments,
+                                          onCreateComment:
+                                              widget.onCreateMediaComment,
+                                          onUpdateComment:
+                                              widget.onUpdateMediaComment,
+                                          onDeleteComment:
+                                              widget.onDeleteMediaComment,
+                                          onReportComment:
+                                              widget.onReportMediaComment,
+                                        ),
                                       ],
                                     ),
                                   )
@@ -682,6 +684,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
       onCreateMediaComment: widget.onCreateMediaComment,
       onUpdateMediaComment: widget.onUpdateMediaComment,
       onDeleteMediaComment: widget.onDeleteMediaComment,
+      onReportMediaComment: widget.onReportMediaComment,
       onFetchItemsByAuthor: widget.onFetchItemsByAuthor,
       onAddToShelf: widget.onAddToShelf,
       onHasBookOfflineCopy: widget.onHasBookOfflineCopy,
@@ -951,8 +954,110 @@ class _WorkUserRatingBarState extends State<_WorkUserRatingBar> {
   }
 }
 
-class _MediaCommentsSection extends StatefulWidget {
-  const _MediaCommentsSection({
+class _EditCommentDialog extends StatefulWidget {
+  const _EditCommentDialog({required this.initialText});
+
+  final String initialText;
+
+  @override
+  State<_EditCommentDialog> createState() => _EditCommentDialogState();
+}
+
+class _EditCommentDialogState extends State<_EditCommentDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Редактировать комментарий"),
+      content: TextField(
+        controller: _controller,
+        minLines: 3,
+        maxLines: 6,
+        maxLength: 2000,
+        decoration: const InputDecoration(
+          hintText: "Ваш комментарий",
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("Отмена"),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text("Сохранить"),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReportCommentDialog extends StatefulWidget {
+  const _ReportCommentDialog();
+
+  @override
+  State<_ReportCommentDialog> createState() => _ReportCommentDialogState();
+}
+
+class _ReportCommentDialogState extends State<_ReportCommentDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Пожаловаться на комментарий"),
+      content: TextField(
+        controller: _controller,
+        minLines: 2,
+        maxLines: 5,
+        maxLength: 1000,
+        decoration: const InputDecoration(
+          hintText: "Причина (необязательно)",
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("Отмена"),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text("Отправить"),
+        ),
+      ],
+    );
+  }
+}
+
+abstract class _MediaCommentsWidget extends StatefulWidget {
+  const _MediaCommentsWidget({
     super.key,
     required this.mediaItemId,
     required this.mediaItemOwnerId,
@@ -962,6 +1067,7 @@ class _MediaCommentsSection extends StatefulWidget {
     required this.onCreateComment,
     required this.onUpdateComment,
     required this.onDeleteComment,
+    required this.onReportComment,
   });
 
   final String mediaItemId;
@@ -980,32 +1086,36 @@ class _MediaCommentsSection extends StatefulWidget {
   })
   onUpdateComment;
   final Future<void> Function(String commentId) onDeleteComment;
-
-  @override
-  State<_MediaCommentsSection> createState() => _MediaCommentsSectionState();
+  final Future<void> Function({
+    required String commentId,
+    String? reason,
+  })
+  onReportComment;
 }
 
-class _MediaCommentsSectionState extends State<_MediaCommentsSection> {
+abstract class _MediaCommentsState<W extends _MediaCommentsWidget> extends State<W> {
+  static const int previewCount = 3;
+
   final TextEditingController _controller = TextEditingController();
   List<MediaComment> _comments = const [];
   bool _loading = true;
   bool _saving = false;
   String? _error;
 
+  bool get _canComment =>
+      widget.currentUserId != null && !widget.mediaItemId.startsWith("demo-");
+
+  List<MediaComment> get _previewComments {
+    if (_comments.length <= previewCount) {
+      return _comments;
+    }
+    return _comments.sublist(_comments.length - previewCount);
+  }
+
   @override
   void initState() {
     super.initState();
     unawaited(_load());
-  }
-
-  @override
-  void didUpdateWidget(covariant _MediaCommentsSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.mediaItemId != widget.mediaItemId) {
-      _comments = const [];
-      _controller.clear();
-      unawaited(_load());
-    }
   }
 
   @override
@@ -1068,36 +1178,11 @@ class _MediaCommentsSectionState extends State<_MediaCommentsSection> {
   }
 
   Future<void> _edit(MediaComment comment) async {
-    final controller = TextEditingController(text: comment.text);
     final result = await showDialog<String>(
       context: context,
       builder:
-          (dialogContext) => AlertDialog(
-            title: const Text("Редактировать комментарий"),
-            content: TextField(
-              controller: controller,
-              minLines: 3,
-              maxLines: 6,
-              maxLength: 2000,
-              decoration: const InputDecoration(
-                hintText: "Ваш комментарий",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text("Отмена"),
-              ),
-              FilledButton(
-                onPressed:
-                    () => Navigator.of(dialogContext).pop(controller.text),
-                child: const Text("Сохранить"),
-              ),
-            ],
-          ),
+          (dialogContext) => _EditCommentDialog(initialText: comment.text),
     );
-    controller.dispose();
     final text = result?.trim();
     if (text == null || text.isEmpty || text == comment.text.trim()) {
       return;
@@ -1163,6 +1248,33 @@ class _MediaCommentsSectionState extends State<_MediaCommentsSection> {
     }
   }
 
+  Future<void> _report(MediaComment comment) async {
+    final reason = await showDialog<String?>(
+      context: context,
+      builder: (dialogContext) => const _ReportCommentDialog(),
+    );
+    if (reason == null) {
+      return;
+    }
+    try {
+      await widget.onReportComment(
+        commentId: comment.id,
+        reason: reason.isEmpty ? null : reason,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Жалоба отправлена")),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _showError(e, "Не удалось отправить жалобу");
+    }
+  }
+
   void _showError(Object error, String fallback) {
     final message = error is ApiException ? error.message : fallback;
     ScaffoldMessenger.of(
@@ -1181,11 +1293,217 @@ class _MediaCommentsSectionState extends State<_MediaCommentsSection> {
         "${two(local.hour)}:${two(local.minute)}";
   }
 
+  Widget _buildCommentTile(ThemeData theme, MediaComment comment) {
+    final isCommentAuthor = comment.userId == widget.currentUserId;
+    final isWorkOwner =
+        widget.currentUserId != null &&
+        widget.mediaItemOwnerId != null &&
+        widget.mediaItemOwnerId == widget.currentUserId;
+    final canEdit = isCommentAuthor || isWorkOwner || widget.isAdminUser;
+    final canDelete = isCommentAuthor || isWorkOwner || widget.isAdminUser;
+    final canReport = _canComment && !isCommentAuthor;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          comment.authorDisplayName,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        Text(
+                          _formatCommentDate(comment.createdAt),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (canEdit || canDelete || canReport)
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == "edit") {
+                          unawaited(_edit(comment));
+                        } else if (value == "delete") {
+                          unawaited(_delete(comment));
+                        } else if (value == "report") {
+                          unawaited(_report(comment));
+                        }
+                      },
+                      itemBuilder: (context) {
+                        return [
+                          if (canEdit)
+                            const PopupMenuItem(
+                              value: "edit",
+                              child: Text("Редактировать"),
+                            ),
+                          if (canDelete)
+                            const PopupMenuItem(
+                              value: "delete",
+                              child: Text("Удалить"),
+                            ),
+                          if (canReport)
+                            const PopupMenuItem(
+                              value: "report",
+                              child: Text("Пожаловаться"),
+                            ),
+                        ];
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(comment.text),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComposeForm(ThemeData theme) {
+    if (_canComment) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _controller,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 2000,
+            decoration: const InputDecoration(
+              hintText: "Напишите комментарий",
+              border: OutlineInputBorder(),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _submit,
+              icon:
+                  _saving
+                      ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.send),
+              label: const Text("Отправить"),
+            ),
+          ),
+        ],
+      );
+    }
+    return Text(
+      widget.currentUserId == null
+          ? "Войдите, чтобы оставить комментарий."
+          : "Комментарии к демо-произведениям недоступны.",
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  Widget _buildCommentsBody({
+    required ThemeData theme,
+    required List<MediaComment> comments,
+    Widget? trailing,
+  }) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Text(_error!, style: TextStyle(color: theme.colorScheme.error));
+    }
+    if (_comments.isEmpty) {
+      return Text(
+        "Комментариев пока нет.",
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...comments.map((comment) => _buildCommentTile(theme, comment)),
+        if (trailing != null) ...[const SizedBox(height: 8), trailing],
+      ],
+    );
+  }
+}
+
+class _MediaCommentsSection extends _MediaCommentsWidget {
+  const _MediaCommentsSection({
+    super.key,
+    required super.mediaItemId,
+    required super.mediaItemOwnerId,
+    required super.currentUserId,
+    required super.isAdminUser,
+    required super.onLoadComments,
+    required super.onCreateComment,
+    required super.onUpdateComment,
+    required super.onDeleteComment,
+    required super.onReportComment,
+  });
+
+  @override
+  State<_MediaCommentsSection> createState() => _MediaCommentsSectionState();
+}
+
+class _MediaCommentsSectionState extends _MediaCommentsState<_MediaCommentsSection> {
+  @override
+  void didUpdateWidget(covariant _MediaCommentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mediaItemId != widget.mediaItemId) {
+      _comments = const [];
+      _controller.clear();
+      unawaited(_load());
+    }
+  }
+
+  Future<void> _openAllCommentsPage() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder:
+            (context) => _MediaCommentsPage(
+              mediaItemId: widget.mediaItemId,
+              mediaItemOwnerId: widget.mediaItemOwnerId,
+              currentUserId: widget.currentUserId,
+              isAdminUser: widget.isAdminUser,
+              onLoadComments: widget.onLoadComments,
+              onCreateComment: widget.onCreateComment,
+              onUpdateComment: widget.onUpdateComment,
+              onDeleteComment: widget.onDeleteComment,
+              onReportComment: widget.onReportComment,
+            ),
+      ),
+    );
+    if (mounted) {
+      unawaited(_load());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canComment =
-        widget.currentUserId != null && !widget.mediaItemId.startsWith("demo-");
+    final hasMoreComments = _comments.length > _MediaCommentsState.previewCount;
     return Card(
       elevation: 0,
       color: theme.colorScheme.surfaceContainerLow,
@@ -1212,133 +1530,71 @@ class _MediaCommentsSectionState extends State<_MediaCommentsSection> {
                 ),
               ],
             ),
-            if (canComment) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _controller,
-                minLines: 2,
-                maxLines: 5,
-                maxLength: 2000,
-                decoration: const InputDecoration(
-                  hintText: "Напишите комментарий",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _submit,
-                  icon:
-                      _saving
-                          ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                          : const Icon(Icons.send),
-                  label: const Text("Отправить"),
-                ),
-              ),
-            ] else ...[
-              const SizedBox(height: 8),
-              Text(
-                widget.currentUserId == null
-                    ? "Войдите, чтобы оставить комментарий."
-                    : "Комментарии к демо-произведениям недоступны.",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
             const SizedBox(height: 12),
-            if (_loading)
-              const Center(child: CircularProgressIndicator())
-            else if (_error != null)
-              Text(_error!, style: TextStyle(color: theme.colorScheme.error))
-            else if (_comments.isEmpty)
-              Text(
-                "Комментариев пока нет.",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              )
-            else
-              ..._comments.map((comment) {
-                final isCommentAuthor = comment.userId == widget.currentUserId;
-                final isWorkOwner =
-                    widget.currentUserId != null &&
-                    widget.mediaItemOwnerId != null &&
-                    widget.mediaItemOwnerId == widget.currentUserId;
-                final canEdit = isCommentAuthor || isWorkOwner || widget.isAdminUser;
-                final canDelete = isCommentAuthor || isWorkOwner || widget.isAdminUser;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: theme.colorScheme.outlineVariant),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      comment.authorDisplayName,
-                                      style: theme.textTheme.titleSmall,
-                                    ),
-                                    Text(
-                                      _formatCommentDate(comment.createdAt),
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (canEdit || canDelete)
-                                PopupMenuButton<String>(
-                                  onSelected: (value) {
-                                    if (value == "edit") {
-                                      unawaited(_edit(comment));
-                                    } else if (value == "delete") {
-                                      unawaited(_delete(comment));
-                                    }
-                                  },
-                                  itemBuilder: (context) {
-                                    return [
-                                      if (canEdit)
-                                        const PopupMenuItem(
-                                          value: "edit",
-                                          child: Text("Редактировать"),
-                                        ),
-                                      if (canDelete)
-                                        const PopupMenuItem(
-                                          value: "delete",
-                                          child: Text("Удалить"),
-                                        ),
-                                    ];
-                                  },
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(comment.text),
-                        ],
-                      ),
-                    ),
+            _buildCommentsBody(
+              theme: theme,
+              comments: _previewComments,
+              trailing:
+                  hasMoreComments
+                      ? OutlinedButton(
+                        onPressed: _openAllCommentsPage,
+                        child: const Text("Показать все комментарии"),
+                      )
+                      : null,
+            ),
+            const SizedBox(height: 16),
+            _buildComposeForm(theme),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaCommentsPage extends _MediaCommentsWidget {
+  const _MediaCommentsPage({
+    required super.mediaItemId,
+    required super.mediaItemOwnerId,
+    required super.currentUserId,
+    required super.isAdminUser,
+    required super.onLoadComments,
+    required super.onCreateComment,
+    required super.onUpdateComment,
+    required super.onDeleteComment,
+    required super.onReportComment,
+  });
+
+  @override
+  State<_MediaCommentsPage> createState() => _MediaCommentsPageState();
+}
+
+class _MediaCommentsPageState extends _MediaCommentsState<_MediaCommentsPage> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Комментарии"),
+      ),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                children: [
+                  _buildCommentsBody(
+                    theme: theme,
+                    comments: _comments,
                   ),
-                );
-              }),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: _buildComposeForm(theme),
+            ),
           ],
         ),
       ),

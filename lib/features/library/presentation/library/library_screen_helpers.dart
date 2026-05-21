@@ -470,6 +470,11 @@ Future<void> openMediaItemDetailsPage({
   })
   onUpdateMediaComment,
   required Future<void> Function(String commentId) onDeleteMediaComment,
+  required Future<void> Function({
+    required String commentId,
+    String? reason,
+  })
+  onReportMediaComment,
   required Future<List<MediaListItem>> Function(String author)
   onFetchItemsByAuthor,
   required Future<bool> Function(String mediaItemId) onAddToShelf,
@@ -530,6 +535,7 @@ Future<void> openMediaItemDetailsPage({
             onCreateMediaComment: onCreateMediaComment,
             onUpdateMediaComment: onUpdateMediaComment,
             onDeleteMediaComment: onDeleteMediaComment,
+            onReportMediaComment: onReportMediaComment,
             onFetchItemsByAuthor: onFetchItemsByAuthor,
             onAddToShelf: onAddToShelf,
             onHasBookOfflineCopy: onHasBookOfflineCopy,
@@ -643,6 +649,11 @@ Future<void> openMediaItemDetailsForAppState({
         ({required String commentId, required String text}) =>
             state.updateMediaComment(commentId: commentId, text: text),
     onDeleteMediaComment: state.deleteMediaComment,
+    onReportMediaComment:
+        ({required commentId, reason}) => state.reportMediaComment(
+          commentId: commentId,
+          reason: reason,
+        ),
     onFetchItemsByAuthor: state.fetchMediaItemsByAuthor,
     onAddToShelf:
         (mediaItemId) => showAddToShelfDialog(

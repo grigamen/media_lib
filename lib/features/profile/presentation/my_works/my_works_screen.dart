@@ -169,6 +169,11 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                 ({required String commentId, required String text}) =>
                     state.updateMediaComment(commentId: commentId, text: text),
             onDeleteMediaComment: state.deleteMediaComment,
+            onReportMediaComment:
+                ({required commentId, reason}) => state.reportMediaComment(
+                  commentId: commentId,
+                  reason: reason,
+                ),
             onFetchItemsByAuthor: state.fetchMediaItemsByAuthor,
             onAddToShelf:
                 (mediaItemId) => showAddToShelfDialog(

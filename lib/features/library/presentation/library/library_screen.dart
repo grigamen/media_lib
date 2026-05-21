@@ -92,6 +92,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onCreateMediaComment,
     required this.onUpdateMediaComment,
     required this.onDeleteMediaComment,
+    required this.onReportMediaComment,
     required this.onFetchItemsByAuthor,
     required this.onAddToShelf,
     this.onHasBookOfflineCopy,
@@ -216,6 +217,11 @@ class LibraryScreen extends StatefulWidget {
   })
   onUpdateMediaComment;
   final Future<void> Function(String commentId) onDeleteMediaComment;
+  final Future<void> Function({
+    required String commentId,
+    String? reason,
+  })
+  onReportMediaComment;
   final Future<List<MediaListItem>> Function(String author) onFetchItemsByAuthor;
   final Future<bool> Function(String mediaItemId) onAddToShelf;
   final Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy;

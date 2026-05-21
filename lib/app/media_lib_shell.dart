@@ -248,6 +248,11 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
             ({required String commentId, required String text}) =>
                 state.updateMediaComment(commentId: commentId, text: text),
         onDeleteMediaComment: state.deleteMediaComment,
+        onReportMediaComment:
+            ({required commentId, reason}) => state.reportMediaComment(
+              commentId: commentId,
+              reason: reason,
+            ),
         onFetchItemsByAuthor: state.fetchMediaItemsByAuthor,
         onAddToShelf:
             (mediaItemId) => showAddToShelfDialog(
@@ -476,6 +481,7 @@ class _MediaLibAdminMediaShellState extends State<MediaLibAdminMediaShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.state.fetchAdminCatalog();
+      widget.state.fetchAdminCommentReports();
     });
   }
 
@@ -487,21 +493,31 @@ class _MediaLibAdminMediaShellState extends State<MediaLibAdminMediaShell> {
           (context, _) => AdminMediaScreen(
             pendingItems: widget.state.adminPendingItems,
             allItems: widget.state.adminAllItems,
+            pendingCommentReports: widget.state.adminPendingCommentReports,
             isLoading: widget.state.isAdminCatalogLoading,
             isLoadingMorePending: widget.state.isAdminPendingLoadingMore,
             hasMorePending: widget.state.adminPendingHasMore,
             isLoadingMoreAll: widget.state.isAdminAllLoadingMore,
             hasMoreAll: widget.state.adminAllHasMore,
+            isCommentReportsLoading: widget.state.isAdminCommentReportsLoading,
+            isCommentReportsLoadingMore:
+                widget.state.isAdminCommentReportsLoadingMore,
+            hasMoreCommentReports: widget.state.adminCommentReportsHasMore,
             errorMessage: widget.state.adminCatalogError,
+            commentReportsError: widget.state.adminCommentReportsError,
             onRefresh: widget.state.fetchAdminCatalog,
+            onRefreshCommentReports: widget.state.fetchAdminCommentReports,
             onLoadMorePending: widget.state.loadMoreAdminPendingCatalog,
             onLoadMoreAll: widget.state.loadMoreAdminAllCatalog,
+            onLoadMoreCommentReports: widget.state.loadMoreAdminCommentReports,
             onDeleteItem: widget.state.deleteMediaItemAsAdmin,
             onModerateItem:
                 (mediaItemId, approve) => widget.state.moderateMediaItemAsAdmin(
                   mediaItemId: mediaItemId,
                   approve: approve,
                 ),
+            onDismissCommentReport: widget.state.dismissAdminCommentReport,
+            onResolveCommentReport: widget.state.resolveAdminCommentReport,
             onOpenItem:
                 (item) => openWorkGroupItemDetails(context, widget.state, item),
           ),

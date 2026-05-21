@@ -29,6 +29,7 @@ import "media_upload_payload.dart";
 import "playback_session.dart";
 
 import "services/admin_catalog_service.dart";
+import "services/admin_reports_service.dart";
 import "services/book_content_loader.dart";
 import "services/book_offline_cache_stub.dart"
     if (dart.library.io) "services/book_offline_cache_io.dart";
@@ -97,6 +98,10 @@ class AppState extends ChangeNotifier
       coverRefresh: _coverRefresh,
       onChanged: notifyListeners,
     );
+    _adminReports = AdminReportsService(
+      library: _libraryRepository,
+      onChanged: notifyListeners,
+    );
     _uploadTracker = PresignedUploadTracker(onChanged: notifyListeners);
     _bookContentLoader = BookContentLoader(_libraryRepository);
     _playbackPusher = PlaybackProgressPusher(_libraryRepository);
@@ -110,6 +115,7 @@ class AppState extends ChangeNotifier
   late final ShelfRepository _shelfRepository;
   late final CoverUrlRefreshService _coverRefresh;
   late final AdminCatalogService _adminCatalog;
+  late final AdminReportsService _adminReports;
   late final PresignedUploadTracker _uploadTracker;
   late final BookContentLoader _bookContentLoader;
   late final PlaybackProgressPusher _playbackPusher;
@@ -220,6 +226,12 @@ class AppState extends ChangeNotifier
   bool get isAdminAllLoadingMore => _adminCatalog.state.isAllLoadingMore;
   bool get isAdminCatalogLoading => _adminCatalog.state.isCatalogLoading;
   String? get adminCatalogError => _adminCatalog.state.error;
+  List<CommentReportItem> get adminPendingCommentReports =>
+      _adminReports.state.pendingReports;
+  bool get adminCommentReportsHasMore => _adminReports.pendingHasMore;
+  bool get isAdminCommentReportsLoading => _adminReports.state.isLoading;
+  bool get isAdminCommentReportsLoadingMore => _adminReports.state.isLoadingMore;
+  String? get adminCommentReportsError => _adminReports.state.error;
   List<String> get availableGenres => _availableGenres;
   bool get usingDemoItems => _usingDemoItems;
   String get searchQuery => _searchQuery;

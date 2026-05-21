@@ -114,6 +114,29 @@ class MediaCommentResponse(BaseModel):
     updated_at: datetime
 
 
+class CommentReportCreate(BaseModel):
+    reason: str | None = Field(default=None, max_length=1000)
+
+
+class CommentReportListItem(BaseModel):
+    id: UUID
+    comment_id: UUID
+    comment_text: str
+    comment_author_display_name: str
+    media_item_id: UUID
+    media_item_title: str
+    reporter_user_id: UUID
+    reporter_display_name: str
+    reason: str | None
+    status: str
+    created_at: datetime
+
+
+class CommentReportsListResponse(BaseModel):
+    items: list[CommentReportListItem]
+    total: int
+
+
 class ProgressResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

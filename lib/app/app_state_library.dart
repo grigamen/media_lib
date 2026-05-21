@@ -320,6 +320,7 @@ mixin _AppStateLibrary on _AppStateRefs {
       _s._allowDemoFallback = false;
       _s._items = const [];
       _s._adminCatalog.reset();
+      _s._adminReports.reset();
       _s._usingDemoItems = false;
       final uid = _s._currentUserId;
       if (uid != null) {
@@ -789,6 +790,94 @@ mixin _AppStateLibrary on _AppStateRefs {
       accessToken: session.accessToken,
       commentId: commentId,
     );
+  }
+
+  Future<void> reportMediaComment({
+    required String commentId,
+    String? reason,
+  }) async {
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт, чтобы пожаловаться на комментарий.");
+    }
+    await _s._libraryRepository.reportMediaComment(
+      accessToken: session.accessToken,
+      commentId: commentId,
+      reason: reason,
+    );
+  }
+
+  Future<void> fetchAdminCommentReports({bool showLoadingIndicator = true}) async {
+    final session = _s._session;
+    if (session == null || !_s._isAdminUser) {
+      return;
+    }
+    await _s._adminReports.fetchPendingReports(
+      session: session,
+      isAdminUser: _s._isAdminUser,
+      showLoadingIndicator: showLoadingIndicator,
+    );
+  }
+
+  Future<void> loadMoreAdminCommentReports() async {
+    final session = _s._session;
+    if (session == null) {
+      return;
+    }
+    await _s._adminReports.loadMorePendingReports(
+      session: session,
+      isAdminUser: _s._isAdminUser,
+    );
+  }
+
+  Future<bool> dismissAdminCommentReport(String reportId) async {
+    final session = _s._session;
+    if (session == null || !_s._isAdminUser) {
+      return false;
+    }
+    _s._adminReports.state.error = null;
+    notifyListeners();
+    try {
+      await _s._libraryRepository.dismissAdminCommentReport(
+        accessToken: session.accessToken,
+        reportId: reportId,
+      );
+      _s._adminReports.removeReport(reportId);
+      return true;
+    } on ApiException catch (e) {
+      _s._adminReports.state.error = e.message;
+      return false;
+    } catch (_) {
+      _s._adminReports.state.error = "Не удалось отклонить жалобу";
+      return false;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<bool> resolveAdminCommentReport(String reportId) async {
+    final session = _s._session;
+    if (session == null || !_s._isAdminUser) {
+      return false;
+    }
+    _s._adminReports.state.error = null;
+    notifyListeners();
+    try {
+      await _s._libraryRepository.resolveAdminCommentReport(
+        accessToken: session.accessToken,
+        reportId: reportId,
+      );
+      _s._adminReports.removeReport(reportId);
+      return true;
+    } on ApiException catch (e) {
+      _s._adminReports.state.error = e.message;
+      return false;
+    } catch (_) {
+      _s._adminReports.state.error = "Не удалось удалить комментарий";
+      return false;
+    } finally {
+      notifyListeners();
+    }
   }
 
   /// Прогресс и оценка по произведению (`GET …/progress` создаёт строку при отсутствии).

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_admin
 from app.config import DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES, settings
 from app.db import get_db
-from app.models import MediaComment, MediaFile, MediaItem, MediaLink, Progress, User
+from app.models import CommentReport, MediaComment, MediaFile, MediaItem, MediaLink, Progress, User
 from app.schemas.media import (
     MediaFileCompleteResponse,
     MediaFileListItemResponse,
@@ -31,6 +31,9 @@ from app.schemas.media import (
     MediaCommentCreate,
     MediaCommentResponse,
     MediaCommentUpdate,
+    CommentReportCreate,
+    CommentReportListItem,
+    CommentReportsListResponse,
     GenreListResponse,
     MediaItemCreate,
     MediaItemsListResponse,
@@ -258,6 +261,51 @@ def _user_can_delete_media_comment(
     if comment.user_id == current_user.id:
         return True
     return media_item.user_id == current_user.id
+
+
+def _normalize_report_reason(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _comment_report_list_item(
+    report: CommentReport,
+    comment: MediaComment,
+    media_item: MediaItem,
+    reporter: User,
+) -> CommentReportListItem:
+    return CommentReportListItem(
+        id=report.id,
+        comment_id=report.comment_id,
+        comment_text=comment.text,
+        comment_author_display_name=comment.author_display_name,
+        media_item_id=comment.media_item_id,
+        media_item_title=media_item.title,
+        reporter_user_id=report.reporter_user_id,
+        reporter_display_name=reporter.display_name,
+        reason=report.reason,
+        status=report.status,
+        created_at=report.created_at,
+    )
+
+
+def _get_comment_report(
+    db: Session,
+    report_id: UUID,
+) -> tuple[CommentReport, MediaComment, MediaItem, User]:
+    stmt = (
+        select(CommentReport, MediaComment, MediaItem, User)
+        .join(MediaComment, CommentReport.comment_id == MediaComment.id)
+        .join(MediaItem, MediaComment.media_item_id == MediaItem.id)
+        .join(User, CommentReport.reporter_user_id == User.id)
+        .where(CommentReport.id == report_id)
+    )
+    row = db.execute(stmt).first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    return row[0], row[1], row[2], row[3]
 
 
 def _normalize_filename(filename: str) -> str:
@@ -812,6 +860,117 @@ def delete_media_item_comment(
     comment, media_item = _get_media_comment(db, comment_id, current_user)
     if not _user_can_delete_media_comment(comment, media_item, current_user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    db.delete(comment)
+    db.commit()
+
+
+@router.post(
+    "/media-comments/{comment_id}/report",
+    status_code=status.HTTP_201_CREATED,
+)
+def report_media_comment(
+    comment_id: UUID,
+    payload: CommentReportCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    """Пожаловаться на чужой комментарий."""
+    comment, media_item = _get_media_comment(db, comment_id, current_user)
+    if comment.user_id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Cannot report your own comment")
+    existing = db.scalar(
+        select(CommentReport).where(
+            CommentReport.comment_id == comment_id,
+            CommentReport.reporter_user_id == current_user.id,
+        )
+    )
+    if existing is not None:
+        if existing.status == "pending":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You already reported this comment")
+        existing.status = "pending"
+        existing.reason = _normalize_report_reason(payload.reason)
+        existing.resolved_at = None
+        existing.resolved_by_user_id = None
+        existing.created_at = datetime.now(timezone.utc)
+        db.commit()
+        return {"status": "pending"}
+    report = CommentReport(
+        comment_id=comment.id,
+        reporter_user_id=current_user.id,
+        reason=_normalize_report_reason(payload.reason),
+        status="pending",
+    )
+    db.add(report)
+    db.commit()
+    _ = media_item
+    return {"status": "pending"}
+
+
+@router.get("/admin/comment-reports", response_model=CommentReportsListResponse)
+def list_comment_reports(
+    status_filter: str = Query(default="pending", alias="status"),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> CommentReportsListResponse:
+    """Админ: список жалоб на комментарии."""
+    allowed = {"pending", "dismissed", "resolved"}
+    normalized_status = status_filter.strip().lower()
+    if normalized_status not in allowed:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid status filter")
+    count_stmt = (
+        select(func.count())
+        .select_from(CommentReport)
+        .where(CommentReport.status == normalized_status)
+    )
+    total = int(db.scalar(count_stmt) or 0)
+    stmt = (
+        select(CommentReport, MediaComment, MediaItem, User)
+        .join(MediaComment, CommentReport.comment_id == MediaComment.id)
+        .join(MediaItem, MediaComment.media_item_id == MediaItem.id)
+        .join(User, CommentReport.reporter_user_id == User.id)
+        .where(CommentReport.status == normalized_status)
+        .order_by(CommentReport.created_at.desc(), CommentReport.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = db.execute(stmt).all()
+    items = [
+        _comment_report_list_item(report, comment, media_item, reporter)
+        for report, comment, media_item, reporter in rows
+    ]
+    return CommentReportsListResponse(items=items, total=total)
+
+
+@router.post("/admin/comment-reports/{report_id}/dismiss", response_model=CommentReportListItem)
+def dismiss_comment_report(
+    report_id: UUID,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin),
+) -> CommentReportListItem:
+    """Админ: отклонить жалобу без удаления комментария."""
+    report, comment, media_item, reporter = _get_comment_report(db, report_id)
+    if report.status != "pending":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Report is already processed")
+    report.status = "dismissed"
+    report.resolved_at = datetime.now(timezone.utc)
+    report.resolved_by_user_id = admin_user.id
+    db.commit()
+    db.refresh(report)
+    return _comment_report_list_item(report, comment, media_item, reporter)
+
+
+@router.post("/admin/comment-reports/{report_id}/resolve", status_code=status.HTTP_204_NO_CONTENT)
+def resolve_comment_report(
+    report_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> None:
+    """Админ: удалить комментарий (жалобы удаляются каскадом)."""
+    report, comment, _, _ = _get_comment_report(db, report_id)
+    if report.status != "pending":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Report is already processed")
     db.delete(comment)
     db.commit()
 

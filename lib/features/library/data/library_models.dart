@@ -198,6 +198,62 @@ class MediaComment {
   }
 }
 
+class CommentReportItem {
+  const CommentReportItem({
+    required this.id,
+    required this.commentId,
+    required this.commentText,
+    required this.commentAuthorDisplayName,
+    required this.mediaItemId,
+    required this.mediaItemTitle,
+    required this.reporterUserId,
+    required this.reporterDisplayName,
+    required this.reason,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String commentId;
+  final String commentText;
+  final String commentAuthorDisplayName;
+  final String mediaItemId;
+  final String mediaItemTitle;
+  final String reporterUserId;
+  final String reporterDisplayName;
+  final String? reason;
+  final String status;
+  final String createdAt;
+
+  factory CommentReportItem.fromJson(Map<String, dynamic> json) {
+    return CommentReportItem(
+      id: json["id"] as String? ?? "",
+      commentId: json["comment_id"] as String? ?? "",
+      commentText: json["comment_text"] as String? ?? "",
+      commentAuthorDisplayName:
+          json["comment_author_display_name"] as String? ?? "Пользователь",
+      mediaItemId: json["media_item_id"] as String? ?? "",
+      mediaItemTitle: json["media_item_title"] as String? ?? "",
+      reporterUserId: json["reporter_user_id"] as String? ?? "",
+      reporterDisplayName:
+          json["reporter_display_name"] as String? ?? "Пользователь",
+      reason: json["reason"] as String?,
+      status: json["status"] as String? ?? "pending",
+      createdAt: json["created_at"] as String? ?? "",
+    );
+  }
+}
+
+class CommentReportsFetchResult {
+  const CommentReportsFetchResult({
+    required this.items,
+    required this.total,
+  });
+
+  final List<CommentReportItem> items;
+  final int total;
+}
+
 class MediaProgress {
   const MediaProgress({
     required this.mediaItemId,

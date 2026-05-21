@@ -328,6 +328,68 @@ class LibraryRepository {
     );
   }
 
+  Future<void> reportMediaComment({
+    required String accessToken,
+    required String commentId,
+    String? reason,
+  }) async {
+    final body = <String, dynamic>{};
+    final normalizedReason = reason?.trim();
+    if (normalizedReason != null && normalizedReason.isNotEmpty) {
+      body["reason"] = normalizedReason;
+    }
+    await _apiClient.postJson(
+      "/media-comments/$commentId/report",
+      body,
+      accessToken: accessToken,
+    );
+  }
+
+  Future<CommentReportsFetchResult> fetchAdminCommentReports({
+    required String accessToken,
+    String status = "pending",
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final response = await _apiClient.getJson(
+      "/admin/comment-reports?status=${Uri.encodeQueryComponent(status)}&limit=$limit&offset=$offset",
+      accessToken: accessToken,
+    );
+    final items = response["items"];
+    final list =
+        items is List<dynamic>
+            ? items
+                .whereType<Map<String, dynamic>>()
+                .map(CommentReportItem.fromJson)
+                .toList(growable: false)
+            : const <CommentReportItem>[];
+    final rawTotal = response["total"];
+    final total = rawTotal is int ? rawTotal : int.tryParse("$rawTotal") ?? 0;
+    return CommentReportsFetchResult(items: list, total: total);
+  }
+
+  Future<void> dismissAdminCommentReport({
+    required String accessToken,
+    required String reportId,
+  }) async {
+    await _apiClient.postJson(
+      "/admin/comment-reports/$reportId/dismiss",
+      const <String, dynamic>{},
+      accessToken: accessToken,
+    );
+  }
+
+  Future<void> resolveAdminCommentReport({
+    required String accessToken,
+    required String reportId,
+  }) async {
+    await _apiClient.postJson(
+      "/admin/comment-reports/$reportId/resolve",
+      const <String, dynamic>{},
+      accessToken: accessToken,
+    );
+  }
+
   /// Текущий прогресс слушателя/читателя по произведению.
   Future<MediaProgress> fetchMediaProgress({
     required String accessToken,

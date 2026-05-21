@@ -46,6 +46,7 @@ mixin _AppStateAuth on _AppStateRefs {
     if (resetLibraryState) {
       _s._sawNonEmptyServerLibrary = false;
       _s._adminCatalog.reset();
+      _s._adminReports.reset();
     }
     await _s._authTokenStore.saveSession(session);
     await _ensureLocalPersistence();
@@ -337,6 +338,7 @@ mixin _AppStateAuth on _AppStateRefs {
     _s._libraryError = null;
     _s._items = const [];
     _s._adminCatalog.reset();
+    _s._adminReports.reset();
     _s._availableGenres = const [
       "Фэнтези",
       "Фантастика",
