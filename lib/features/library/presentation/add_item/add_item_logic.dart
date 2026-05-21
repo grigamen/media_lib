@@ -36,13 +36,16 @@ mixin _AddItemScreenLogic on _AddItemScreenFields {
         });
         return;
       }
+      MediaAuthor? authorToSave = _selectedAuthor;
+      final draftName = _authorQuery.trim();
+      if (authorToSave == null && draftName.isNotEmpty) {
+        authorToSave = await widget.onCreateAuthor(draftName);
+      }
       final created = await widget.onAddItem(
         type: _selectedType,
         title: _titleController.text.trim(),
-        author:
-            _authorController.text.trim().isEmpty
-                ? null
-                : _authorController.text.trim(),
+        authorId: authorToSave?.id,
+        author: authorToSave?.name,
         genres: _selectedGenres.isEmpty ? null : _selectedGenres,
         coverUploadPayload: _selectedCoverUpload,
         uploadPayload:
@@ -54,7 +57,8 @@ mixin _AddItemScreenLogic on _AddItemScreenFields {
         return;
       }
       _titleController.clear();
-      _authorController.clear();
+      _selectedAuthor = null;
+      _authorQuery = "";
       _selectedFileName = null;
       _selectedFileMime = null;
       _selectedFileUpload = null;

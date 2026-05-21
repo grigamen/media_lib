@@ -48,6 +48,7 @@ class LibraryRepository {
     required String accessToken,
     String? query,
     String? author,
+    String? authorId,
     String? type,
     List<String> types = const [],
     List<String> genres = const [],
@@ -68,6 +69,10 @@ class LibraryRepository {
     final normalizedAuthor = author?.trim();
     if (normalizedAuthor != null && normalizedAuthor.isNotEmpty) {
       params.add("author=${Uri.encodeQueryComponent(normalizedAuthor)}");
+    }
+    final normalizedAuthorId = authorId?.trim();
+    if (normalizedAuthorId != null && normalizedAuthorId.isNotEmpty) {
+      params.add("author_id=${Uri.encodeQueryComponent(normalizedAuthorId)}");
     }
     for (final t in _normalizeQueryTypes(types, type)) {
       params.add("types=${Uri.encodeQueryComponent(t)}");
@@ -119,19 +124,64 @@ class LibraryRepository {
         .toList(growable: false);
   }
 
+  /// Поиск авторов для автодополнения (`GET /authors`).
+  Future<List<MediaAuthor>> searchAuthors({
+    required String accessToken,
+    String? query,
+    int limit = 20,
+  }) async {
+    final params = <String>["limit=$limit", "offset=0"];
+    final normalizedQuery = query?.trim();
+    if (normalizedQuery != null && normalizedQuery.isNotEmpty) {
+      params.add("q=${Uri.encodeQueryComponent(normalizedQuery)}");
+    }
+    final response = await _apiClient.getJson(
+      "/authors?${params.join("&")}",
+      accessToken: accessToken,
+    );
+    final items = response["items"];
+    if (items is! List<dynamic>) {
+      return const [];
+    }
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(MediaAuthor.fromJson)
+        .where((author) => author.id.isNotEmpty && author.name.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  /// Создать автора или получить существующего (`POST /authors`).
+  Future<MediaAuthor> createAuthor({
+    required String accessToken,
+    required String name,
+  }) async {
+    final response = await _apiClient.postJson(
+      "/authors",
+      <String, dynamic>{"name": name.trim()},
+      accessToken: accessToken,
+    );
+    return MediaAuthor.fromJson(response);
+  }
+
   /// Создание произведения (черновик с модерацией).
   Future<MediaListItem> createMediaItem({
     required String accessToken,
     required String type,
     required String title,
     String? author,
+    String? authorId,
     String? coverUrl,
     List<String>? genres,
   }) async {
     final body = <String, dynamic>{"type": type, "title": title};
-    final normalizedAuthor = author?.trim();
-    if (normalizedAuthor != null && normalizedAuthor.isNotEmpty) {
-      body["author"] = normalizedAuthor;
+    final normalizedAuthorId = authorId?.trim();
+    if (normalizedAuthorId != null && normalizedAuthorId.isNotEmpty) {
+      body["author_id"] = normalizedAuthorId;
+    } else {
+      final normalizedAuthor = author?.trim();
+      if (normalizedAuthor != null && normalizedAuthor.isNotEmpty) {
+        body["author"] = normalizedAuthor;
+      }
     }
     final normalizedCoverUrl = coverUrl?.trim();
     if (normalizedCoverUrl != null && normalizedCoverUrl.isNotEmpty) {
@@ -160,6 +210,8 @@ class LibraryRepository {
     required String mediaItemId,
     String? title,
     String? author,
+    String? authorId,
+    bool clearAuthor = false,
     String? coverUrl,
     List<String>? genres,
     String? description,
@@ -169,7 +221,11 @@ class LibraryRepository {
     if (title != null) {
       body["title"] = title.trim();
     }
-    if (author != null) {
+    if (clearAuthor) {
+      body["author_id"] = null;
+    } else if (authorId != null && authorId.trim().isNotEmpty) {
+      body["author_id"] = authorId.trim();
+    } else if (author != null) {
       body["author"] = author.trim().isEmpty ? null : author.trim();
     }
     if (coverUrl != null) {

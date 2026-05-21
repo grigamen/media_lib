@@ -2,7 +2,8 @@ part of "add_item_screen.dart";
 
 mixin _AddItemScreenFields on State<AddItemScreen> {
   final _titleController = TextEditingController();
-  final _authorController = TextEditingController();
+  MediaAuthor? _selectedAuthor;
+  String _authorQuery = "";
   final _formKey = GlobalKey<FormState>();
   String _selectedType = "book";
   String? _selectedFileName;

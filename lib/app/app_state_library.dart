@@ -378,6 +378,7 @@ mixin _AppStateLibrary on _AppStateRefs {
     required String type,
     required String title,
     String? author,
+    String? authorId,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
@@ -395,6 +396,7 @@ mixin _AppStateLibrary on _AppStateRefs {
         type: type,
         title: title,
         author: author,
+        authorId: authorId,
         coverUrl: coverUrl,
         genres: genres,
       );
@@ -472,6 +474,8 @@ mixin _AppStateLibrary on _AppStateRefs {
     required String type,
     required String title,
     String? author,
+    String? authorId,
+    bool clearAuthor = false,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
@@ -490,6 +494,8 @@ mixin _AppStateLibrary on _AppStateRefs {
         mediaItemId: mediaItemId,
         title: title,
         author: author,
+        authorId: authorId,
+        clearAuthor: clearAuthor,
         coverUrl: coverUrl,
         genres: genres,
         description: description,
@@ -532,6 +538,7 @@ mixin _AppStateLibrary on _AppStateRefs {
     required String type,
     required String title,
     String? author,
+    String? authorId,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
@@ -550,6 +557,7 @@ mixin _AppStateLibrary on _AppStateRefs {
         type: type,
         title: title,
         author: author,
+        authorId: authorId,
         coverUrl: coverUrl,
         genres: genres,
       );
@@ -723,10 +731,13 @@ mixin _AppStateLibrary on _AppStateRefs {
     );
   }
 
-  /// Все карточки каталога с указанным автором (точное совпадение имени).
-  Future<List<MediaListItem>> fetchMediaItemsByAuthor(String author) async {
-    final normalizedAuthor = author.trim();
-    if (normalizedAuthor.isEmpty) {
+  /// Все карточки каталога с указанным автором (по id или имени).
+  Future<List<MediaListItem>> fetchMediaItemsByAuthor({
+    required String authorName,
+    String? authorId,
+  }) async {
+    final normalizedAuthor = authorName.trim();
+    if (normalizedAuthor.isEmpty && (authorId == null || authorId.isEmpty)) {
       return const [];
     }
     final authorKey = normalizeAuthorKey(normalizedAuthor);
@@ -741,11 +752,59 @@ mixin _AppStateLibrary on _AppStateRefs {
     }
     final result = await _s._libraryRepository.fetchMediaItemsWithMeta(
       accessToken: session.accessToken,
-      author: normalizedAuthor,
+      authorId: authorId,
+      author: authorId == null || authorId.isEmpty ? normalizedAuthor : null,
       limit: 100,
     );
     final items = dedupeMediaItemsById(result.items);
     return _s._coverRefresh.withFreshCoverUrls(session: session, items: items);
+  }
+
+  Future<List<MediaAuthor>> searchAuthors(String query) async {
+    if (_s._usingDemoItems) {
+      final key = query.trim().toLowerCase();
+      if (key.isEmpty) {
+        return const [];
+      }
+      final names = <String>{};
+      for (final item in DemoLibraryData.items) {
+        final name = item.author?.trim();
+        if (name != null &&
+            name.isNotEmpty &&
+            name.toLowerCase().contains(key)) {
+          names.add(name);
+        }
+      }
+      return names
+          .map((name) => MediaAuthor(id: "demo-author-$name", name: name))
+          .toList(growable: false);
+    }
+    final session = _s._session;
+    if (session == null) {
+      return const [];
+    }
+    return _s._libraryRepository.searchAuthors(
+      accessToken: session.accessToken,
+      query: query,
+    );
+  }
+
+  Future<MediaAuthor> createAuthor(String name) async {
+    final normalized = name.trim();
+    if (normalized.isEmpty) {
+      throw ApiException("Укажите имя автора");
+    }
+    if (_s._usingDemoItems) {
+      return MediaAuthor(id: "demo-author-$normalized", name: normalized);
+    }
+    final session = _s._session;
+    if (session == null) {
+      throw ApiException("Войдите в аккаунт");
+    }
+    return _s._libraryRepository.createAuthor(
+      accessToken: session.accessToken,
+      name: normalized,
+    );
   }
 
   Future<MediaComment> createMediaComment({

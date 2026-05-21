@@ -3,6 +3,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 import "../../data/library_repository.dart";
+import "../widgets/author_picker_field.dart";
 import "../../../../app/app_state.dart";
 import "../../../../core/files/media_upload_file_pick.dart";
 import "../../../../core/network/api_client.dart";
@@ -35,6 +36,8 @@ List<String> _uniqueGenres(Iterable<String> genres) {
 class AddItemScreen extends StatefulWidget {
   const AddItemScreen({
     required this.onAddItem,
+    required this.onSearchAuthors,
+    required this.onCreateAuthor,
     required this.availableGenres,
     super.key,
   });
@@ -43,12 +46,15 @@ class AddItemScreen extends StatefulWidget {
     required String type,
     required String title,
     String? author,
+    String? authorId,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
     MediaUploadPayload? uploadPayload,
   })
   onAddItem;
+  final Future<List<MediaAuthor>> Function(String query) onSearchAuthors;
+  final Future<MediaAuthor> Function(String name) onCreateAuthor;
   final List<String> availableGenres;
 
   @override
@@ -61,7 +67,6 @@ class _AddItemScreenState extends State<AddItemScreen>
   @override
   void dispose() {
     _titleController.dispose();
-    _authorController.dispose();
     super.dispose();
   }
 
@@ -197,12 +202,16 @@ class _AddItemScreenState extends State<AddItemScreen>
                                 : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _authorController,
-                    decoration: const InputDecoration(
-                      labelText: "Автор",
-                      hintText: "Введите автора",
-                    ),
+                  AuthorPickerField(
+                    enabled: !_isSubmitting,
+                    onSearchAuthors: widget.onSearchAuthors,
+                    onCreateAuthor: widget.onCreateAuthor,
+                    onChanged: (author) {
+                      setState(() => _selectedAuthor = author);
+                    },
+                    onQueryChanged: (query) {
+                      setState(() => _authorQuery = query);
+                    },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(

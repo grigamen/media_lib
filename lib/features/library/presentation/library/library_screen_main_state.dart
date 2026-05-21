@@ -284,6 +284,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           onDeleteMediaComment: widget.onDeleteMediaComment,
                           onReportMediaComment: widget.onReportMediaComment,
                           onFetchItemsByAuthor: widget.onFetchItemsByAuthor,
+                          onSearchAuthors: widget.onSearchAuthors,
+                          onCreateAuthor: widget.onCreateAuthor,
                           onAddToShelf: widget.onAddToShelf,
                           onHasBookOfflineCopy: widget.onHasBookOfflineCopy,
                           onDownloadBookForOffline:

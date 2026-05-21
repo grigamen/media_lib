@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_admin
 from app.config import DEFAULT_ALLOWED_UPLOAD_CONTENT_TYPES, settings
 from app.db import get_db
-from app.models import CommentReport, MediaComment, MediaFile, MediaItem, MediaLink, Progress, User
+from app.models import Author, CommentReport, MediaComment, MediaFile, MediaItem, MediaLink, Progress, User
 from app.schemas.media import (
     MediaFileCompleteResponse,
     MediaFileListItemResponse,
@@ -34,6 +34,9 @@ from app.schemas.media import (
     CommentReportCreate,
     CommentReportListItem,
     CommentReportsListResponse,
+    AuthorCreate,
+    AuthorResponse,
+    AuthorsListResponse,
     GenreListResponse,
     MediaItemCreate,
     MediaItemsListResponse,
@@ -160,6 +163,49 @@ def _average_ratings_for_items(
     return result
 
 
+def _normalize_author_key(value: str) -> str:
+    return value.strip().lower()
+
+
+def _get_or_create_author(db: Session, name: str) -> Author:
+    normalized = _normalize_author_key(name)
+    if not normalized:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Author name cannot be blank")
+    existing = db.scalar(select(Author).where(Author.name_normalized == normalized))
+    if existing is not None:
+        return existing
+    author = Author(name=name.strip(), name_normalized=normalized)
+    db.add(author)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(Author).where(Author.name_normalized == normalized))
+        if existing is None:
+            raise
+        return existing
+    return author
+
+
+def _resolve_author_fields(
+    db: Session,
+    *,
+    author_id: UUID | None = None,
+    author: str | None = None,
+) -> tuple[UUID | None, str | None]:
+    """author_id имеет приоритет; иначе создаём/находим автора по строке."""
+    if author_id is not None:
+        record = db.get(Author, author_id)
+        if record is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Author not found")
+        return record.id, record.name
+    normalized_author = _normalize_optional_text(author)
+    if normalized_author is None:
+        return None, None
+    record = _get_or_create_author(db, normalized_author)
+    return record.id, record.name
+
+
 def _media_item_to_response(
     item: MediaItem,
     ratings: dict[UUID, tuple[float, int]] | None = None,
@@ -176,6 +222,7 @@ def _media_item_to_response(
         type=item.type,
         title=item.title,
         author=item.author,
+        author_id=item.author_id,
         cover_url=item.cover_url,
         genres=item.genres,
         description=item.description,
@@ -467,11 +514,18 @@ def create_media_item(
     if not title:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Title cannot be blank")
 
+    resolved_author_id, resolved_author = _resolve_author_fields(
+        db,
+        author_id=payload.author_id,
+        author=payload.author,
+    )
+
     item = MediaItem(
         user_id=current_user.id,
         type=payload.type,
         title=title,
-        author=_normalize_optional_text(payload.author),
+        author=resolved_author,
+        author_id=resolved_author_id,
         cover_url=_normalize_optional_text(payload.cover_url),
         genres=_normalize_genres(payload.genres),
         description=_normalize_optional_text(payload.description),
@@ -488,6 +542,7 @@ def create_media_item(
 def list_media_items(
     q: str | None = Query(default=None, min_length=1, max_length=255),
     author: str | None = Query(default=None, min_length=1, max_length=255),
+    author_id: UUID | None = Query(default=None),
     type: MediaType | None = Query(default=None),
     types: list[MediaType] | None = Query(default=None),
     genres: list[str] | None = Query(default=None),
@@ -558,7 +613,9 @@ def list_media_items(
                 MediaItem.author.ilike(f"%{q}%"),
             )
         )
-    if author:
+    if author_id is not None:
+        conditions.append(MediaItem.author_id == author_id)
+    elif author:
         normalized_author = author.strip()
         if normalized_author:
             conditions.append(
@@ -635,6 +692,54 @@ def list_media_genres(
     return GenreListResponse(genres=merged)
 
 
+@router.get("/authors", response_model=AuthorsListResponse)
+def list_authors(
+    q: str | None = Query(default=None, min_length=1, max_length=255),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AuthorsListResponse:
+    """Поиск авторов по имени для выбора при добавлении произведения."""
+    del current_user
+    conditions = []
+    if q:
+        normalized = q.strip().lower()
+        conditions.append(
+            or_(
+                Author.name_normalized.contains(normalized),
+                Author.name.ilike(f"%{q.strip()}%"),
+            )
+        )
+    where_clause = and_(*conditions) if conditions else True
+    total = int(db.scalar(select(func.count(Author.id)).where(where_clause)) or 0)
+    stmt = select(Author).where(where_clause).order_by(Author.name.asc()).offset(offset).limit(limit)
+    items = list(db.scalars(stmt).all())
+    return AuthorsListResponse(
+        items=[AuthorResponse.model_validate(item) for item in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.post("/authors", response_model=AuthorResponse, status_code=status.HTTP_201_CREATED)
+def create_author(
+    payload: AuthorCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AuthorResponse:
+    """Создаёт автора или возвращает существующего с тем же нормализованным именем."""
+    del current_user
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Author name cannot be blank")
+    author = _get_or_create_author(db, name)
+    db.commit()
+    db.refresh(author)
+    return AuthorResponse.model_validate(author)
+
+
 @router.get("/media-items/{media_item_id}", response_model=MediaItemResponse)
 def get_media_item(
     media_item_id: UUID,
@@ -678,8 +783,29 @@ def update_media_item(
         if not title:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Title cannot be blank")
         updates["title"] = title
-    if "author" in updates:
-        updates["author"] = _normalize_optional_text(updates["author"])
+    if "author_id" in payload.model_fields_set:
+        if payload.author_id is None:
+            item.author_id = None
+            item.author = None
+        else:
+            resolved_author_id, resolved_author = _resolve_author_fields(
+                db,
+                author_id=payload.author_id,
+                author=None,
+            )
+            item.author_id = resolved_author_id
+            item.author = resolved_author
+    elif "author" in updates:
+        resolved_author_id, resolved_author = _resolve_author_fields(
+            db,
+            author_id=None,
+            author=updates.pop("author"),
+        )
+        item.author_id = resolved_author_id
+        item.author = resolved_author
+
+    updates.pop("author_id", None)
+    updates.pop("author", None)
     if "cover_url" in updates:
         updates["cover_url"] = _normalize_optional_text(updates["cover_url"])
     if "genres" in updates:

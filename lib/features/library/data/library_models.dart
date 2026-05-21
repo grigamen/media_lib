@@ -6,6 +6,7 @@ class MediaListItem {
     required this.title,
     required this.type,
     this.author,
+    this.authorId,
     this.coverUrl,
     this.genres,
     this.description,
@@ -21,6 +22,7 @@ class MediaListItem {
   final String title;
   final String type;
   final String? author;
+  final String? authorId;
   final String? coverUrl;
   final List<String>? genres;
   final String? description;
@@ -43,6 +45,7 @@ class MediaListItem {
     String? title,
     String? type,
     String? author,
+    String? authorId,
     String? coverUrl,
     List<String>? genres,
     String? description,
@@ -58,6 +61,7 @@ class MediaListItem {
       title: title ?? this.title,
       type: type ?? this.type,
       author: author ?? this.author,
+      authorId: authorId ?? this.authorId,
       coverUrl: coverUrl ?? this.coverUrl,
       genres: genres ?? this.genres,
       description: description ?? this.description,
@@ -109,6 +113,7 @@ class MediaListItem {
       title: json["title"] as String? ?? "Untitled",
       type: json["type"] as String? ?? "unknown",
       author: json["author"] as String?,
+      authorId: json["author_id"]?.toString(),
       coverUrl: json["cover_url"] as String?,
       genres: (json["genres"] as List<dynamic>?)
           ?.whereType<String>()
@@ -131,6 +136,7 @@ class MediaListItem {
       "title": title,
       "type": type,
       "author": author,
+      "author_id": authorId,
       "cover_url": coverUrl,
       "genres": genres,
       "description": description,
@@ -140,6 +146,21 @@ class MediaListItem {
       "ratings_count": ratingsCount,
       "views_count": viewsCount,
     };
+  }
+}
+
+/// Канонический автор из справочника `/authors`.
+class MediaAuthor {
+  const MediaAuthor({required this.id, required this.name});
+
+  final String id;
+  final String name;
+
+  factory MediaAuthor.fromJson(Map<String, dynamic> json) {
+    return MediaAuthor(
+      id: json["id"]?.toString() ?? "",
+      name: json["name"] as String? ?? "",
+    );
   }
 }
 

@@ -88,6 +88,8 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                   required type,
                   required title,
                   author,
+                  authorId,
+                  clearAuthor = false,
                   coverUrl,
                   genres,
                   coverUploadPayload,
@@ -98,6 +100,8 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                   type: type,
                   title: title,
                   author: author,
+                  authorId: authorId,
+                  clearAuthor: clearAuthor ?? false,
                   coverUrl: coverUrl,
                   genres: genres,
                   coverUploadPayload: coverUploadPayload,
@@ -110,6 +114,7 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                   required type,
                   required title,
                   author,
+                  authorId,
                   coverUrl,
                   genres,
                   coverUploadPayload,
@@ -120,6 +125,7 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                   type: type,
                   title: title,
                   author: author,
+                  authorId: authorId,
                   coverUrl: coverUrl,
                   genres: genres,
                   coverUploadPayload: coverUploadPayload,
@@ -174,7 +180,13 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                   commentId: commentId,
                   reason: reason,
                 ),
-            onFetchItemsByAuthor: state.fetchMediaItemsByAuthor,
+            onFetchItemsByAuthor:
+                ({required authorName, authorId}) => state.fetchMediaItemsByAuthor(
+                  authorName: authorName,
+                  authorId: authorId,
+                ),
+            onSearchAuthors: state.searchAuthors,
+            onCreateAuthor: state.createAuthor,
             onAddToShelf:
                 (mediaItemId) => showAddToShelfDialog(
                   context: context,

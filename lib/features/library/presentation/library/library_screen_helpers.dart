@@ -389,6 +389,8 @@ Future<void> openMediaItemDetailsPage({
     required String type,
     required String title,
     String? author,
+    String? authorId,
+    bool? clearAuthor,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
@@ -401,6 +403,7 @@ Future<void> openMediaItemDetailsPage({
     required String type,
     required String title,
     String? author,
+    String? authorId,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
@@ -475,8 +478,13 @@ Future<void> openMediaItemDetailsPage({
     String? reason,
   })
   onReportMediaComment,
-  required Future<List<MediaListItem>> Function(String author)
+  required Future<List<MediaListItem>> Function({
+    required String authorName,
+    String? authorId,
+  })
   onFetchItemsByAuthor,
+  required Future<List<MediaAuthor>> Function(String query) onSearchAuthors,
+  required Future<MediaAuthor> Function(String name) onCreateAuthor,
   required Future<bool> Function(String mediaItemId) onAddToShelf,
   Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy,
   Future<bool> Function(MediaListItem item)? onDownloadBookForOffline,
@@ -537,6 +545,8 @@ Future<void> openMediaItemDetailsPage({
             onDeleteMediaComment: onDeleteMediaComment,
             onReportMediaComment: onReportMediaComment,
             onFetchItemsByAuthor: onFetchItemsByAuthor,
+            onSearchAuthors: onSearchAuthors,
+            onCreateAuthor: onCreateAuthor,
             onAddToShelf: onAddToShelf,
             onHasBookOfflineCopy: onHasBookOfflineCopy,
             onDownloadBookForOffline: onDownloadBookForOffline,
@@ -568,6 +578,8 @@ Future<void> openMediaItemDetailsForAppState({
           required type,
           required title,
           author,
+          authorId,
+          clearAuthor = false,
           coverUrl,
           genres,
           coverUploadPayload,
@@ -578,6 +590,8 @@ Future<void> openMediaItemDetailsForAppState({
           type: type,
           title: title,
           author: author,
+          authorId: authorId,
+          clearAuthor: clearAuthor ?? false,
           coverUrl: coverUrl,
           genres: genres,
           coverUploadPayload: coverUploadPayload,
@@ -590,6 +604,7 @@ Future<void> openMediaItemDetailsForAppState({
           required type,
           required title,
           author,
+          authorId,
           coverUrl,
           genres,
           coverUploadPayload,
@@ -600,6 +615,7 @@ Future<void> openMediaItemDetailsForAppState({
           type: type,
           title: title,
           author: author,
+          authorId: authorId,
           coverUrl: coverUrl,
           genres: genres,
           coverUploadPayload: coverUploadPayload,
@@ -654,7 +670,13 @@ Future<void> openMediaItemDetailsForAppState({
           commentId: commentId,
           reason: reason,
         ),
-    onFetchItemsByAuthor: state.fetchMediaItemsByAuthor,
+    onFetchItemsByAuthor:
+        ({required authorName, authorId}) => state.fetchMediaItemsByAuthor(
+          authorName: authorName,
+          authorId: authorId,
+        ),
+    onSearchAuthors: state.searchAuthors,
+    onCreateAuthor: state.createAuthor,
     onAddToShelf:
         (mediaItemId) => showAddToShelfDialog(
           context: context,
@@ -679,6 +701,18 @@ Future<void> openMediaItemDetailsForAppState({
 }
 
 /// Ссылка на автора в шапке карточки произведения.
+MediaAuthor? _authorFromItem(MediaListItem item) {
+  final name = item.author?.trim();
+  final id = item.authorId?.trim();
+  if (name == null || name.isEmpty) {
+    return null;
+  }
+  if (id != null && id.isNotEmpty) {
+    return MediaAuthor(id: id, name: name);
+  }
+  return null;
+}
+
 Widget _workAuthorLink(
   BuildContext context, {
   required String authorName,

@@ -42,6 +42,8 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.onDeleteMediaComment,
     required this.onReportMediaComment,
     required this.onFetchItemsByAuthor,
+    required this.onSearchAuthors,
+    required this.onCreateAuthor,
     required this.onAddToShelf,
     this.onHasBookOfflineCopy,
     this.onDownloadBookForOffline,
@@ -60,6 +62,8 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required String type,
     required String title,
     String? author,
+    String? authorId,
+    bool? clearAuthor,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
@@ -72,6 +76,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required String type,
     required String title,
     String? author,
+    String? authorId,
     String? coverUrl,
     List<String>? genres,
     MediaUploadPayload? coverUploadPayload,
@@ -145,7 +150,13 @@ class _MediaItemDetailsPage extends StatefulWidget {
     String? reason,
   })
   onReportMediaComment;
-  final Future<List<MediaListItem>> Function(String author) onFetchItemsByAuthor;
+  final Future<List<MediaListItem>> Function({
+    required String authorName,
+    String? authorId,
+  })
+  onFetchItemsByAuthor;
+  final Future<List<MediaAuthor>> Function(String query) onSearchAuthors;
+  final Future<MediaAuthor> Function(String name) onCreateAuthor;
   final Future<bool> Function(String mediaItemId) onAddToShelf;
   final Future<bool> Function(String mediaItemId)? onHasBookOfflineCopy;
   final Future<bool> Function(MediaListItem item)? onDownloadBookForOffline;

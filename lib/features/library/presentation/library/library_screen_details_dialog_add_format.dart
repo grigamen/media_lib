@@ -19,9 +19,8 @@ mixin _MediaItemDetailsAddFormatDialogsMixin
     final titleController = TextEditingController(
       text: widget.group.displayTitle,
     );
-    final authorController = TextEditingController(
-      text: widget.group.displayAuthor,
-    );
+    MediaAuthor? selectedAuthor = _authorFromItem(sourceItem);
+    String authorQuery = widget.group.displayAuthor.trim();
     final descriptionController = TextEditingController();
     List<String> selectedGenres = _uniqueGenres([
       ...(sourceItem.genres ?? const <String>[]),
@@ -87,11 +86,17 @@ mixin _MediaItemDetailsAddFormatDialogsMixin
                 submitError = null;
               });
               try {
+                MediaAuthor? authorToSave = selectedAuthor;
+                final draftName = authorQuery.trim();
+                if (authorToSave == null && draftName.isNotEmpty) {
+                  authorToSave = await widget.onCreateAuthor(draftName);
+                }
                 final created = await widget.onAddFormatToWork(
                   sourceMediaItemId: sourceItem.id,
                   type: selectedType,
                   title: titleController.text.trim(),
-                  author: authorController.text.trim(),
+                  authorId: authorToSave?.id,
+                  author: authorToSave?.name,
                   genres: selectedGenres.isEmpty ? null : selectedGenres,
                   coverUrl:
                       formatCoverUpload == null ? inheritedCoverUrl : null,
@@ -169,12 +174,18 @@ mixin _MediaItemDetailsAddFormatDialogsMixin
                                     : null,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        controller: authorController,
+                      AuthorPickerField(
                         enabled: !isSubmitting,
-                        decoration: const InputDecoration(
-                          labelText: "Автор (опционально)",
-                        ),
+                        initialAuthor: selectedAuthor,
+                        initialDisplayName: widget.group.displayAuthor,
+                        onSearchAuthors: widget.onSearchAuthors,
+                        onCreateAuthor: widget.onCreateAuthor,
+                        onChanged: (author) {
+                          setDialogState(() => selectedAuthor = author);
+                        },
+                        onQueryChanged: (query) {
+                          setDialogState(() => authorQuery = query);
+                        },
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
@@ -536,7 +547,6 @@ mixin _MediaItemDetailsAddFormatDialogsMixin
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       titleController.dispose();
-      authorController.dispose();
       descriptionController.dispose();
     });
   }

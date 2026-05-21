@@ -140,7 +140,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                             activeAuthor == "Не указан"
                                                 ? null
                                                 : () => _showOtherWorksByAuthor(
-                                                  activeAuthor,
+                                                  authorName: activeAuthor,
+                                                  authorId: activeItem.authorId,
                                                 ),
                                       ),
                                       const SizedBox(height: 8),
@@ -547,9 +548,15 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
       .where((id) => id.isNotEmpty)
       .toList(growable: false);
 
-  Future<void> _showOtherWorksByAuthor(String authorName) async {
+  Future<void> _showOtherWorksByAuthor({
+    required String authorName,
+    String? authorId,
+  }) async {
     final excludeWorkKey = mediaWorkGroupKey(_variants.first);
-    final items = await widget.onFetchItemsByAuthor(authorName);
+    final items = await widget.onFetchItemsByAuthor(
+      authorName: authorName,
+      authorId: authorId,
+    );
     if (!mounted) {
       return;
     }
@@ -686,6 +693,8 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
       onDeleteMediaComment: widget.onDeleteMediaComment,
       onReportMediaComment: widget.onReportMediaComment,
       onFetchItemsByAuthor: widget.onFetchItemsByAuthor,
+      onSearchAuthors: widget.onSearchAuthors,
+      onCreateAuthor: widget.onCreateAuthor,
       onAddToShelf: widget.onAddToShelf,
       onHasBookOfflineCopy: widget.onHasBookOfflineCopy,
       onDownloadBookForOffline: widget.onDownloadBookForOffline,

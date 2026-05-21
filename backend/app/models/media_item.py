@@ -23,6 +23,9 @@ class MediaItem(Base):
     type: Mapped[str] = mapped_column(String(20), index=True)
     title: Mapped[str] = mapped_column(String(255), index=True)
     author: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("authors.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     genres: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -15,7 +15,8 @@ mixin _MediaItemDetailsEditDialogsMixin on _MediaItemDetailsLifecycleMixin {
     }
     final formKey = GlobalKey<FormState>();
     final titleController = TextEditingController(text: item.title);
-    final authorController = TextEditingController(text: item.author ?? "");
+    MediaAuthor? selectedAuthor = _authorFromItem(item);
+    String authorQuery = item.author?.trim() ?? "";
     List<String> selectedGenres = _uniqueGenres([...?item.genres]);
     MediaUploadPayload? coverUpload;
     MediaUploadPayload? mainFileUpload;
@@ -41,11 +42,20 @@ mixin _MediaItemDetailsEditDialogsMixin on _MediaItemDetailsLifecycleMixin {
                 submitError = null;
               });
               try {
+                MediaAuthor? authorToSave = selectedAuthor;
+                final draftName = authorQuery.trim();
+                if (authorToSave == null && draftName.isNotEmpty) {
+                  authorToSave = await widget.onCreateAuthor(draftName);
+                }
                 final updated = await widget.onUpdateItem(
                   mediaItemId: item.id,
                   type: item.type,
                   title: titleController.text.trim(),
-                  author: authorController.text.trim(),
+                  authorId: authorToSave?.id,
+                  author: authorToSave?.name,
+                  clearAuthor:
+                      authorToSave == null &&
+                      item.author?.trim().isNotEmpty == true,
                   genres: selectedGenres.isEmpty ? null : selectedGenres,
                   coverUploadPayload: coverUpload,
                   uploadPayload: mainFileUpload,
@@ -97,12 +107,18 @@ mixin _MediaItemDetailsEditDialogsMixin on _MediaItemDetailsLifecycleMixin {
                                     : null,
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        controller: authorController,
+                      AuthorPickerField(
                         enabled: !isSubmitting,
-                        decoration: const InputDecoration(
-                          labelText: "Автор (опционально)",
-                        ),
+                        initialAuthor: selectedAuthor,
+                        initialDisplayName: item.author,
+                        onSearchAuthors: widget.onSearchAuthors,
+                        onCreateAuthor: widget.onCreateAuthor,
+                        onChanged: (author) {
+                          setDialogState(() => selectedAuthor = author);
+                        },
+                        onQueryChanged: (query) {
+                          setDialogState(() => authorQuery = query);
+                        },
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
@@ -333,7 +349,6 @@ mixin _MediaItemDetailsEditDialogsMixin on _MediaItemDetailsLifecycleMixin {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       titleController.dispose();
-      authorController.dispose();
       descriptionController.dispose();
     });
   }
