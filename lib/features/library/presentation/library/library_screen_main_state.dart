@@ -16,8 +16,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<_WorkGroup> _buildWorkGroups(List<MediaListItem> items) {
     final groups = <String, List<MediaListItem>>{};
     for (final item in items) {
-      final key =
-          "${item.title.trim().toLowerCase()}::${(item.author ?? "").trim().toLowerCase()}";
+      final key = _workGroupKeyFromItem(item);
       groups.putIfAbsent(key, () => <MediaListItem>[]).add(item);
     }
     final result = groups.values
@@ -234,6 +233,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           currentUserId: widget.currentUserId,
                           isAdminUser: widget.isAdminUser,
                           groupItems: group.groupItems,
+                          recommendationSourceItems: widget.items,
                           initialMediaItemId: resolveInitialMediaItemIdForGroup(
                             groupItems: group.groupItems,
                             selectedTypes: widget.selectedTypes,
@@ -284,6 +284,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           onDeleteMediaComment: widget.onDeleteMediaComment,
                           onReportMediaComment: widget.onReportMediaComment,
                           onFetchItemsByAuthor: widget.onFetchItemsByAuthor,
+                          onOpenAuthorWorks: widget.onOpenAuthorWorks,
                           onSearchAuthors: widget.onSearchAuthors,
                           onCreateAuthor: widget.onCreateAuthor,
                           onAddToShelf: widget.onAddToShelf,

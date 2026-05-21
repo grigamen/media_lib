@@ -11,6 +11,20 @@ class _WorkAverageRating {
   final int count;
 }
 
+class _ScoredWorkRecommendation {
+  const _ScoredWorkRecommendation({
+    required this.group,
+    required this.score,
+    required this.views,
+    required this.rating,
+  });
+
+  final _WorkGroup group;
+  final double score;
+  final int views;
+  final double rating;
+}
+
 /// Обложка произведения или заглушка.
 Widget _mediaCoverImage(
   BuildContext context, {
@@ -238,6 +252,141 @@ int _compareWorkGroupTitle(_WorkGroup a, _WorkGroup b) {
   return a.displayAuthor.toLowerCase().compareTo(b.displayAuthor.toLowerCase());
 }
 
+String _workGroupKeyFromTitleAuthor({
+  required String title,
+  required String? author,
+}) {
+  return "${title.trim().toLowerCase()}::${(author ?? "").trim().toLowerCase()}";
+}
+
+String _workGroupKeyFromItem(MediaListItem item) {
+  return _workGroupKeyFromTitleAuthor(title: item.title, author: item.author);
+}
+
+Set<String> _normalizedGenresForItems(List<MediaListItem> items) {
+  final genres = <String>{};
+  for (final item in items) {
+    for (final raw in item.genres ?? const <String>[]) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized.isNotEmpty) {
+        genres.add(normalized);
+      }
+    }
+  }
+  return genres;
+}
+
+List<_WorkGroup> _buildRecommendedWorkGroups({
+  required List<MediaListItem> currentGroupItems,
+  required List<MediaListItem> recommendationSourceItems,
+  int limit = 8,
+}) {
+  if (currentGroupItems.isEmpty || recommendationSourceItems.isEmpty) {
+    return const <_WorkGroup>[];
+  }
+
+  final currentGroupKey = _workGroupKeyFromItem(currentGroupItems.first);
+  final currentGenres = _normalizedGenresForItems(currentGroupItems);
+  final currentAuthorIds = currentGroupItems
+      .map((item) => item.authorId?.trim() ?? "")
+      .where((id) => id.isNotEmpty)
+      .map((id) => id.toLowerCase())
+      .toSet();
+  final currentAuthors = currentGroupItems
+      .map((item) => (item.author ?? "").trim().toLowerCase())
+      .where((name) => name.isNotEmpty)
+      .toSet();
+  final currentRating = _averageRatingForWorkGroup(currentGroupItems)?.average;
+
+  final groupedCandidates = <String, List<MediaListItem>>{};
+  for (final item in recommendationSourceItems) {
+    if (item.id.isEmpty || item.id.startsWith("demo-")) {
+      continue;
+    }
+    final key = _workGroupKeyFromItem(item);
+    if (key == currentGroupKey) {
+      continue;
+    }
+    groupedCandidates.putIfAbsent(key, () => <MediaListItem>[]).add(item);
+  }
+
+  final scored = <_ScoredWorkRecommendation>[];
+  for (final groupItems in groupedCandidates.values) {
+    if (groupItems.isEmpty) {
+      continue;
+    }
+    final group = _WorkGroup(groupItems: groupItems);
+    final groupGenres = _normalizedGenresForItems(group.groupItems);
+    final genreOverlap = currentGenres.intersection(groupGenres).length;
+
+    final groupAuthorIds = group.groupItems
+        .map((item) => item.authorId?.trim() ?? "")
+        .where((id) => id.isNotEmpty)
+        .map((id) => id.toLowerCase())
+        .toSet();
+    final groupAuthors = group.groupItems
+        .map((item) => (item.author ?? "").trim().toLowerCase())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    final hasSameAuthorId =
+        currentAuthorIds.isNotEmpty && currentAuthorIds.intersection(groupAuthorIds).isNotEmpty;
+    final hasSameAuthorName =
+        currentAuthors.isNotEmpty && currentAuthors.intersection(groupAuthors).isNotEmpty;
+
+    var score = 0.0;
+    if (hasSameAuthorId) {
+      score += 120;
+    } else if (hasSameAuthorName) {
+      score += 90;
+    }
+    score += genreOverlap * 18;
+
+    final rating = _averageRatingForWorkGroup(group.groupItems)?.average;
+    if (rating != null && currentRating != null) {
+      final diff = (currentRating - rating).abs().clamp(0.0, 5.0);
+      score += (5 - diff) * 6;
+    } else if (rating != null) {
+      score += rating;
+    }
+
+    final views = _totalViewsForWorkGroup(group.groupItems);
+    if (views > 0) {
+      score += views.clamp(0, 5000) / 5000 * 8;
+    }
+
+    scored.add(
+      _ScoredWorkRecommendation(
+        group: group,
+        score: score,
+        views: views,
+        rating: rating ?? -1,
+      ),
+    );
+  }
+
+  scored.sort((a, b) {
+    final byScore = b.score.compareTo(a.score);
+    if (byScore != 0) {
+      return byScore;
+    }
+    final byViews = b.views.compareTo(a.views);
+    if (byViews != 0) {
+      return byViews;
+    }
+    final byRating = b.rating.compareTo(a.rating);
+    if (byRating != 0) {
+      return byRating;
+    }
+    return _compareWorkGroupTitle(a.group, b.group);
+  });
+
+  return scored
+      .take(limit.clamp(1, 20))
+      .map((item) => item.group)
+      .toList(growable: false);
+}
+
 double _workGroupRatingSortKey(_WorkGroup group) {
   return _averageRatingForWorkGroup(group.groupItems)?.average ?? -1;
 }
@@ -357,29 +506,13 @@ String? resolveInitialMediaItemIdForGroup({
   return groupItems.first.id;
 }
 
-/// Собирает список произведений в группы по title+author.
-List<_WorkGroup> _buildWorkGroupsFromItems(List<MediaListItem> items) {
-  final groups = <String, List<MediaListItem>>{};
-  for (final item in items) {
-    final key = mediaWorkGroupKey(item);
-    groups.putIfAbsent(key, () => <MediaListItem>[]).add(item);
-  }
-  final result =
-      groups.values
-          .map((groupItems) => _WorkGroup(groupItems: groupItems))
-          .toList(growable: true);
-  result.sort(
-    (a, b) => a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase()),
-  );
-  return result;
-}
-
 /// Открывает большой экран одного произведения и передаёт туда все нужные «что сделать по нажатию» из родителя.
 Future<void> openMediaItemDetailsPage({
   required BuildContext context,
   required String? currentUserId,
   required bool isAdminUser,
   required List<MediaListItem> groupItems,
+  required List<MediaListItem> recommendationSourceItems,
   String? initialMediaItemId,
   required List<String> availableGenres,
   required Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks,
@@ -483,6 +616,11 @@ Future<void> openMediaItemDetailsPage({
     String? authorId,
   })
   onFetchItemsByAuthor,
+  required Future<void> Function({
+    required String authorName,
+    String? authorId,
+  })
+  onOpenAuthorWorks,
   required Future<List<MediaAuthor>> Function(String query) onSearchAuthors,
   required Future<MediaAuthor> Function(String name) onCreateAuthor,
   required Future<bool> Function(String mediaItemId) onAddToShelf,
@@ -511,6 +649,7 @@ Future<void> openMediaItemDetailsPage({
             currentUserId: currentUserId,
             isAdminUser: isAdminUser,
             group: group,
+            recommendationSourceItems: recommendationSourceItems,
             initialMediaItemId: resolvedInitialId,
             availableGenres: availableGenres,
             onLoadLinks: onLoadLinks,
@@ -545,6 +684,7 @@ Future<void> openMediaItemDetailsPage({
             onDeleteMediaComment: onDeleteMediaComment,
             onReportMediaComment: onReportMediaComment,
             onFetchItemsByAuthor: onFetchItemsByAuthor,
+            onOpenAuthorWorks: onOpenAuthorWorks,
             onSearchAuthors: onSearchAuthors,
             onCreateAuthor: onCreateAuthor,
             onAddToShelf: onAddToShelf,
@@ -568,6 +708,7 @@ Future<void> openMediaItemDetailsForAppState({
     currentUserId: state.currentUserId,
     isAdminUser: state.isAdminUser,
     groupItems: groupItems,
+    recommendationSourceItems: state.items,
     initialMediaItemId: initialMediaItemId,
     availableGenres: state.availableGenres,
     onLoadLinks: state.fetchLinksForItem,
@@ -672,6 +813,13 @@ Future<void> openMediaItemDetailsForAppState({
         ),
     onFetchItemsByAuthor:
         ({required authorName, authorId}) => state.fetchMediaItemsByAuthor(
+          authorName: authorName,
+          authorId: authorId,
+        ),
+    onOpenAuthorWorks:
+        ({required authorName, authorId}) => openAuthorWorksScreen(
+          context: context,
+          state: state,
           authorName: authorName,
           authorId: authorId,
         ),

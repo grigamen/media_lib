@@ -96,6 +96,14 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                       final activeGenres = _uniqueGenres([
                         ...?activeItem.genres,
                       ]);
+                      final recommendedGroups = _buildRecommendedWorkGroups(
+                        currentGroupItems: _variants,
+                        recommendationSourceItems:
+                            widget.recommendationSourceItems,
+                      );
+                      final recommendedPreview = recommendedGroups.take(
+                        10,
+                      ).toList(growable: false);
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +147,7 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                         onTap:
                                             activeAuthor == "Не указан"
                                                 ? null
-                                                : () => _showOtherWorksByAuthor(
+                                                : () => widget.onOpenAuthorWorks(
                                                   authorName: activeAuthor,
                                                   authorId: activeItem.authorId,
                                                 ),
@@ -254,6 +262,268 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
                                     },
                                     icon: const Icon(Icons.bookmark_add_outlined),
                                     label: const Text("На полку"),
+                                  ),
+                                ],
+                                if (recommendedPreview.length >= 3) ...[
+                                  const SizedBox(height: 12),
+                                  Card(
+                                    elevation: 0,
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerLow,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "Рекомендуем к прочтению",
+                                            style:
+                                                Theme.of(
+                                                  context,
+                                                ).textTheme.titleMedium,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            height: 194,
+                                            child: ListView.separated(
+                                              scrollDirection: Axis.horizontal,
+                                              itemCount: recommendedPreview.length,
+                                              separatorBuilder:
+                                                  (_, __) =>
+                                                      const SizedBox(width: 10),
+                                              itemBuilder: (context, index) {
+                                                final recommendationGroup =
+                                                    recommendedPreview[index];
+                                                final recommendationPrimary =
+                                                    recommendationGroup
+                                                        .primaryItem;
+                                                final recommendationAuthor =
+                                                    recommendationPrimary.author
+                                                                ?.trim()
+                                                                .isNotEmpty ==
+                                                            true
+                                                        ? recommendationPrimary
+                                                            .author!
+                                                            .trim()
+                                                        : "Не указан";
+                                                return SizedBox(
+                                                  width: 122,
+                                                  child: InkWell(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                    onTap:
+                                                        () => openMediaItemDetailsPage(
+                                                          context: context,
+                                                          currentUserId:
+                                                              widget
+                                                                  .currentUserId,
+                                                          isAdminUser:
+                                                              widget.isAdminUser,
+                                                          groupItems:
+                                                              recommendationGroup
+                                                                  .groupItems,
+                                                          recommendationSourceItems:
+                                                              widget
+                                                                  .recommendationSourceItems,
+                                                          availableGenres:
+                                                              widget
+                                                                  .availableGenres,
+                                                          onLoadLinks:
+                                                              widget.onLoadLinks,
+                                                          onLoadItemById:
+                                                              widget
+                                                                  .onLoadItemById,
+                                                          onUpdateItem:
+                                                              widget.onUpdateItem,
+                                                          onAddFormatToWork:
+                                                              widget
+                                                                  .onAddFormatToWork,
+                                                          onBeginPlaybackSession:
+                                                              widget
+                                                                  .onBeginPlaybackSession,
+                                                          onPlaybackProgressChanged:
+                                                              widget
+                                                                  .onPlaybackProgressChanged,
+                                                          onPausePlaybackSession:
+                                                              widget
+                                                                  .onPausePlaybackSession,
+                                                          onCompletePlaybackSession:
+                                                              widget
+                                                                  .onCompletePlaybackSession,
+                                                          onFlushPlaybackSession:
+                                                              widget
+                                                                  .onFlushPlaybackSession,
+                                                          onEndPlaybackSession:
+                                                              widget
+                                                                  .onEndPlaybackSession,
+                                                          playbackSpeed:
+                                                              widget
+                                                                  .playbackSpeed,
+                                                          onSetPlaybackSpeed:
+                                                              widget
+                                                                  .onSetPlaybackSpeed,
+                                                          pendingPlaybackSync:
+                                                              widget
+                                                                  .pendingPlaybackSync,
+                                                          onFetchPlaybackStreamUrl:
+                                                              widget
+                                                                  .onFetchPlaybackStreamUrl,
+                                                          playbackError:
+                                                              widget
+                                                                  .playbackError,
+                                                          onLoadBookContent:
+                                                              widget
+                                                                  .onLoadBookContent,
+                                                          onRecordMediaItemView:
+                                                              widget
+                                                                  .onRecordMediaItemView,
+                                                          onMarkItemViewed:
+                                                              (mediaItemId) {
+                                                                unawaited(
+                                                                  widget.onRecordMediaItemView(
+                                                                    mediaItemId,
+                                                                  ),
+                                                                );
+                                                              },
+                                                          onFetchMediaFiles:
+                                                              widget
+                                                                  .onFetchMediaFiles,
+                                                          onBindMainMediaFile:
+                                                              widget
+                                                                  .onBindMainMediaFile,
+                                                          onUploadAndBindMainMediaFile:
+                                                              widget
+                                                                  .onUploadAndBindMainMediaFile,
+                                                          onFetchMediaProgress:
+                                                              widget
+                                                                  .onFetchMediaProgress,
+                                                          onSetMediaItemUserRating:
+                                                              widget
+                                                                  .onSetMediaItemUserRating,
+                                                          onClearMediaItemUserRating:
+                                                              widget
+                                                                  .onClearMediaItemUserRating,
+                                                          onFetchWorkUserRating:
+                                                              widget
+                                                                  .onFetchWorkUserRating,
+                                                          onSetWorkUserRating:
+                                                              widget
+                                                                  .onSetWorkUserRating,
+                                                          onClearWorkUserRating:
+                                                              widget
+                                                                  .onClearWorkUserRating,
+                                                          onFetchMediaComments:
+                                                              widget
+                                                                  .onFetchMediaComments,
+                                                          onCreateMediaComment:
+                                                              widget
+                                                                  .onCreateMediaComment,
+                                                          onUpdateMediaComment:
+                                                              widget
+                                                                  .onUpdateMediaComment,
+                                                          onDeleteMediaComment:
+                                                              widget
+                                                                  .onDeleteMediaComment,
+                                                          onReportMediaComment:
+                                                              widget
+                                                                  .onReportMediaComment,
+                                                          onFetchItemsByAuthor:
+                                                              widget
+                                                                  .onFetchItemsByAuthor,
+                                                          onOpenAuthorWorks:
+                                                              widget
+                                                                  .onOpenAuthorWorks,
+                                                          onSearchAuthors:
+                                                              widget
+                                                                  .onSearchAuthors,
+                                                          onCreateAuthor:
+                                                              widget.onCreateAuthor,
+                                                          onAddToShelf:
+                                                              widget.onAddToShelf,
+                                                          onHasBookOfflineCopy:
+                                                              widget
+                                                                  .onHasBookOfflineCopy,
+                                                          onDownloadBookForOffline:
+                                                              widget
+                                                                  .onDownloadBookForOffline,
+                                                          onSaveAuthorBookLocalFile:
+                                                              widget
+                                                                  .onSaveAuthorBookLocalFile,
+                                                        ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            6,
+                                                          ),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  8,
+                                                                ),
+                                                            child: SizedBox(
+                                                              height: 130,
+                                                              width: 110,
+                                                              child: _mediaCoverImage(
+                                                                context,
+                                                                coverUrl:
+                                                                    recommendationPrimary
+                                                                        .coverUrl,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 6,
+                                                          ),
+                                                          Text(
+                                                            recommendationPrimary
+                                                                .title,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                Theme.of(context)
+                                                                    .textTheme
+                                                                    .labelLarge,
+                                                          ),
+                                                          Text(
+                                                            recommendationAuthor,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                Theme.of(context)
+                                                                    .textTheme
+                                                                    .bodySmall
+                                                                    ?.copyWith(
+                                                                      color:
+                                                                          Theme.of(context)
+                                                                              .colorScheme
+                                                                              .onSurfaceVariant,
+                                                                    ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ],
@@ -547,160 +817,6 @@ class _MediaItemDetailsPageState extends State<_MediaItemDetailsPage>
       .map((item) => item.id)
       .where((id) => id.isNotEmpty)
       .toList(growable: false);
-
-  Future<void> _showOtherWorksByAuthor({
-    required String authorName,
-    String? authorId,
-  }) async {
-    final excludeWorkKey = mediaWorkGroupKey(_variants.first);
-    final items = await widget.onFetchItemsByAuthor(
-      authorName: authorName,
-      authorId: authorId,
-    );
-    if (!mounted) {
-      return;
-    }
-    final groups =
-        _buildWorkGroupsFromItems(items)
-            .where((group) => mediaWorkGroupKey(group.primaryItem) != excludeWorkKey)
-            .toList(growable: false);
-    if (!mounted) {
-      return;
-    }
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        final theme = Theme.of(sheetContext);
-        final listHeight =
-            (MediaQuery.sizeOf(sheetContext).height * 0.55).clamp(160.0, 480.0);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  "Другие произведения автора",
-                  style: theme.textTheme.titleLarge,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  authorName,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (groups.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      "Других произведений этого автора не найдено.",
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                else
-                  SizedBox(
-                    height: listHeight,
-                    child: ListView.separated(
-                      itemCount: groups.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final group = groups[index];
-                        final formatLabels =
-                            group.types
-                                .map(_labelForType)
-                                .toList(growable: false);
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: SizedBox(
-                              width: 48,
-                              height: 64,
-                              child: _mediaCoverImage(
-                                context,
-                                coverUrl: group.primaryItem.coverUrl,
-                              ),
-                            ),
-                          ),
-                          title: Text(group.displayTitle),
-                          subtitle: Text(formatLabels.join(", ")),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.of(sheetContext).pop();
-                            unawaited(_openWorkGroup(group.groupItems));
-                          },
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _openWorkGroup(List<MediaListItem> groupItems) async {
-    if (groupItems.isEmpty || !mounted) {
-      return;
-    }
-    await openMediaItemDetailsPage(
-      context: context,
-      currentUserId: widget.currentUserId,
-      isAdminUser: widget.isAdminUser,
-      groupItems: groupItems,
-      initialMediaItemId: groupItems.first.id,
-      availableGenres: widget.availableGenres,
-      onLoadLinks: widget.onLoadLinks,
-      onLoadItemById: widget.onLoadItemById,
-      onUpdateItem: widget.onUpdateItem,
-      onAddFormatToWork: widget.onAddFormatToWork,
-      onBeginPlaybackSession: widget.onBeginPlaybackSession,
-      onPlaybackProgressChanged: widget.onPlaybackProgressChanged,
-      onPausePlaybackSession: widget.onPausePlaybackSession,
-      onCompletePlaybackSession: widget.onCompletePlaybackSession,
-      onFlushPlaybackSession: widget.onFlushPlaybackSession,
-      onEndPlaybackSession: widget.onEndPlaybackSession,
-      playbackSpeed: widget.playbackSpeed,
-      onSetPlaybackSpeed: widget.onSetPlaybackSpeed,
-      pendingPlaybackSync: widget.pendingPlaybackSync,
-      onFetchPlaybackStreamUrl: widget.onFetchPlaybackStreamUrl,
-      playbackError: widget.playbackError,
-      onLoadBookContent: widget.onLoadBookContent,
-      onRecordMediaItemView: widget.onRecordMediaItemView,
-      onMarkItemViewed: (_) {},
-      onFetchMediaFiles: widget.onFetchMediaFiles,
-      onBindMainMediaFile: widget.onBindMainMediaFile,
-      onUploadAndBindMainMediaFile: widget.onUploadAndBindMainMediaFile,
-      onFetchMediaProgress: widget.onFetchMediaProgress,
-      onSetMediaItemUserRating: widget.onSetMediaItemUserRating,
-      onClearMediaItemUserRating: widget.onClearMediaItemUserRating,
-      onFetchWorkUserRating: widget.onFetchWorkUserRating,
-      onSetWorkUserRating: widget.onSetWorkUserRating,
-      onClearWorkUserRating: widget.onClearWorkUserRating,
-      onFetchMediaComments: widget.onFetchMediaComments,
-      onCreateMediaComment: widget.onCreateMediaComment,
-      onUpdateMediaComment: widget.onUpdateMediaComment,
-      onDeleteMediaComment: widget.onDeleteMediaComment,
-      onReportMediaComment: widget.onReportMediaComment,
-      onFetchItemsByAuthor: widget.onFetchItemsByAuthor,
-      onSearchAuthors: widget.onSearchAuthors,
-      onCreateAuthor: widget.onCreateAuthor,
-      onAddToShelf: widget.onAddToShelf,
-      onHasBookOfflineCopy: widget.onHasBookOfflineCopy,
-      onDownloadBookForOffline: widget.onDownloadBookForOffline,
-      onSaveAuthorBookLocalFile: widget.onSaveAuthorBookLocalFile,
-    );
-  }
 }
 
 const _kUserRatingStarColor = Color(0xFF42A5F5);

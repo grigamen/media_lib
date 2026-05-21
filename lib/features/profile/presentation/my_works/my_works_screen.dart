@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 import "../../../../app/app_state.dart";
 import "../../../library/data/library_filters.dart";
 import "../../../library/data/library_repository.dart";
+import "../../../library/presentation/author/author_works_screen.dart";
 import "../../../library/presentation/library/library_screen.dart";
 import "../../../shelves/presentation/add_to_shelf_dialog.dart";
 
@@ -182,6 +183,13 @@ class _MyWorksScreenState extends State<MyWorksScreen> {
                 ),
             onFetchItemsByAuthor:
                 ({required authorName, authorId}) => state.fetchMediaItemsByAuthor(
+                  authorName: authorName,
+                  authorId: authorId,
+                ),
+            onOpenAuthorWorks:
+                ({required authorName, authorId}) => openAuthorWorksScreen(
+                  context: context,
+                  state: state,
                   authorName: authorName,
                   authorId: authorId,
                 ),

@@ -13,6 +13,7 @@ import "../../../../core/network/api_client.dart";
 import "../../data/library_repository.dart";
 import "../../data/library_filters.dart";
 import "../../data/library_sort.dart";
+import "../author/author_works_screen.dart";
 import "../widgets/author_picker_field.dart";
 import "../../../shelves/presentation/add_to_shelf_dialog.dart";
 import "../book_reader/book_reader_screen.dart";
@@ -95,6 +96,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onDeleteMediaComment,
     required this.onReportMediaComment,
     required this.onFetchItemsByAuthor,
+    required this.onOpenAuthorWorks,
     required this.onSearchAuthors,
     required this.onCreateAuthor,
     required this.onAddToShelf,
@@ -233,6 +235,11 @@ class LibraryScreen extends StatefulWidget {
     String? authorId,
   })
   onFetchItemsByAuthor;
+  final Future<void> Function({
+    required String authorName,
+    String? authorId,
+  })
+  onOpenAuthorWorks;
   final Future<List<MediaAuthor>> Function(String query) onSearchAuthors;
   final Future<MediaAuthor> Function(String name) onCreateAuthor;
   final Future<bool> Function(String mediaItemId) onAddToShelf;

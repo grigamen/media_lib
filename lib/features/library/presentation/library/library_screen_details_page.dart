@@ -8,6 +8,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.currentUserId,
     required this.isAdminUser,
     required this.group,
+    required this.recommendationSourceItems,
     this.initialMediaItemId,
     required this.availableGenres,
     required this.onLoadLinks,
@@ -42,6 +43,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
     required this.onDeleteMediaComment,
     required this.onReportMediaComment,
     required this.onFetchItemsByAuthor,
+    required this.onOpenAuthorWorks,
     required this.onSearchAuthors,
     required this.onCreateAuthor,
     required this.onAddToShelf,
@@ -53,6 +55,7 @@ class _MediaItemDetailsPage extends StatefulWidget {
   final String? currentUserId;
   final bool isAdminUser;
   final _WorkGroup group;
+  final List<MediaListItem> recommendationSourceItems;
   final String? initialMediaItemId;
   final List<String> availableGenres;
   final Future<List<MediaLinkItem>> Function(String mediaItemId) onLoadLinks;
@@ -155,6 +158,11 @@ class _MediaItemDetailsPage extends StatefulWidget {
     String? authorId,
   })
   onFetchItemsByAuthor;
+  final Future<void> Function({
+    required String authorName,
+    String? authorId,
+  })
+  onOpenAuthorWorks;
   final Future<List<MediaAuthor>> Function(String query) onSearchAuthors;
   final Future<MediaAuthor> Function(String name) onCreateAuthor;
   final Future<bool> Function(String mediaItemId) onAddToShelf;

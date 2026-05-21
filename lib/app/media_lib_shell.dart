@@ -7,6 +7,7 @@ import "../features/auth/presentation/email_two_fa_screen.dart";
 import "../features/home/presentation/home_screen.dart";
 import "../features/library/data/library_repository.dart";
 import "../features/library/presentation/add_item/add_item_screen.dart";
+import "../features/library/presentation/author/author_works_screen.dart";
 import "../features/library/presentation/library/library_screen.dart";
 import "../features/profile/presentation/my_works/my_works_screen.dart";
 import "../features/profile/presentation/profile/downloaded_books_screen.dart";
@@ -261,6 +262,13 @@ class _MediaLibHomeShellState extends State<MediaLibHomeShell> {
             ),
         onFetchItemsByAuthor:
             ({required authorName, authorId}) => state.fetchMediaItemsByAuthor(
+              authorName: authorName,
+              authorId: authorId,
+            ),
+        onOpenAuthorWorks:
+            ({required authorName, authorId}) => openAuthorWorksScreen(
+              context: context,
+              state: state,
               authorName: authorName,
               authorId: authorId,
             ),
